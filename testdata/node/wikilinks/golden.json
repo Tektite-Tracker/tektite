@@ -21,14 +21,18 @@
     "blocks": [],
     "links": [
       {
+        "rel": "mentions",
         "target": "auth-retry-3fa",
         "line": 7
       },
       {
+        "rel": "mentions",
         "target": "auth-hardening-7c1",
-        "line": 7
+        "line": 7,
+        "display": "the spec"
       },
       {
+        "rel": "mentions",
         "target": "does-not-exist-000",
         "line": 9
       }

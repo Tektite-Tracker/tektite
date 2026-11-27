@@ -21,6 +21,7 @@
     "blocks": [],
     "links": [
       {
+        "rel": "mentions",
         "target": "real-222",
         "line": 14
       }

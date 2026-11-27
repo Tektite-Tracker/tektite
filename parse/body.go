@@ -23,14 +23,17 @@ type Block struct {
 }
 
 type Link struct {
-	Target string `json:"target"`
-	Line   int    `json:"line"`
+	Rel     string `json:"rel"`
+	Target  string `json:"target"`
+	Line    int    `json:"line"`
+	Display string `json:"display,omitempty"`
+	Block   string `json:"block,omitempty"`
 }
 
 var (
 	blockID  = regexp.MustCompile(`<!--\s*([A-Za-z]+):([0-9A-Za-z]+)\s*-->`)
 	checkbox = regexp.MustCompile(`^\[[ xX]\]\s*`)
-	wikilink = regexp.MustCompile(`\[\[([^\[\]|#\n]+?)(?:[|#][^\[\]\n]*)?\]\]`)
+	wikilink = regexp.MustCompile(`(?:([A-Za-z][A-Za-z0-9-]*)::[ \t]*)?\[\[([^\[\]|#\n]+?)(?:#([^\[\]|\n]*))?(?:\|([^\[\]\n]*))?\]\]`)
 )
 
 var md = goldmark.New(goldmark.WithExtensions(extension.TaskList))
@@ -95,15 +98,7 @@ func parseBody(body []byte, firstLine int) bodyResult {
 		return ast.WalkContinue, nil
 	})
 
-	seen := map[string]bool{}
-	for _, m := range wikilink.FindAllSubmatchIndex(masked, -1) {
-		target := strings.TrimSpace(string(masked[m[2]:m[3]]))
-		if target == "" || seen[target] {
-			continue
-		}
-		seen[target] = true
-		res.links = append(res.links, Link{Target: target, Line: lineAt(m[0])})
-	}
+	res.links = scanWikilinks(string(masked), lineAt)
 	return res
 }
 
@@ -151,4 +146,32 @@ func taskBlock(item *ast.ListItem, body []byte, lineAt func(int) int) (Block, bo
 		b.Line = lineAt(ls.At(0).Start)
 	}
 	return b, true
+}
+
+func scanWikilinks(masked string, lineAt func(int) int) []Link {
+	var out []Link
+	seen := map[Link]bool{}
+	for _, m := range wikilink.FindAllStringSubmatchIndex(masked, -1) {
+		sub := func(i int) string {
+			if m[2*i] < 0 {
+				return ""
+			}
+			return strings.TrimSpace(masked[m[2*i]:m[2*i+1]])
+		}
+		l := Link{Rel: strings.ToLower(sub(1)), Target: sub(2), Block: sub(3), Display: sub(4)}
+		if l.Target == "" {
+			continue
+		}
+		if l.Rel == "" {
+			l.Rel = RelMentions
+		}
+		key := Link{Rel: l.Rel, Target: l.Target}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		l.Line = lineAt(m[0])
+		out = append(out, l)
+	}
+	return out
 }
