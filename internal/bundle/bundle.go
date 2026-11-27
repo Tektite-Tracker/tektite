@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	DefaultBudget  = 8000
-	Estimator      = "bytes/4"
-	ModeFull       = "full"
-	ModeSummary    = "summary"
-	ModeTruncated  = "truncated"
+	defaultBudget  = 8000
+	estimator      = "bytes/4"
+	modeFull       = "full"
+	modeSummary    = "summary"
+	modeTruncated  = "truncated"
 	summaryBytes   = 240
 	evidenceLimit  = 5
 	historyLimit   = 10
@@ -55,12 +55,12 @@ type Bundle struct {
 	Omitted   []Omitted          `json:"omitted"`
 }
 
-type Section struct {
+type sectionDef struct {
 	Key   string
 	Title string
 }
 
-var Sections = []Section{
+var sectionDefs = []sectionDef{
 	{"node", "Node"},
 	{"ancestors", "Ancestor specs and plans"},
 	{"gaps", "Open gaps"},
@@ -82,22 +82,22 @@ type candidate struct {
 	group   string
 }
 
-func Estimate(s string) int {
+func estimate(s string) int {
 	return (len(s) + 3) / 4
 }
 
 func Build(snap *store.Snapshot, nf *store.NodeFile, opts Options) *Bundle {
 	if opts.Budget < 1 {
-		opts.Budget = DefaultBudget
+		opts.Budget = defaultBudget
 	}
 	graph := snap.BuildGraph()
-	b := &Bundle{Ref: nf.Ref, Budget: opts.Budget, Estimator: Estimator, Sections: map[string][]Entry{}, Shortened: []string{}, Omitted: []Omitted{}}
-	for _, s := range Sections {
+	b := &Bundle{Ref: nf.Ref, Budget: opts.Budget, Estimator: estimator, Sections: map[string][]Entry{}, Shortened: []string{}, Omitted: []Omitted{}}
+	for _, s := range sectionDefs {
 		b.Sections[s.Key] = []Entry{}
 	}
 
 	self := nodeEntry(snap, nf)
-	self.Mode = ModeFull
+	self.Mode = modeFull
 	used := self.Tokens
 	if used > opts.Budget {
 		self = truncate(self, opts.Budget)
@@ -131,7 +131,7 @@ func Build(snap *store.Snapshot, nf *store.NodeFile, opts Options) *Bundle {
 		}
 		b.Omitted = append(b.Omitted, Omitted{Section: c.section, Ref: c.entry.Ref, Title: c.entry.Title, Fetch: "tkt show " + c.entry.Ref})
 	}
-	for _, s := range Sections {
+	for _, s := range sectionDefs {
 		if n := droppedGroups[s.Key+"\x00"+nf.Ref]; n > 0 {
 			b.Omitted = append(b.Omitted, Omitted{Section: s.Key, Ref: nf.Ref, Title: fmt.Sprintf("%d %s of %s", n, strings.ToLower(s.Title), nf.Ref), Fetch: "tkt show " + nf.Ref})
 		}
@@ -142,12 +142,12 @@ func Build(snap *store.Snapshot, nf *store.NodeFile, opts Options) *Bundle {
 }
 
 func sectionIndex(key string) int {
-	for i, s := range Sections {
+	for i, s := range sectionDefs {
 		if s.Key == key {
 			return i
 		}
 	}
-	return len(Sections)
+	return len(sectionDefs)
 }
 
 func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts Options, seen map[string]bool) []candidate {
@@ -167,7 +167,7 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 		if blk.ID != "" {
 			text = blk.ID + ": " + text
 		}
-		out = append(out, candidate{section: "gaps", group: nf.Ref, entry: sized(Entry{Ref: nf.Ref, Kind: nf.Node.Kind, Title: blk.Text, Mode: ModeFull, Block: blk.ID, Text: text})})
+		out = append(out, candidate{section: "gaps", group: nf.Ref, entry: sized(Entry{Ref: nf.Ref, Kind: nf.Node.Kind, Title: blk.Text, Mode: modeFull, Block: blk.ID, Text: text})})
 	}
 	out = append(out, evidenceCandidates(snap, graph, nf, opts, seen)...)
 	for _, l := range graph.Out[nf.Ref] {
@@ -194,21 +194,21 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 	for _, h := range hist {
 		line := fmt.Sprintf("%s %s %s", parse.FormatTime(h.Event.At), h.Actor, h.Event.Type)
 		if h.Event.Type == parse.EventSetStatus {
-			line += " " + fmt.Sprint(h.Event.Fields["status"])
+			line += " " + h.Event.String("status")
 		}
 		if h.Event.Type == parse.EventNote && h.Event.Body != "" {
 			line += ": " + clip(strings.Join(strings.Fields(h.Event.Body), " "), historyNoteMax)
 		}
-		out = append(out, candidate{section: "history", group: nf.Ref, entry: sized(Entry{Ref: nf.Ref, Kind: nf.Node.Kind, Title: h.Event.ID, Mode: ModeFull, Text: line})})
+		out = append(out, candidate{section: "history", group: nf.Ref, entry: sized(Entry{Ref: nf.Ref, Kind: nf.Node.Kind, Title: h.Event.ID, Mode: modeFull, Text: line})})
 	}
 	return out
 }
 
 func nodeCandidate(section string, snap *store.Snapshot, nf *store.NodeFile, rel string) candidate {
 	full := nodeEntry(snap, nf)
-	full.Mode, full.Rel = ModeFull, rel
+	full.Mode, full.Rel = modeFull, rel
 	sum := full
-	sum.Mode = ModeSummary
+	sum.Mode = modeSummary
 	sum.Text = summaryOf(nf)
 	sum = sized(sum)
 	return candidate{section: section, entry: full, summary: &sum}
@@ -227,17 +227,18 @@ func evidenceCandidates(snap *store.Snapshot, graph *store.Graph, nf *store.Node
 		seen[ev.Node.Ref] = true
 		head, stale := evidenceHead(ev, opts)
 		full := nodeEntry(snap, ev.Node)
-		full.Mode, full.Stale = ModeFull, stale
+		full.Mode, full.Stale = modeFull, stale
 		full.Text = head + bodyBlock(full.Text)
 		sum := full
-		sum.Mode, sum.Text = ModeSummary, strings.TrimRight(head, "\n")
-		out = append(out, candidate{section: "evidence", entry: sized(full), summary: ptr(sized(sum))})
+		sum.Mode, sum.Text = modeSummary, strings.TrimRight(head, "\n")
+		out = append(out, candidate{section: "evidence", entry: sized(full), summary: summaryEntry(sum)})
 	}
 	return out
 }
 
-func ptr(e Entry) *Entry {
-	return &e
+func summaryEntry(e Entry) *Entry {
+	s := sized(e)
+	return &s
 }
 
 func bodyBlock(body string) string {
@@ -285,7 +286,7 @@ func nodeEntry(snap *store.Snapshot, nf *store.NodeFile) Entry {
 }
 
 func sized(e Entry) Entry {
-	e.Tokens = Estimate(e.Text)
+	e.Tokens = estimate(e.Text)
 	return e
 }
 
@@ -341,13 +342,13 @@ func truncate(e Entry, budget int) Entry {
 		kept = clip(paras[0], limit)
 	}
 	e.Text = kept + marker
-	e.Mode = ModeTruncated
+	e.Mode = modeTruncated
 	return sized(e)
 }
 
 func (b *Bundle) Markdown() string {
 	var w strings.Builder
-	for _, s := range Sections {
+	for _, s := range sectionDefs {
 		fmt.Fprintf(&w, "## %s\n\n", s.Title)
 		entries := b.Sections[s.Key]
 		if len(entries) == 0 {
@@ -386,7 +387,7 @@ func heading(e Entry) string {
 	if e.Revision > 0 {
 		parts = append(parts, "revision "+strconv.Itoa(e.Revision))
 	}
-	if e.Mode != ModeFull {
+	if e.Mode != modeFull {
 		parts = append(parts, e.Mode)
 	}
 	return e.Title + " (" + strings.Join(parts, ", ") + ")"
@@ -397,7 +398,7 @@ func (b *Bundle) MarshalJSON() ([]byte, error) {
 		"ref": b.Ref, "budget": b.Budget, "tokens": b.Tokens, "estimator": b.Estimator,
 		"shortened": b.Shortened, "omitted": b.Omitted,
 	}
-	for _, s := range Sections {
+	for _, s := range sectionDefs {
 		doc[s.Key] = b.Sections[s.Key]
 	}
 	out, err := json.Marshal(doc)

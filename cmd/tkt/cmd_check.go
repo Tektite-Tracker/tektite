@@ -22,12 +22,8 @@ func (a *app) checkCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("check: %w", err)
 			}
-			if a.json {
-				if err := a.writeJSON(rep); err != nil {
-					return err
-				}
-			} else {
-				a.printReport(rep)
+			if err := a.emit(rep, func() { a.printReport(rep) }); err != nil {
+				return err
 			}
 			if rep.HasErrors() {
 				return exitSilently(exitError)

@@ -51,11 +51,7 @@ func (a *app) contextCmd() *cobra.Command {
 				budget = cfg.ContextBudget
 			}
 			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: a.gitHead(), BlobSize: blobSizer(r)})
-			if a.json {
-				return a.writeJSON(b)
-			}
-			a.printf(a.out, "%s", b.Markdown())
-			return nil
+			return a.emit(b, func() { a.printf(a.out, "%s", b.Markdown()) })
 		},
 	}
 	cmd.Flags().IntVar(&budget, "budget", 0, "token budget, defaults to context_budget in .tektite/config or 8000")

@@ -28,6 +28,16 @@ const (
 
 var rules = map[string]bool{RuleApproval: true, RuleEvidence: true, RuleNoGaps: true}
 
+var hints = map[string]string{
+	RuleApproval: "ask a human to run `tkt approve` on the plan",
+	RuleEvidence: "attach passing evidence with `tkt attach-evidence`",
+	RuleNoGaps:   "close the open gaps",
+}
+
+func Hint(rule string) string {
+	return hints[rule]
+}
+
 type Gate struct {
 	Name   string   `yaml:"name" json:"name"`
 	Rule   string   `yaml:"rule" json:"rule"`
@@ -131,7 +141,7 @@ func labelsOf(nf *store.NodeFile) []string {
 	case []any:
 		out := make([]string, 0, len(v))
 		for _, x := range v {
-			out = append(out, strings.TrimSpace(fmt.Sprint(x)))
+			out = append(out, parse.StringOf(x))
 		}
 		return out
 	}

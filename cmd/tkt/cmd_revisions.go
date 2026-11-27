@@ -55,12 +55,10 @@ func (a *app) reviseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if a.json {
-				return a.writeJSON(revisedResult{appended: toAppended(res.Appended), Number: res.Number})
-			}
-			a.warn(warningTexts(res.Warnings))
-			a.printf(a.out, "%s revision %d\n", res.Ref, res.Number)
-			return nil
+			return a.emit(revisedResult{appended: toAppended(res.Appended), Number: res.Number}, func() {
+				a.warn(warningTexts(res.Warnings))
+				a.printf(a.out, "%s revision %d\n", res.Ref, res.Number)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&file, "file", "", "file with the new body, or - for stdin, which is the default")

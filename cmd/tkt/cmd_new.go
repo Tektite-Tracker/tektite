@@ -69,11 +69,8 @@ type createdResult struct {
 }
 
 func (a *app) printCreated(c *service.Created) error {
-	if a.json {
-		return a.writeJSON(createdResult{ID: c.ID, Kind: c.Kind, MissingRequired: c.MissingRequired, Parent: c.Parent, Path: c.Path, Ref: c.Ref, Title: c.Title})
-	}
-	a.printf(a.out, "%s\n", c.Ref)
-	return nil
+	res := createdResult{ID: c.ID, Kind: c.Kind, MissingRequired: c.MissingRequired, Parent: c.Parent, Path: c.Path, Ref: c.Ref, Title: c.Title}
+	return a.emit(res, func() { a.printf(a.out, "%s\n", c.Ref) })
 }
 
 func (a *app) edit(initial string) (string, error) {

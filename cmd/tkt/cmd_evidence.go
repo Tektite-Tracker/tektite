@@ -75,10 +75,9 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 		return err
 	}
 	warnings := warningTexts(res.Warnings)
-	if a.json {
-		return a.writeJSON(attachResult{Evidence: res.Evidence, Blob: res.Blob, Hash: res.Hash, Stored: res.Stored, Parent: res.Parent, Event: res.Event, Commit: res.Commit, Warnings: warnings})
-	}
-	a.warn(warnings)
-	a.printf(a.out, "%s\n", res.Evidence)
-	return nil
+	out := attachResult{Evidence: res.Evidence, Blob: res.Blob, Hash: res.Hash, Stored: res.Stored, Parent: res.Parent, Event: res.Event, Commit: res.Commit, Warnings: warnings}
+	return a.emit(out, func() {
+		a.warn(warnings)
+		a.printf(a.out, "%s\n", res.Evidence)
+	})
 }

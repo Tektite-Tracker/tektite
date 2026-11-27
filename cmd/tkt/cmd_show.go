@@ -25,11 +25,7 @@ func (a *app) showCmd() *cobra.Command {
 				return fmt.Errorf("show: %w", err)
 			}
 			doc := view.BuildShow(snap, nf, a.now())
-			if a.json {
-				return a.writeJSON(doc)
-			}
-			a.printShow(doc)
-			return nil
+			return a.emit(doc, func() { a.printShow(doc) })
 		},
 	}
 }
