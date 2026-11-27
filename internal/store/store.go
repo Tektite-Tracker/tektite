@@ -40,6 +40,13 @@ type NodeFile struct {
 	ParentErr error
 }
 
+func (nf *NodeFile) ParentOrRaw() string {
+	if nf.ParentRef != "" {
+		return nf.ParentRef
+	}
+	return nf.Node.Parent
+}
+
 type EventFile struct {
 	Path  string
 	Event *parse.Event

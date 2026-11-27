@@ -117,16 +117,13 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 		children = []string{}
 	}
 	doc := showDoc{
-		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentRef,
+		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(),
 		Status: st.Status, Claim: claimOf(st, now), Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body, Revision: st.Revision, BuiltAgainst: st.BuiltAgainst,
 		Ancestors: ancestors, Children: children, Links: []linkItem{}, Backlinks: []backlinkItem{}, Evidence: []evidenceItem{}, Notes: []noteItem{}, History: []historyItem{},
 		Diagnostics: append(append([]parse.Diagnostic{}, nf.Diags...), st.Diagnostics...),
 	}
 	if st.Revision > 0 {
 		doc.Body = st.Body
-	}
-	if doc.Parent == "" {
-		doc.Parent = nf.Node.Parent
 	}
 	graph := snap.BuildGraph()
 	for _, l := range graph.Out[nf.Ref] {

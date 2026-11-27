@@ -139,6 +139,12 @@ func (a *app) printf(w io.Writer, format string, args ...any) {
 	_, _ = fmt.Fprintf(w, format, args...)
 }
 
+func (a *app) warn(warnings []string) {
+	for _, w := range warnings {
+		a.printf(a.err, "warning: %s\n", w)
+	}
+}
+
 func (a *app) writeJSON(v any) error {
 	enc := json.NewEncoder(a.out)
 	enc.SetIndent("", "  ")
@@ -187,6 +193,14 @@ func (a *app) newRoot() *cobra.Command {
 	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd(),
 		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.contextCmd(), a.attachEvidenceCmd(), a.reviseCmd(), a.revisionsCmd(), a.diffCmd(), a.approveCmd(), a.policyCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
 	return root
+}
+
+func addActorFlag(cmd *cobra.Command, dst *string) {
+	cmd.Flags().StringVar(dst, "actor", "", "actor recorded on the event")
+}
+
+func addRevisionFlag(cmd *cobra.Command, dst *int) {
+	cmd.Flags().IntVar(dst, "revision", 0, "plan revision the work is built against")
 }
 
 func exactArgs(n int) cobra.PositionalArgs {

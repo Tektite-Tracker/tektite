@@ -57,11 +57,7 @@ func (a *app) lsCmd() *cobra.Command {
 					!all && graph.Superseded(nf.Ref):
 					continue
 				}
-				parent := nf.ParentRef
-				if parent == "" {
-					parent = nf.Node.Parent
-				}
-				items = append(items, lsItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: parent, Status: st.Status, Claim: claimOf(st, a.now()), Path: nf.Path})
+				items = append(items, lsItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(), Status: st.Status, Claim: claimOf(st, a.now()), Path: nf.Path})
 			}
 			if a.json {
 				return a.writeJSON(items)

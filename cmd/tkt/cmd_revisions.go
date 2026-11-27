@@ -61,15 +61,13 @@ func (a *app) reviseCmd() *cobra.Command {
 			if a.json {
 				return a.writeJSON(revisedResult{appended: res, Number: number})
 			}
-			for _, w := range res.Warnings {
-				a.printf(a.err, "warning: %s\n", w)
-			}
+			a.warn(res.Warnings)
 			a.printf(a.out, "%s revision %d\n", res.Ref, number)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&file, "file", "", "file with the new body, or - for stdin, which is the default")
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	return cmd
 }
 

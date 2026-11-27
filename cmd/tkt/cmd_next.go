@@ -121,9 +121,7 @@ func (a *app) nextCmd() *cobra.Command {
 				list = open
 			}
 			if !a.json {
-				for _, w := range warnings {
-					a.printf(a.err, "warning: %s\n", w)
-				}
+				a.warn(warnings)
 			}
 			if len(list) == 0 {
 				return fail(exitNotFound, "create a ticket with `tkt new ticket` or release a claim", "nothing is available")
@@ -138,12 +136,8 @@ func (a *app) nextCmd() *cobra.Command {
 			}
 			items := []nextItem{}
 			for _, nf := range list {
-				parent := nf.ParentRef
-				if parent == "" {
-					parent = nf.Node.Parent
-				}
 				items = append(items, nextItem{
-					Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: parent,
+					Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(),
 					Status: event.StatusOpen, Priority: nf.Node.Fields["priority"], Path: nf.Path,
 				})
 			}
@@ -159,7 +153,7 @@ func (a *app) nextCmd() *cobra.Command {
 	cmd.Flags().StringVar(&kind, "kind", parse.KindTicket, "only nodes of this kind, empty for any")
 	cmd.Flags().IntVar(&limit, "limit", 1, "how many nodes to return")
 	cmd.Flags().BoolVar(&claim, "claim", false, "claim the first node in the same command")
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the claim")
+	addActorFlag(cmd, &actor)
 	cmd.Flags().StringVar(&ttl, "ttl", event.DefaultTTL.String(), "lease duration with --claim")
 	return cmd
 }

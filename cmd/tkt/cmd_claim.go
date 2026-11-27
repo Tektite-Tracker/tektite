@@ -98,9 +98,9 @@ func (a *app) claimCmd() *cobra.Command {
 			return a.report(res)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	cmd.Flags().StringVar(&ttl, "ttl", event.DefaultTTL.String(), "lease duration such as 30m")
-	cmd.Flags().IntVar(&revision, "revision", 0, "plan revision the work is built against")
+	addRevisionFlag(cmd, &revision)
 	return cmd
 }
 
@@ -126,6 +126,6 @@ func (a *app) leaseCmd(typ, short string, needLive bool) *cobra.Command {
 			return a.appendEvent(actor, args[0], &event.Draft{Type: typ}, check)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	return cmd
 }

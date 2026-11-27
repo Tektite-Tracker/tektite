@@ -65,7 +65,7 @@ func (a *app) attachEvidenceCmd() *cobra.Command {
 	cmd.Flags().StringVar(&claim, "claim", "", "what the evidence is meant to prove")
 	cmd.Flags().StringVar(&command, "command", "", "command that produced the evidence")
 	cmd.Flags().IntVar(&exitCode, "exit-code", 0, "exit code of the command")
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the evidence")
+	addActorFlag(cmd, &actor)
 	cmd.Flags().BoolVar(&allowLarge, "allow-large", false, "store a file above the size cap")
 	return cmd
 }
@@ -177,9 +177,7 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 	if a.json {
 		return a.writeJSON(out)
 	}
-	for _, w := range warnings {
-		a.printf(a.err, "warning: %s\n", w)
-	}
+	a.warn(warnings)
 	a.printf(a.out, "%s\n", ref)
 	return nil
 }

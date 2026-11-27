@@ -94,9 +94,7 @@ func (a *app) report(res *appended) error {
 	if a.json {
 		return a.writeJSON(res)
 	}
-	for _, w := range res.Warnings {
-		a.printf(a.err, "warning: %s\n", w)
-	}
+	a.warn(res.Warnings)
 	a.printf(a.out, "%s %s %s\n", res.Ref, res.Type, res.Event)
 	return nil
 }
@@ -148,9 +146,9 @@ func (a *app) setStatusCmd() *cobra.Command {
 			return a.appendEvent(actor, args[0], &event.Draft{Type: parse.EventSetStatus, Fields: fields}, check)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	cmd.Flags().StringVar(&override, "override", "", "reason for overriding a rule")
-	cmd.Flags().IntVar(&revision, "revision", 0, "plan revision the work is built against")
+	addRevisionFlag(cmd, &revision)
 	return cmd
 }
 
@@ -175,7 +173,7 @@ func (a *app) noteCmd() *cobra.Command {
 			return a.appendEvent(actor, args[0], &event.Draft{Type: parse.EventNote, Body: text}, nil)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	return cmd
 }
 
@@ -204,6 +202,6 @@ func (a *app) linkCmd(typ, short string) *cobra.Command {
 			return a.appendEvent(actor, args[0], d, check)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	return cmd
 }
