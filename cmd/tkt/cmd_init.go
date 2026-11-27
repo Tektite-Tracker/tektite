@@ -9,6 +9,11 @@ import (
 	"github.com/tektite-tracker/tektite/internal/store"
 )
 
+type initResult struct {
+	Created bool   `json:"created"`
+	Path    string `json:"path"`
+}
+
 func (a *app) initCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
@@ -25,7 +30,7 @@ func (a *app) initCmd() *cobra.Command {
 			}
 			path := filepath.ToSlash(r.Dir())
 			if a.json {
-				return a.writeJSON(map[string]any{"path": path, "created": created})
+				return a.writeJSON(initResult{Created: created, Path: path})
 			}
 			if created {
 				a.printf(a.out, "initialised %s\n", path)

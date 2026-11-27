@@ -147,11 +147,19 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 	return a.printCreated(ref, id, kind, title, parentRef, path, missing)
 }
 
+type createdResult struct {
+	ID              string   `json:"id"`
+	Kind            string   `json:"kind"`
+	MissingRequired []string `json:"missing_required"`
+	Parent          string   `json:"parent"`
+	Path            string   `json:"path"`
+	Ref             string   `json:"ref"`
+	Title           string   `json:"title"`
+}
+
 func (a *app) printCreated(ref, id, kind, title, parent, path string, missing []string) error {
 	if a.json {
-		return a.writeJSON(map[string]any{
-			"ref": ref, "id": id, "kind": kind, "title": title, "parent": parent, "path": path, "missing_required": missing,
-		})
+		return a.writeJSON(createdResult{ID: id, Kind: kind, MissingRequired: missing, Parent: parent, Path: path, Ref: ref, Title: title})
 	}
 	a.printf(a.out, "%s\n", ref)
 	return nil

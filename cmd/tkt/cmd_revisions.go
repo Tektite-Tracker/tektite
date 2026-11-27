@@ -138,6 +138,13 @@ func currentRevisionEvent(st event.State) string {
 	return ""
 }
 
+type diffResult struct {
+	Diff string `json:"diff"`
+	From int    `json:"from"`
+	Ref  string `json:"ref"`
+	To   int    `json:"to"`
+}
+
 func (a *app) diffCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "diff <ref> <rev-a> <rev-b>",
@@ -162,7 +169,7 @@ func (a *app) diffCmd() *cobra.Command {
 			}
 			text := event.UnifiedDiff(fmt.Sprintf("%s revision %d", nf.Ref, revs[0].Number), fmt.Sprintf("%s revision %d", nf.Ref, revs[1].Number), revs[0].Body, revs[1].Body)
 			if a.json {
-				return a.writeJSON(map[string]any{"ref": nf.Ref, "from": revs[0].Number, "to": revs[1].Number, "diff": text})
+				return a.writeJSON(diffResult{Diff: text, From: revs[0].Number, Ref: nf.Ref, To: revs[1].Number})
 			}
 			a.printf(a.out, "%s", text)
 			return nil

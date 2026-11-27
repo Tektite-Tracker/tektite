@@ -118,6 +118,13 @@ func run(args []string, e env) int {
 	return ce.code
 }
 
+type errorResult struct {
+	Code  int             `json:"code"`
+	Error string          `json:"error"`
+	Gates []policy.Result `json:"gates,omitempty"`
+	Hint  string          `json:"hint"`
+}
+
 func (a *app) printError(ce *cliError, asJSON bool) {
 	line := "tkt: " + ce.msg
 	if ce.hint != "" {
@@ -125,11 +132,7 @@ func (a *app) printError(ce *cliError, asJSON bool) {
 	}
 	a.printf(a.err, "%s\n", line)
 	if asJSON {
-		doc := map[string]any{"error": ce.msg, "code": ce.code, "hint": ce.hint}
-		if ce.gates != nil {
-			doc["gates"] = ce.gates
-		}
-		_ = a.writeJSON(doc)
+		_ = a.writeJSON(errorResult{Code: ce.code, Error: ce.msg, Gates: ce.gates, Hint: ce.hint})
 	}
 }
 
