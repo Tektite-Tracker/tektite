@@ -90,6 +90,12 @@ Feature: Events
       Then they are applied in order of "at"
       And events with equal "at" are applied in ULID order
 
+    Scenario: A skewed clock does not change the order
+      Given an event with the greater ULID whose "at" is earlier than another event's "at"
+      When the events are folded
+      Then they are still applied in order of "at", then ULID
+      And no warning is reported for the skew
+
     Scenario: The actor is declared and unsigned
       Given an event with actor "human:jesus"
       When the event is parsed
@@ -137,6 +143,13 @@ Feature: Events
       When `tkt check` runs
       Then a warning names the event and the unknown status
       And the computed status is "parked"
+
+    Scenario: A status is trimmed but never case-folded
+      Given a set-status event with status "  done  "
+      And a set-status event with status "Done"
+      When the node's state is computed
+      Then the first event's status is "done" with no warning
+      And the second event's status stays "Done" with a warning that it differs in case from "done"
 
     Scenario: A kind schema can restrict statuses
       Given a schema for kind "gap" allowing only open and done
@@ -270,6 +283,12 @@ Feature: Events
       When `tkt check` runs
       Then a warning names the orphan event
       And other nodes are unaffected
+
+    Scenario: Duplicate event ids are a warning and both events are kept
+      Given two events of one node that share the same id
+      When the node's state is computed
+      Then a warning names the duplicated id
+      And both events are listed in the node's history
 
     Scenario: A malformed event is skipped in the fold
       Given an event whose frontmatter is invalid

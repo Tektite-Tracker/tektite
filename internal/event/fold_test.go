@@ -60,6 +60,20 @@ func TestFold_Order(t *testing.T) {
 		}
 	})
 
+	t.Run("A skewed clock does not change the order", func(t *testing.T) {
+		in := []*parse.Event{
+			ev(t, u2, "set-status", "2026-11-27T09:00:00Z", "status: active"),
+			ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: done"),
+		}
+		if got := ids(event.Order(in)); !reflect.DeepEqual(got, []string{u2, u1}) {
+			t.Errorf("order = %v", got)
+		}
+		st := event.Fold(in, event.Options{})
+		if st.Status != "done" || len(st.Diagnostics) != 0 {
+			t.Errorf("state = %+v", st)
+		}
+	})
+
 	t.Run("An event file whose name is not a ULID is a warning", func(t *testing.T) {
 		in := []*parse.Event{
 			ev(t, "b-try", "note", "2026-11-27T10:00:00Z"),
@@ -125,6 +139,18 @@ func TestFold_Status(t *testing.T) {
 		}
 	})
 
+	t.Run("A status is trimmed but never case-folded", func(t *testing.T) {
+		st := event.Fold([]*parse.Event{ev(t, u1, "set-status", "2026-11-27T10:00:00Z", `status: "  done  "`)}, event.Options{})
+		if st.Status != "done" || len(st.Diagnostics) != 0 {
+			t.Errorf("trimmed: %+v", st)
+		}
+		st = event.Fold([]*parse.Event{ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: Done")}, event.Options{})
+		if st.Status != "Done" || len(st.Diagnostics) != 1 || st.Diagnostics[0].Code != parse.CodeUnknownStatus ||
+			!strings.Contains(st.Diagnostics[0].Message, "differs in case") {
+			t.Errorf("case: %+v", st)
+		}
+	})
+
 	t.Run("An override is a field on set-status, not a separate type", func(t *testing.T) {
 		st := event.Fold([]*parse.Event{ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: done", "override: accepted risk")}, event.Options{})
 		if st.Status != "done" || st.History[0].Override != "accepted risk" {
@@ -140,6 +166,18 @@ func TestFold_History(t *testing.T) {
 			ev(t, u2, "reaction", "2026-11-27T11:00:00Z", "emoji: thumbs-up"),
 		}, event.Options{})
 		if st.Status != "active" || len(st.History) != 2 || st.History[1].Applied || st.History[1].Event.Type != "reaction" {
+			t.Errorf("state = %+v", st)
+		}
+	})
+
+	t.Run("Duplicate event ids are a warning and both events are kept", func(t *testing.T) {
+		st := event.Fold([]*parse.Event{
+			ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: active"),
+			ev(t, u1, "note", "2026-11-27T11:00:00Z"),
+			ev(t, u1, "note", "2026-11-27T12:00:00Z"),
+		}, event.Options{})
+		if len(st.History) != 3 || len(st.Diagnostics) != 1 || st.Diagnostics[0].Code != parse.CodeDuplicateEventID ||
+			st.Diagnostics[0].Severity != parse.SeverityWarning || !strings.Contains(st.Diagnostics[0].Message, u1) {
 			t.Errorf("state = %+v", st)
 		}
 	})

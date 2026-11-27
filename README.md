@@ -61,7 +61,7 @@ Git-like, local-first work tracking for humans and agents. Everything is a markd
 
 ## Spec
 
-Reference Gherkin lives in `spec/`: `node`, `events`, `links`, `evidence`, `context`, `policy`, `schema`, `cli`.
+Reference Gherkin lives in `spec/`: `node`, `events`, `links`, `evidence`, `context`, `policy`, `schema`, `store`, `cli`.
 
 ## Open questions for the AMA
 

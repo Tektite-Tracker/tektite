@@ -18,6 +18,7 @@ const (
 	CodeDuplicateKey         = "TKT-W007"
 	CodeEventNameNotULID     = "TKT-W008"
 	CodeUnknownStatus        = "TKT-W009"
+	CodeDuplicateEventID     = "TKT-W010"
 	CodeMalformedFrontmatter = "TKT-E001"
 	CodeUnterminatedFrontmtr = "TKT-E002"
 	CodeMissingEventType     = "TKT-E003"
