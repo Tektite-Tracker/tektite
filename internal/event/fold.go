@@ -25,6 +25,11 @@ func Closed(status string) bool {
 	return status == StatusDone || status == StatusDropped
 }
 
+func rejectField(st *State, entry *Entry, code, field, message string) {
+	entry.Applied = false
+	st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{Code: code, Severity: parse.SeverityWarning, Message: message, Field: field})
+}
+
 type Entry struct {
 	Event    *parse.Event `json:"event"`
 	Actor    string       `json:"actor"`

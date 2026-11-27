@@ -40,13 +40,7 @@ func ParseTTL(v any) (time.Duration, bool) {
 func applyClaim(st *State, e *parse.Event, entry *Entry) {
 	ttl, ok := ParseTTL(e.Fields["ttl"])
 	if !ok {
-		entry.Applied = false
-		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
-			Code:     parse.CodeInvalidTTL,
-			Severity: parse.SeverityWarning,
-			Message:  fmt.Sprintf("event %q has ttl %v, which is not a positive duration such as 30m, the claim is ignored", e.ID, e.Fields["ttl"]),
-			Field:    "ttl",
-		})
+		rejectField(st, entry, parse.CodeInvalidTTL, "ttl", fmt.Sprintf("event %q has ttl %v, which is not a positive duration such as 30m, the claim is ignored", e.ID, e.Fields["ttl"]))
 		return
 	}
 	next := &Lease{Holder: entry.Actor, ClaimID: e.ID, Since: e.At, Expires: e.At.Add(ttl), TTL: ttl}

@@ -24,13 +24,7 @@ func IsHuman(actor string) bool {
 func applyApprove(st *State, e *parse.Event, entry *Entry) {
 	n, ok := revisionNumber(e.Fields["revision"])
 	if !ok {
-		entry.Applied = false
-		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
-			Code:     parse.CodeInvalidRevision,
-			Severity: parse.SeverityWarning,
-			Message:  fmt.Sprintf("approve event %q has revision %v, which is not a positive integer, so it is ignored", e.ID, e.Fields["revision"]),
-			Field:    "revision",
-		})
+		rejectField(st, entry, parse.CodeInvalidRevision, "revision", fmt.Sprintf("approve event %q has revision %v, which is not a positive integer, so it is ignored", e.ID, e.Fields["revision"]))
 		return
 	}
 	st.Approvals = append(st.Approvals, Approval{Revision: n, Event: e.ID, Actor: entry.Actor, At: e.At})
