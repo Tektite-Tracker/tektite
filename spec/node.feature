@@ -142,6 +142,22 @@ Feature: Nodes
       And its title is taken from the first heading, or the filename if there is none
       And `tkt check` reports that an id is missing
 
+    Scenario: A missing id or kind on an imported note is a note
+      Given a markdown file with no frontmatter, and a file whose frontmatter lacks an id and a kind
+      When `tkt check` runs
+      Then the missing id and the missing kind are reported with severity "note"
+      And the exit code is 0 when nothing else is wrong
+
+    Scenario: A node with complete frontmatter but no id is a warning
+      Given a node whose frontmatter has a kind and a title but no id
+      When the node is parsed
+      Then a warning says the id is missing
+
+    Scenario: A heading title keeps literal characters exactly as written
+      Given a markdown file whose first heading is "snake_case <tag> & a < b *x*"
+      When the node is parsed
+      Then its title is that text exactly
+
     Scenario: A missing id is assigned by tkt fmt
       Given a node with no id
       When a user runs `tkt fmt`

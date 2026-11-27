@@ -97,6 +97,21 @@ func TestCheck_Nodes(t *testing.T) {
 		}
 	})
 
+	t.Run("A missing id or kind on an imported note is a note", func(t *testing.T) {
+		rep := newFixture(t).write(".tektite/nodes/plain-3fa.md", "# Heading\ntext\n").write(".tektite/nodes/partial-9e1.md", "---\ntags: [a]\n---\n# Heading\n").run()
+		if rep.Errors != 0 || rep.Warnings != 1 || rep.Notes != 3 || rep.HasErrors() {
+			t.Errorf("report = %+v", rep)
+		}
+		for _, p := range rep.Problems {
+			if (p.Code == parse.CodeMissingID || p.Code == parse.CodeMissingKind) && p.Severity != parse.SeverityNote {
+				t.Errorf("problem = %+v", p)
+			}
+		}
+		if p := only(t, rep, parse.CodeMissingTitle); p.Severity != parse.SeverityWarning {
+			t.Errorf("problem = %+v", p)
+		}
+	})
+
 	t.Run("A root node has no parent", func(t *testing.T) {
 		rep := newFixture(t).node("spec-d3f", idA, "spec", "", "", "x").run()
 		if len(rep.Problems) != 0 {
@@ -205,6 +220,30 @@ func TestCheck_Links(t *testing.T) {
 		p := only(t, rep, check.CodeStaleSlug)
 		if p.Severity != parse.SeverityNote || !strings.Contains(p.Message, "add-retry-on-429-3fa") || len(find(rep, check.CodeBrokenLink)) != 0 {
 			t.Errorf("problems = %+v", rep.Problems)
+		}
+	})
+
+	t.Run("Wikilinks by file name, title or alias are not resolved", func(t *testing.T) {
+		f := newFixture(t).write(".tektite/nodes/auth-retry-3fa.md", "---\nid: "+idA+"\nkind: ticket\ntitle: Auth Retry\nparent: \"\"\naliases: [shortname]\n---\nx\n").
+			node("other-9e1", idB, "ticket", "", "", "[[Auth Retry]] [[auth-retry]] [[shortname]] [[auth-retry.md]] [[auth-retry-3fa]]")
+		got := find(f.run(), check.CodeBrokenLink)
+		if len(got) != 4 {
+			t.Fatalf("want four broken links, got %+v", got)
+		}
+		for _, p := range got {
+			if strings.Contains(p.Message, `"auth-retry-3fa"`) {
+				t.Errorf("the real ref must resolve: %+v", p)
+			}
+		}
+	})
+
+	t.Run("A wikilink in a frontmatter string value is a link", func(t *testing.T) {
+		f := newFixture(t).node("tk-d3f", idA, "ticket", "", "related: \"[[ghost-000]] and [[tk-d3f]]\"\n", "x")
+		rep := f.run()
+		broken := only(t, rep, check.CodeBrokenLink)
+		self := only(t, rep, check.CodeSelfLink)
+		if broken.Line != 6 || !strings.Contains(broken.Message, "ghost-000") || self.Line != 6 {
+			t.Errorf("broken=%+v self=%+v", broken, self)
 		}
 	})
 

@@ -50,3 +50,7 @@ func severityOf(code string) Severity {
 func diag(code, message string, line int, field string) Diagnostic {
 	return Diagnostic{Code: code, Severity: severityOf(code), Message: message, Line: line, Field: field}
 }
+
+func diagAt(sev Severity, code, message string, line int, field string) Diagnostic {
+	return Diagnostic{Code: code, Severity: sev, Message: message, Line: line, Field: field}
+}

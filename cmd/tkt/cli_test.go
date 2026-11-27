@@ -551,6 +551,33 @@ func TestCLI_Check(t *testing.T) {
 		}
 	})
 
+	t.Run("Notes alone do not fail the check", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write(".tektite/nodes/plain-3fa.md", "# Heading\ntext\n")
+		s.write(".tektite/nodes/partial-9e1.md", "---\ntitle: Partial\n---\nbody\n")
+		got := s.tkt("check")
+		if got.code != 0 || !strings.Contains(got.stdout, "note TKT-W002") || !strings.Contains(got.stdout, "0 errors, 0 warnings, 3 notes") {
+			t.Errorf("text = %+v", got)
+		}
+		js := s.tkt("check", "--json")
+		var rep struct {
+			Problems []struct {
+				Code     string `json:"code"`
+				Severity string `json:"severity"`
+			} `json:"problems"`
+			Notes int `json:"notes"`
+		}
+		decode(t, js.stdout, &rep)
+		if js.code != 0 || rep.Notes != 3 || len(rep.Problems) != 3 {
+			t.Fatalf("json = %+v rep = %+v", js, rep)
+		}
+		for _, p := range rep.Problems {
+			if p.Severity != "note" {
+				t.Errorf("problem = %+v", p)
+			}
+		}
+	})
+
 	t.Run("Check output as JSON", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("tk-d3f", idA, "ticket", "ghost-000", "", "x")
@@ -562,7 +589,7 @@ func TestCLI_Check(t *testing.T) {
 			Warnings int              `json:"warnings"`
 		}
 		decode(t, got.stdout, &rep)
-		if got.code != exitError || rep.Errors != 1 || rep.Warnings != 2 || len(rep.Problems) != 3 {
+		if got.code != exitError || rep.Errors != 1 || rep.Warnings != 1 || len(rep.Problems) != 3 {
 			t.Fatalf("result = %+v rep = %+v", got, rep)
 		}
 		for _, p := range rep.Problems {

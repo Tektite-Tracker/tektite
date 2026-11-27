@@ -63,6 +63,30 @@ Feature: Links
       When the node is parsed
       Then the node has no link to "not-a-link"
 
+  Rule: Frontmatter strings can hold wikilinks
+
+    Scenario: A wikilink in a frontmatter string value is a link
+      Given a node whose frontmatter has a string value containing "[[a-111]]", one inside a code span, and one in a block scalar
+      And the body repeats "[[a-111]]" and adds "[[d-555]]"
+      When the node is parsed
+      Then the node has links to "a-111", the block scalar target, and "d-555", each once
+      And each link carries the line it was written on
+      And the target inside the code span is ignored
+
+    Scenario: Frontmatter links ignore keys, non-strings and broken frontmatter
+      Given a node with "[[x]]" in a key, a node with only numbers and booleans, and a node whose frontmatter is invalid
+      When the nodes are parsed
+      Then none of them has a frontmatter link
+
+  Rule: Wikilinks resolve as references only
+
+    Scenario: Wikilinks by file name, title or alias are not resolved
+      Given a node "auth-retry-3fa" with title "Auth Retry" and alias "shortname"
+      And links to "[[Auth Retry]]", "[[auth-retry]]", "[[shortname]]", and "[[auth-retry.md]]"
+      When `tkt check` runs
+      Then each of those links is reported as matching no node
+      And "[[auth-retry-3fa]]" resolves
+
   Rule: Links can be added and removed by events
 
     Scenario: The folded link set is frontmatter plus events

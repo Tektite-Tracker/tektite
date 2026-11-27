@@ -170,6 +170,13 @@ Feature: Command line
       Then warnings and errors are listed with file, line, and a short fix hint
       And the exit code is 0 when there are no errors, and 1 when errors exist
 
+    Scenario: Notes alone do not fail the check
+      Given only files with no frontmatter or partial frontmatter
+      When a user runs `tkt check`
+      Then each missing id or kind is listed as a note
+      And the exit code is 0
+      And `tkt check --json` shows "note" as the severity of each
+
     Scenario: Check output as JSON
       When an agent runs `tkt check --json`
       Then each problem is an object with "severity", "code", "path", "line", and "message"

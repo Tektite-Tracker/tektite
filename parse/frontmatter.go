@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -58,9 +59,36 @@ func splitFrontmatter(src []byte) split {
 }
 
 type frontmatter struct {
-	keys   []string
-	fields map[string]any
-	dups   []string
+	keys    []string
+	fields  map[string]any
+	dups    []string
+	strings []fmString
+}
+
+type fmString struct {
+	text string
+	line int
+}
+
+func collectStrings(n *yaml.Node, out *[]fmString) {
+	switch n.Kind {
+	case yaml.ScalarNode:
+		if n.Tag == "!!str" && strings.Contains(n.Value, "[[") {
+			line := n.Line + 1
+			if n.Style&(yaml.LiteralStyle|yaml.FoldedStyle) != 0 {
+				line++
+			}
+			*out = append(*out, fmString{text: n.Value, line: line})
+		}
+	case yaml.MappingNode:
+		for i := 1; i < len(n.Content); i += 2 {
+			collectStrings(n.Content[i], out)
+		}
+	case yaml.SequenceNode:
+		for _, c := range n.Content {
+			collectStrings(c, out)
+		}
+	}
 }
 
 var yamlLine = regexp.MustCompile(`line (\d+)`)
@@ -93,6 +121,7 @@ func parseFrontmatter(raw []byte) (frontmatter, int, error) {
 			fm.keys = append(fm.keys, key)
 		}
 		fm.fields[key] = value
+		collectStrings(root.Content[i+1], &fm.strings)
 	}
 	return fm, 0, nil
 }
