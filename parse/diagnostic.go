@@ -26,6 +26,7 @@ const (
 	CodeMissingRequiredField = "TKT-E005"
 	CodeUnknownEventType     = "TKT-N001"
 	CodeEventSkipped         = "TKT-N002"
+	CodeConcurrentStatus     = "TKT-N003"
 )
 
 type Diagnostic struct {

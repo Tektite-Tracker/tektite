@@ -71,6 +71,7 @@ func Fold(events []*parse.Event, opts Options) State {
 	st := State{Status: StatusOpen, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
 	seen := map[string]bool{}
 	warned := map[string]bool{}
+	var prev *Entry
 	for _, e := range Order(events) {
 		key := strings.ToUpper(e.ID)
 		if seen[key] && !warned[key] {
@@ -93,6 +94,14 @@ func Fold(events []*parse.Event, opts Options) State {
 		if h, ok := handlers[e.Type]; ok {
 			entry.Applied = true
 			h(&st, e, &entry)
+			if e.Type == "set-status" {
+				if prev != nil && prev.Event.At.Equal(e.At) && prev.Actor != entry.Actor {
+					st.Diagnostics = append(st.Diagnostics, note(parse.CodeConcurrentStatus,
+						fmt.Sprintf("events %q and %q change the status at the same time from different actors, %q wins", prev.Event.ID, e.ID, e.ID)))
+				}
+				cur := entry
+				prev = &cur
+			}
 		}
 		st.History = append(st.History, entry)
 	}

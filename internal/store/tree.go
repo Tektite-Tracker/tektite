@@ -57,34 +57,3 @@ func (t *Tree) Descendants(ref string) []Visit {
 	walk(ref, 1)
 	return out
 }
-
-func (t *Tree) Walk() []Visit {
-	out := []Visit{}
-	seen := map[string]bool{}
-	var walk func(string, int)
-	walk = func(cur string, depth int) {
-		seen[cur] = true
-		out = append(out, Visit{Ref: cur, Depth: depth})
-		for _, kid := range t.Children[cur] {
-			if !seen[kid] {
-				walk(kid, depth+1)
-			}
-		}
-	}
-	for _, root := range t.Roots {
-		walk(root, 0)
-	}
-	rest := make([]string, 0)
-	for ref := range t.Parents {
-		if !seen[ref] {
-			rest = append(rest, ref)
-		}
-	}
-	sort.Strings(rest)
-	for _, ref := range rest {
-		if !seen[ref] {
-			walk(ref, 0)
-		}
-	}
-	return out
-}

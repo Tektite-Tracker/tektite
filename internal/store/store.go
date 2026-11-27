@@ -323,3 +323,68 @@ func readDir(dir string) ([]fs.DirEntry, error) {
 	}
 	return entries, nil
 }
+
+func Init(root string) (*Repo, bool, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve root: %w", err)
+	}
+	r := &Repo{Root: abs}
+	created := false
+	for _, dir := range []string{r.NodesDir(), r.EventsDir(), filepath.Join(r.Dir(), "blobs")} {
+		if isDir(dir) {
+			continue
+		}
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, false, fmt.Errorf("create %s: %w", r.Rel(dir), err)
+		}
+		created = true
+	}
+	config := filepath.Join(r.Dir(), "config")
+	if _, err := os.Stat(config); errors.Is(err, fs.ErrNotExist) {
+		if err := os.WriteFile(config, []byte("auto_commit: false\n"), 0o644); err != nil {
+			return nil, false, fmt.Errorf("create %s: %w", r.Rel(config), err)
+		}
+		created = true
+	}
+	return r, created, nil
+}
+
+func (r *Repo) ReplaceFile(rel string, data []byte) error {
+	path := filepath.Join(r.Root, filepath.FromSlash(rel))
+	if !strings.HasPrefix(filepath.Clean(path), r.Dir()+string(filepath.Separator)) {
+		return fmt.Errorf("replace %q: %w", rel, ErrBadRef)
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create temporary file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write %s: %w", rel, err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("sync %s: %w", rel, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close %s: %w", rel, err)
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		return fmt.Errorf("set mode for %s: %w", rel, err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("replace %s: %w", rel, err)
+	}
+	return nil
+}
+
+func (r *Repo) ReadFile(rel string) ([]byte, error) {
+	data, err := os.ReadFile(filepath.Join(r.Root, filepath.FromSlash(rel)))
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", rel, err)
+	}
+	return data, nil
+}

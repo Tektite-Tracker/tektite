@@ -193,3 +193,18 @@ func TestNode_LenientInput(t *testing.T) {
 		}
 	})
 }
+
+func TestSplitFrontmatter(t *testing.T) {
+	t.Run("Frontmatter and body can be split without rewriting the body", func(t *testing.T) {
+		fm, body, ok := parse.SplitFrontmatter([]byte("\xef\xbb\xbf---\r\nid: x\r\n---\r\n# Body\r\n\r\ntext  \r\n"))
+		if !ok || string(fm) != "id: x\n" || string(body) != "# Body\n\ntext  \n" {
+			t.Errorf("fm=%q body=%q ok=%v", fm, body, ok)
+		}
+		for _, in := range []string{"plain\n", "---\nid: x\nno close\n", "---"} {
+			fm, body, ok := parse.SplitFrontmatter([]byte(in))
+			if ok || fm != nil || string(body) != in {
+				t.Errorf("%q: fm=%q body=%q ok=%v", in, fm, body, ok)
+			}
+		}
+	})
+}

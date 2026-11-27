@@ -267,9 +267,6 @@ func TestTree(t *testing.T) {
 		if got := s.Tree.Descendants("spec-d3f"); !reflect.DeepEqual(got, want) {
 			t.Errorf("descendants = %v", got)
 		}
-		if len(s.Tree.Walk()) != 4 {
-			t.Errorf("walk = %v", s.Tree.Walk())
-		}
 	})
 
 	t.Run("A cycle in parents is reported and not followed", func(t *testing.T) {
@@ -284,8 +281,8 @@ func TestTree(t *testing.T) {
 		if want := [][]string{{"a-d3f", "b-9e1"}}; !reflect.DeepEqual(s.Tree.Cycles, want) {
 			t.Errorf("cycles = %v", s.Tree.Cycles)
 		}
-		if len(s.Tree.Descendants("a-d3f")) != 1 || len(s.Tree.Walk()) != 3 {
-			t.Errorf("descendants = %v walk = %v", s.Tree.Descendants("a-d3f"), s.Tree.Walk())
+		if len(s.Tree.Descendants("a-d3f")) != 1 {
+			t.Errorf("descendants = %v", s.Tree.Descendants("a-d3f"))
 		}
 		if _, ok := s.Get("a-d3f"); !ok {
 			t.Error("cyclic node must stay readable")

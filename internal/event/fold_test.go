@@ -13,8 +13,13 @@ import (
 
 func ev(t *testing.T, id, typ, at string, fields ...string) *parse.Event {
 	t.Helper()
+	return evBy(t, "agent:a", id, typ, at, fields...)
+}
+
+func evBy(t *testing.T, actor, id, typ, at string, fields ...string) *parse.Event {
+	t.Helper()
 	var b strings.Builder
-	fmt.Fprintf(&b, "---\ntype: %s\nactor: agent:a\nat: %s\n", typ, at)
+	fmt.Fprintf(&b, "---\ntype: %s\nactor: %s\nat: %s\n", typ, actor, at)
 	for _, f := range fields {
 		b.WriteString(f + "\n")
 	}
@@ -114,11 +119,26 @@ func TestFold_Status(t *testing.T) {
 
 	t.Run("Concurrent status changes resolve by time then ULID", func(t *testing.T) {
 		st := event.Fold([]*parse.Event{
-			ev(t, u2, "set-status", "2026-11-27T10:00:00Z", "status: review"),
+			evBy(t, "agent:b", u2, "set-status", "2026-11-27T10:00:00Z", "status: review"),
 			ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: active"),
 		}, event.Options{})
 		if st.Status != "review" {
 			t.Errorf("status = %q", st.Status)
+		}
+		if len(st.Diagnostics) != 1 || st.Diagnostics[0].Code != parse.CodeConcurrentStatus || st.Diagnostics[0].Severity != parse.SeverityNote ||
+			!strings.Contains(st.Diagnostics[0].Message, u2) {
+			t.Errorf("diagnostics = %+v", st.Diagnostics)
+		}
+		same := event.Fold([]*parse.Event{
+			ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: active"),
+			ev(t, u2, "set-status", "2026-11-27T10:00:00Z", "status: review"),
+		}, event.Options{})
+		later := event.Fold([]*parse.Event{
+			ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: active"),
+			ev(t, u2, "set-status", "2026-11-27T10:00:01Z", "status: review"),
+		}, event.Options{})
+		if len(same.Diagnostics) != 0 || len(later.Diagnostics) != 0 {
+			t.Errorf("same actor or distinct times are not concurrent: %+v %+v", same.Diagnostics, later.Diagnostics)
 		}
 	})
 

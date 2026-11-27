@@ -46,23 +46,23 @@ const (
 )
 
 func builtIns() map[string]*Schema {
-	mk := func(kind, template string, parents ...string) *Schema {
+	mk := func(kind, template string) *Schema {
 		return &Schema{
 			Kind:        kind,
 			Required:    []string{},
 			Statuses:    append([]string{}, lifecycle...),
-			ParentKinds: parents,
+			ParentKinds: []string{},
 			Template:    template,
 			Source:      SourceBuiltIn,
 		}
 	}
 	return map[string]*Schema{
-		"spec":     mk("spec", "### Goal\n\n### Scope"),
-		"plan":     mk("plan", "### Approach\n\n### Steps", "spec", "plan"),
-		"ticket":   mk("ticket", "### Context\n\n### Acceptance criteria", "plan", "ticket"),
+		"spec":     mk("spec", ""),
+		"plan":     mk("plan", ""),
+		"ticket":   mk("ticket", "### Context\n\n### Acceptance criteria"),
 		"gap":      mk("gap", ""),
 		"evidence": mk("evidence", ""),
-		"decision": mk("decision", "### Decision\n\n### Consequences"),
+		"decision": mk("decision", ""),
 	}
 }
 

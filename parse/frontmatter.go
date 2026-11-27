@@ -126,3 +126,11 @@ func duplicateKeyDiags(fm frontmatter, diags *[]Diagnostic) {
 		*diags = append(*diags, diag(CodeDuplicateKey, fmt.Sprintf("frontmatter key %q is repeated, the last value wins", k), 0, k))
 	}
 }
+
+// SplitFrontmatter separates the YAML frontmatter from the body of a node or event file.
+// It reports false when there is no complete frontmatter block, and then the body is the
+// whole normalized source.
+func SplitFrontmatter(src []byte) ([]byte, []byte, bool) {
+	sp := splitFrontmatter(normalize(src))
+	return sp.yaml, sp.body, sp.present
+}

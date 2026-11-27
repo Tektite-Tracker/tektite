@@ -38,6 +38,11 @@ Feature: Command line
       Then stdout is a JSON object with "error", "code", and a hint
       And the exit code is 3
 
+    Scenario: Unknown commands and flags are usage errors
+      When a user runs `tkt frobnicate` or `tkt ls --nope`
+      Then the command exits with code 2
+      And the message is written to stderr
+
     Scenario: No colour or prompts when not a terminal
       When output is piped
       Then no colour codes are written
@@ -94,6 +99,11 @@ Feature: Command line
       When a user runs `tkt new ticket "Add retry" --body -` with text on stdin
       Then the text becomes the body
       And without `--body` the user's editor is opened if the terminal is interactive
+
+    Scenario: A new node stores its parent as a full reference
+      When a user runs `tkt new ticket "Add retry" --parent 9de`
+      Then the frontmatter parent is the full reference "retry-plan-9de"
+      And a parent that matches no node exits with code 3 and creates nothing
 
     Scenario: Spawning a child
       When an agent runs `tkt spawn auth-retry-3fa "Handle Retry-After header"`
@@ -169,6 +179,11 @@ Feature: Command line
       Then missing ids are assigned and frontmatter is normalised
       And bodies are not rewritten except to add block ids
       And `tkt fmt --dry-run` shows the changes without writing
+
+    Scenario: Formatting is idempotent and skips broken files
+      When a user runs `tkt fmt` twice
+      Then the second run changes nothing
+      And a file whose frontmatter is malformed is reported as skipped and left untouched
 
     Scenario: Teaching agents the workflow
       When a user runs `tkt init-agent`

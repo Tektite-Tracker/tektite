@@ -1,28 +1,38 @@
 package main
 
 import (
-	"fmt"
+	"crypto/rand"
+	"io"
 	"os"
-
-	"github.com/spf13/cobra"
+	"time"
 )
 
-func newRootCmd() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "tkt",
-		Short:         "Git-like, local-first work tracking for humans and agents",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
-		},
+func main() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
 	}
-	return root
+	os.Exit(run(os.Args[1:], env{
+		in:          os.Stdin,
+		out:         os.Stdout,
+		err:         os.Stderr,
+		cwd:         cwd,
+		now:         time.Now,
+		rand:        rand.Reader,
+		getenv:      os.Getenv,
+		interactive: interactive(os.Stdin, os.Stdout),
+	}))
 }
 
-func main() {
-	if err := newRootCmd().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+func interactive(in io.Reader, out io.Writer) bool {
+	return isTerminal(in) && isTerminal(out)
+}
+
+func isTerminal(v any) bool {
+	f, ok := v.(*os.File)
+	if !ok {
+		return false
 	}
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
