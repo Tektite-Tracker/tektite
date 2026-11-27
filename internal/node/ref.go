@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 const (
@@ -12,7 +14,10 @@ const (
 	maxSlugLen = 40
 )
 
-var ErrNotFound = errors.New("no node matches the reference")
+var (
+	ErrNotFound = errors.New("no node matches the reference")
+	ErrTooShort = errors.New("reference hash is shorter than the minimum")
+)
 
 type AmbiguousError struct {
 	Query   string
@@ -55,10 +60,10 @@ func HashOf(ref string) string {
 }
 
 func NewRef(title, id string, existing []string) (string, error) {
-	lower := strings.ToLower(id)
-	if len(lower) < MinHashLen {
-		return "", fmt.Errorf("id %q is too short to derive a hash", id)
+	if !parse.IsULID(id) {
+		return "", fmt.Errorf("id %q is not a ULID", id)
 	}
+	lower := strings.ToLower(id)
 	taken := make([]string, len(existing))
 	for i, ref := range existing {
 		taken[i] = strings.ToLower(HashOf(ref))
@@ -83,8 +88,8 @@ func collides(h string, taken []string) bool {
 
 func Resolve(refs []string, query string) (string, error) {
 	q := strings.ToLower(HashOf(strings.TrimSpace(query)))
-	if q == "" {
-		return "", ErrNotFound
+	if len(q) < MinHashLen {
+		return "", ErrTooShort
 	}
 	var exact, suffix []string
 	for _, ref := range refs {

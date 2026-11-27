@@ -72,6 +72,16 @@ Feature: Nodes
       When a user runs `tkt show 3fa`
       Then the node "auth-retry-3fa" is shown
 
+    Scenario: A reference with fewer than three hash characters is rejected
+      Given nodes "auth-retry-3fa" and "auth-hardening-7c1"
+      When a user runs `tkt show fa`
+      Then the command fails because the hash is too short
+
+    Scenario: Ids created in the same millisecond sort in creation order
+      Given two nodes created in the same millisecond
+      When their ids are compared
+      Then the later node has the greater id
+
     Scenario: An ambiguous reference is rejected
       Given two nodes whose references end in the same hash prefix
       When a user runs `tkt show` with that prefix
