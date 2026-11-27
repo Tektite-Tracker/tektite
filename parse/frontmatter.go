@@ -81,8 +81,12 @@ func collectTyped(rel string, n *yaml.Node, out *[]Link) {
 		if inner, ok := strings.CutPrefix(t, "[["); ok {
 			t = strings.TrimSpace(strings.TrimSuffix(inner, "]]"))
 		}
-		if t != "" {
-			*out = append(*out, Link{Rel: rel, Target: t, Line: n.Line + 1})
+		l := Link{Rel: rel, Target: t, Line: n.Line + 1}
+		if target, block, ok := strings.Cut(t, "#"); ok {
+			l.Target, l.Block = strings.TrimSpace(target), strings.TrimSpace(block)
+		}
+		if l.Target != "" {
+			*out = append(*out, l)
 		}
 	case yaml.SequenceNode:
 		for _, c := range n.Content {

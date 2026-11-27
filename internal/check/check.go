@@ -25,6 +25,10 @@ const (
 	CodeDisallowedStatus = "TKT-W109"
 	CodeDisallowedParent = "TKT-W111"
 	CodeBlockCycle       = "TKT-W112"
+	CodeEvidenceNoCommit = "TKT-W113"
+	CodeMissingBlob      = "TKT-W114"
+	CodeBlobTampered     = "TKT-E103"
+	CodeUnreferencedBlob = "TKT-N103"
 	CodeStaleSlug        = "TKT-N101"
 	CodeDroppedBlocker   = "TKT-N102"
 )
@@ -42,6 +46,10 @@ var hints = map[string]string{
 	parse.CodeUnknownStatus:        "use one of open, active, blocked, review, done, dropped",
 	parse.CodeDuplicateEventID:     "rename one of the event files",
 	CodeDuplicateID:                "give one of the nodes a new id",
+	CodeEvidenceNoCommit:           "re-attach the evidence from a git checkout so it records a commit",
+	CodeMissingBlob:                "restore the blob file or attach the evidence again",
+	CodeBlobTampered:               "restore the original blob, blobs must never change",
+	CodeUnreferencedBlob:           "remove it with `tkt gc --blobs` if it is no longer needed",
 	CodeBlockCycle:                 "remove a blocks link from one node in the cycle",
 	CodeDroppedBlocker:             "remove the blocks link or reopen the blocker",
 	CodeBrokenLink:                 "fix the reference or remove the link",
@@ -83,6 +91,7 @@ type run struct {
 	schemas *store.Schemas
 	out     []Problem
 	graph   *store.Graph
+	repo    *store.Repo
 }
 
 func Run(r *store.Repo) (Report, error) {
@@ -94,11 +103,15 @@ func Run(r *store.Repo) (Report, error) {
 	if err != nil {
 		return Report{}, fmt.Errorf("load schemas: %w", err)
 	}
-	return Analyze(snap, schemas), nil
+	return analyze(snap, schemas, r), nil
 }
 
 func Analyze(snap *store.Snapshot, schemas *store.Schemas) Report {
-	c := &run{snap: snap, schemas: schemas, out: []Problem{}, graph: snap.BuildGraph()}
+	return analyze(snap, schemas, nil)
+}
+
+func analyze(snap *store.Snapshot, schemas *store.Schemas, repo *store.Repo) Report {
+	c := &run{snap: snap, schemas: schemas, out: []Problem{}, graph: snap.BuildGraph(), repo: repo}
 	c.schemaProblems()
 	c.duplicateIDs()
 	c.cycles()
@@ -107,6 +120,7 @@ func Analyze(snap *store.Snapshot, schemas *store.Schemas) Report {
 		c.node(n)
 	}
 	c.orphans()
+	c.blobs()
 	return c.report()
 }
 
@@ -253,6 +267,7 @@ func (c *run) node(nf *store.NodeFile) {
 		c.link(nf, l)
 	}
 	c.droppedBlockers(nf)
+	c.evidenceCommit(nf)
 	st := c.events(nf)
 	c.schema(nf, st)
 }

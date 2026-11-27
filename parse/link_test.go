@@ -106,3 +106,13 @@ func TestLinks_Wikilinks(t *testing.T) {
 		}
 	})
 }
+
+func TestLinks_FrontmatterBlock(t *testing.T) {
+	t.Run("Evidence can target a single block", func(t *testing.T) {
+		src := "---\nid: 01HZ3K8Q5W2X9N4T7V6B1C0D3F\nkind: evidence\ntitle: T\nevidences: [auth-retry-3fa#01HZ3KB2]\n---\nbody\n"
+		n, _ := parse.ParseNode("n.md", []byte(src))
+		if len(n.Links) != 1 || n.Links[0].Rel != "evidences" || n.Links[0].Target != "auth-retry-3fa" || n.Links[0].Block != "01HZ3KB2" {
+			t.Errorf("links = %+v", n.Links)
+		}
+	})
+}

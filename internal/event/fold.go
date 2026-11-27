@@ -41,6 +41,7 @@ type handler func(st *State, e *parse.Event, entry *Entry)
 var handlers = map[string]handler{
 	"set-status": applySetStatus,
 	"note":       func(*State, *parse.Event, *Entry) {},
+	"attach":     func(*State, *parse.Event, *Entry) {},
 	"claim":      applyClaim,
 	"heartbeat":  applyHeartbeat,
 	"release":    applyRelease,

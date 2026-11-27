@@ -32,6 +32,7 @@ type sandbox struct {
 	env         map[string]string
 	git         string
 	head        string
+	dirty       bool
 }
 
 func newSandbox(t *testing.T) *sandbox {
@@ -79,8 +80,9 @@ func (s *sandbox) tktIn(cwd, stdin string, args ...string) result {
 			}
 			return s.env[k]
 		},
-		gitUser: func() string { return s.git },
-		gitHead: func() string { return s.head },
+		gitUser:  func() string { return s.git },
+		gitHead:  func() string { return s.head },
+		gitDirty: func() bool { return s.dirty },
 	})
 	return result{code: code, stdout: out.String(), stderr: errw.String()}
 }
