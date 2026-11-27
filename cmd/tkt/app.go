@@ -14,7 +14,9 @@ import (
 
 	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/policy"
+	"github.com/tektite-tracker/tektite/internal/service"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 const (
@@ -58,6 +60,14 @@ func (e *cliError) Error() string {
 	return e.msg
 }
 
+var serviceExit = map[service.Kind]int{
+	service.KindInternal: exitError,
+	service.KindUsage:    exitUsage,
+	service.KindNotFound: exitNotFound,
+	service.KindConflict: exitConflict,
+	service.KindPolicy:   exitPolicy,
+}
+
 func fail(code int, hint, format string, args ...any) error {
 	return &cliError{code: code, msg: fmt.Sprintf(format, args...), hint: hint}
 }
@@ -72,10 +82,13 @@ func exitSilently(code int) error {
 
 func classify(err error) *cliError {
 	var ce *cliError
+	var se *service.Error
 	var amb *node.AmbiguousError
 	switch {
 	case errors.As(err, &ce):
 		return ce
+	case errors.As(err, &se):
+		return &cliError{code: serviceExit[se.Kind], msg: se.Msg, hint: se.Hint, gates: se.Gates}
 	case errors.As(err, &amb):
 		return &cliError{code: exitUsage, msg: err.Error(), hint: "use a longer hash to pick one"}
 	case errors.Is(err, node.ErrNotFound):
@@ -157,6 +170,45 @@ func (a *app) warn(warnings []string) {
 	}
 }
 
+func warningTexts(ds []parse.Diagnostic) []string {
+	if ds == nil {
+		return nil
+	}
+	out := make([]string, 0, len(ds))
+	for _, d := range ds {
+		if d.Code == "" {
+			out = append(out, d.Message)
+			continue
+		}
+		out = append(out, d.Code+": "+d.Message)
+	}
+	return out
+}
+
+type gitFuncs struct {
+	user  func() string
+	head  func() string
+	dirty func() bool
+}
+
+func (g gitFuncs) User() string { return g.user() }
+func (g gitFuncs) Head() string { return g.head() }
+func (g gitFuncs) Dirty() bool  { return g.dirty() }
+
+func (a *app) svc() (*service.Service, error) {
+	r, err := a.repo()
+	if err != nil {
+		return nil, err
+	}
+	return &service.Service{
+		Repo:   r,
+		Now:    a.now,
+		Rand:   a.rand,
+		Getenv: a.getenv,
+		Git:    gitFuncs{user: a.gitUser, head: a.gitHead, dirty: a.gitDirty},
+	}, nil
+}
+
 func (a *app) writeJSON(v any) error {
 	enc := json.NewEncoder(a.out)
 	enc.SetIndent("", "  ")
@@ -224,8 +276,8 @@ func (a *app) newRoot() *cobra.Command {
 		a.schemaCmd(),
 		a.setStatusCmd(),
 		a.claimCmd(),
-		a.leaseCmd("heartbeat", "Extend your lease on a node", true),
-		a.leaseCmd("release", "Release your lease on a node", false),
+		a.leaseCmd(parse.EventHeartbeat, "Extend your lease on a node"),
+		a.leaseCmd(parse.EventRelease, "Release your lease on a node"),
 		a.nextCmd(),
 		a.contextCmd(),
 		a.attachEvidenceCmd(),

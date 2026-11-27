@@ -13,6 +13,9 @@ linters:
     - misspell
     - commentlint
   settings:
+    wrapcheck:
+      ignore-package-globs:
+        - github.com/tektite-tracker/tektite/internal/service
     revive:
       rules:
         - name: blank-imports

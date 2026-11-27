@@ -6,45 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/event"
-	"github.com/tektite-tracker/tektite/internal/node"
-	"github.com/tektite-tracker/tektite/internal/store"
-	"github.com/tektite-tracker/tektite/parse"
+	"github.com/tektite-tracker/tektite/internal/service"
 )
-
-func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int) (*appended, error) {
-	d := &event.Draft{Type: parse.EventClaim, Fields: []node.Field{{Key: "ttl", Value: ttl.String()}}}
-	if revision > 0 {
-		d.Fields = append(d.Fields, node.Field{Key: "revision", Value: revision})
-	}
-	check := func(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error) {
-		warnings, err := a.gateClaim(snap, nf, actor)
-		if err != nil {
-			return nil, err
-		}
-		l := snap.State(nf.Ref).Lease
-		if l.LiveAt(a.now()) && l.Holder != actor {
-			return nil, fail(exitConflict, "wait for the lease to expire or pick another node with `tkt next`",
-				"%s is claimed by %s until %s", nf.Ref, l.Holder, parse.FormatTime(l.Expires))
-		}
-		return warnings, nil
-	}
-	res, err := a.writeEvent(actorFlag, query, d, check)
-	if err != nil {
-		return nil, err
-	}
-	_, snap, err := a.load()
-	if err != nil {
-		return nil, err
-	}
-	if l := snap.State(res.Ref).Lease; l == nil || l.Holder != res.Actor {
-		holder := "another actor"
-		if l != nil {
-			holder = l.Holder
-		}
-		return nil, fail(exitConflict, "another claim won the race, pick another node with `tkt next`", "%s was claimed by %s first", res.Ref, holder)
-	}
-	return res, nil
-}
 
 func parseTTLFlag(v string) (time.Duration, error) {
 	d, ok := event.ParseTTL(v)
@@ -69,11 +32,11 @@ func (a *app) claimCmd() *cobra.Command {
 			if err := checkRevisionFlag(cmd, revision); err != nil {
 				return err
 			}
-			res, err := a.claimNode(actor, args[0], d, revision)
+			svc, err := a.svc()
 			if err != nil {
 				return err
 			}
-			return a.report(res)
+			return a.reportEvent(svc.Claim(service.ClaimInput{Ref: args[0], Actor: actor, TTL: d, Revision: revision}))
 		},
 	}
 	addActorFlag(cmd, &actor)
@@ -82,26 +45,18 @@ func (a *app) claimCmd() *cobra.Command {
 	return cmd
 }
 
-func (a *app) leaseCmd(typ, short string, needLive bool) *cobra.Command {
+func (a *app) leaseCmd(typ, short string) *cobra.Command {
 	var actor string
 	cmd := &cobra.Command{
 		Use:   typ + " <ref>",
 		Short: short,
 		Args:  exactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			check := func(snap *store.Snapshot, nf *store.NodeFile, who string) ([]string, error) {
-				l := snap.State(nf.Ref).Lease
-				switch {
-				case l == nil:
-					return nil, fail(exitConflict, "claim the node first with `tkt claim`", "%s is not claimed", nf.Ref)
-				case l.Holder != who:
-					return nil, fail(exitConflict, "only the holder can do this", "%s is claimed by %s until %s", nf.Ref, l.Holder, parse.FormatTime(l.Expires))
-				case needLive && !l.LiveAt(a.now()):
-					return nil, fail(exitConflict, "claim the node again with `tkt claim`", "the lease on %s expired at %s", nf.Ref, parse.FormatTime(l.Expires))
-				}
-				return nil, nil
+			svc, err := a.svc()
+			if err != nil {
+				return err
 			}
-			return a.appendEvent(actor, args[0], &event.Draft{Type: typ}, check)
+			return a.reportEvent(svc.Lease(service.LeaseInput{Verb: typ, Ref: args[0], Actor: actor}))
 		},
 	}
 	addActorFlag(cmd, &actor)

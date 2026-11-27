@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/event"
-	"github.com/tektite-tracker/tektite/internal/policy"
+	"github.com/tektite-tracker/tektite/internal/service"
 	"github.com/tektite-tracker/tektite/internal/view"
 	"github.com/tektite-tracker/tektite/parse"
 )
@@ -25,28 +25,16 @@ func (a *app) nextCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, snap, err := a.load()
+			svc, err := a.svc()
 			if err != nil {
 				return err
 			}
-			list := view.Eligible(snap, kind, a.now())
-			p, warnings, err := a.loadPolicy()
+			list, warnings, err := svc.Next(kind, actor)
 			if err != nil {
 				return err
-			}
-			if p != nil {
-				who, _ := a.resolveActor(actor)
-				env := policy.NewEnv(snap)
-				open := list[:0]
-				for _, nf := range list {
-					if len(policy.Failed(p.Claim(env, nf, who, a.now()))) == 0 {
-						open = append(open, nf)
-					}
-				}
-				list = open
 			}
 			if !a.json {
-				a.warn(warnings)
+				a.warn(warningTexts(warnings))
 			}
 			if len(list) == 0 {
 				return fail(exitNotFound, "create a ticket with `tkt new ticket` or release a claim", "nothing is available")
@@ -55,7 +43,7 @@ func (a *app) nextCmd() *cobra.Command {
 				list = list[:limit]
 			}
 			if claim {
-				if _, err := a.claimNode(actor, list[0].Ref, d, 0); err != nil {
+				if _, err := svc.Claim(service.ClaimInput{Ref: list[0].Ref, Actor: actor, TTL: d}); err != nil {
 					return err
 				}
 			}

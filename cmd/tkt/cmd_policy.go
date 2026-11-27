@@ -1,99 +1,11 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"strings"
-
 	"github.com/spf13/cobra"
 
-	"github.com/tektite-tracker/tektite/internal/check"
-	"github.com/tektite-tracker/tektite/internal/event"
-	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/policy"
-	"github.com/tektite-tracker/tektite/internal/store"
-	"github.com/tektite-tracker/tektite/parse"
+	"github.com/tektite-tracker/tektite/internal/service"
 )
-
-func (a *app) loadPolicy() (*policy.Policy, []string, error) {
-	r, err := a.repo()
-	if err != nil {
-		return nil, nil, err
-	}
-	p, err := policy.Load(r)
-	var bad *policy.MalformedError
-	if errors.As(err, &bad) {
-		return nil, []string{fmt.Sprintf("%s: %s: %s, so no gate is enforced, run `tkt check` for details", check.CodePolicyMalformed, bad.Path, bad.Msg)}, nil
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("load policy: %w", err)
-	}
-	return p, nil, nil
-}
-
-func gateBlocked(verb, ref string, failed []policy.Result, agentOverride bool) error {
-	var b strings.Builder
-	fmt.Fprintf(&b, "%s on %s is blocked by policy", verb, ref)
-	hints := []string{}
-	for _, f := range failed {
-		fmt.Fprintf(&b, "\n  gate %q: %s", f.Name, f.Reason)
-		for _, it := range f.Items {
-			fmt.Fprintf(&b, "\n    - %s", it)
-		}
-		switch f.Rule {
-		case policy.RuleApproval:
-			hints = append(hints, "ask a human to run `tkt approve` on the plan")
-		case policy.RuleEvidence:
-			hints = append(hints, "attach passing evidence with `tkt attach-evidence`")
-		case policy.RuleNoGaps:
-			hints = append(hints, "close the open gaps")
-		}
-	}
-	if agentOverride {
-		b.WriteString("\n  an agent cannot override a gate")
-	} else if verb == "set-status" {
-		hints = append(hints, "a human can pass --override with a reason")
-	}
-	return &cliError{code: exitPolicy, msg: b.String(), hint: strings.Join(dedupe(hints), "; "), gates: failed}
-}
-
-func dedupe(in []string) []string {
-	seen := map[string]bool{}
-	out := []string{}
-	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-func (a *app) gateClaim(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error) {
-	p, warnings, err := a.loadPolicy()
-	if err != nil {
-		return nil, err
-	}
-	if failed := policy.Failed(p.Claim(policy.NewEnv(snap), nf, actor, a.now())); len(failed) > 0 {
-		return nil, gateBlocked("claim", nf.Ref, failed, false)
-	}
-	return warnings, nil
-}
-
-func (a *app) gateDone(snap *store.Snapshot, nf *store.NodeFile, actor, override string) ([]string, error) {
-	p, warnings, err := a.loadPolicy()
-	if err != nil {
-		return nil, err
-	}
-	failed := policy.Failed(p.Done(policy.NewEnv(snap), nf))
-	if len(failed) == 0 {
-		return warnings, nil
-	}
-	if override != "" && event.IsHuman(actor) {
-		return warnings, nil
-	}
-	return nil, gateBlocked("set-status", nf.Ref, failed, override != "")
-}
 
 func (a *app) approveCmd() *cobra.Command {
 	var actor string
@@ -106,19 +18,11 @@ func (a *app) approveCmd() *cobra.Command {
 			if err := checkRevisionFlag(cmd, revision); err != nil {
 				return err
 			}
-			d := &event.Draft{Type: parse.EventApprove}
-			check := func(snap *store.Snapshot, nf *store.NodeFile, who string) ([]string, error) {
-				if !event.IsHuman(who) {
-					return nil, &cliError{code: exitPolicy, hint: "run it as a human, for example with --actor human:name", msg: fmt.Sprintf("approve on %s is blocked: only a human can approve, got %q", nf.Ref, who)}
-				}
-				current := snap.State(nf.Ref).EffectiveRevision()
-				if revision > 0 && revision != current {
-					return nil, usage("%s is at revision %d, so revision %d cannot be approved", nf.Ref, current, revision)
-				}
-				d.Fields = []node.Field{{Key: "revision", Value: current}}
-				return nil, nil
+			svc, err := a.svc()
+			if err != nil {
+				return err
 			}
-			return a.appendEvent(actor, args[0], d, check)
+			return a.reportEvent(svc.Approve(service.ApproveInput{Ref: args[0], Actor: actor, Revision: revision}))
 		},
 	}
 	addActorFlag(cmd, &actor)
@@ -150,25 +54,21 @@ func (a *app) policyCmd() *cobra.Command {
 		Short: "List the gates that apply to a node and whether each is met",
 		Args:  exactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			p, warnings, err := a.loadPolicy()
+			svc, err := a.svc()
 			if err != nil {
 				return err
 			}
-			_, snap, err := a.load()
+			ex, err := svc.Explain(args[0])
 			if err != nil {
 				return err
 			}
-			nf, err := snap.Resolve(args[0])
-			if err != nil {
-				return fmt.Errorf("policy explain: %w", err)
-			}
-			res := explained{Ref: nf.Ref, Gates: p.Explain(policy.NewEnv(snap), nf)}
+			res := explained{Ref: ex.Ref, Gates: ex.Gates}
 			if a.json {
 				return a.writeJSON(res)
 			}
-			a.warn(warnings)
+			a.warn(warningTexts(ex.Warnings))
 			if len(res.Gates) == 0 {
-				a.printf(a.out, "%s: no gate applies\n", nf.Ref)
+				a.printf(a.out, "%s: no gate applies\n", res.Ref)
 				return nil
 			}
 			for _, g := range res.Gates {
