@@ -20,7 +20,7 @@
     },
     {
       "code": "TKT-W002",
-      "severity": "warning",
+      "severity": "note",
       "message": "node has no id",
       "field": "id"
     }

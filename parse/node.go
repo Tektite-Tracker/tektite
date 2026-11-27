@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -30,6 +31,7 @@ func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 	sp := splitFrontmatter(src)
 	body := sp.body
 	text := sp.body
+	var fmLinks []Link
 	switch {
 	case sp.unterminat:
 		diags = append(diags, diag(CodeUnterminatedFrontmtr, "frontmatter is not closed by a --- line", 1, ""))
@@ -41,6 +43,7 @@ func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 			break
 		}
 		n.Frontmatter = true
+		fmLinks = frontmatterLinks(fm)
 		duplicateKeyDiags(fm, &diags)
 		n.Fields, n.FieldOrder = fm.fields, fm.keys
 		n.ID = stringField(fm, "id", &diags)
@@ -54,7 +57,7 @@ func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 
 	res := parseBody(text, sp.bodyLine)
 	n.Body = strings.TrimSpace(string(body))
-	n.Blocks, n.Links = res.blocks, res.links
+	n.Blocks, n.Links = res.blocks, mergeLinks(fmLinks, res.links)
 	if n.Blocks == nil {
 		n.Blocks = []Block{}
 	}
@@ -62,13 +65,18 @@ func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 		n.Links = []Link{}
 	}
 
+	partial := !n.Frontmatter || n.Kind == "" || n.Title == ""
 	if n.ID == "" {
-		diags = append(diags, diag(CodeMissingID, "node has no id", 0, "id"))
+		sev := SeverityWarning
+		if partial {
+			sev = SeverityNote
+		}
+		diags = append(diags, diagAt(sev, CodeMissingID, "node has no id", 0, "id"))
 	}
 	if n.Kind == "" {
 		n.Kind = DefaultKind
 		if n.Frontmatter {
-			diags = append(diags, diag(CodeMissingKind, "node has no kind, defaulting to "+DefaultKind, 0, "kind"))
+			diags = append(diags, diagAt(SeverityNote, CodeMissingKind, "node has no kind, defaulting to "+DefaultKind, 0, "kind"))
 		}
 	}
 	if n.Title == "" {
@@ -90,4 +98,35 @@ func ParseNodeReader(name string, r io.Reader) (*Node, []Diagnostic, error) {
 	}
 	n, d := ParseNode(name, src)
 	return n, d, nil
+}
+
+var codeSpan = regexp.MustCompile("`[^`\\n]*`")
+
+func frontmatterLinks(fm frontmatter) []Link {
+	var out []Link
+	seen := map[string]bool{}
+	for _, v := range fm.strings {
+		masked := codeSpan.ReplaceAllStringFunc(v.text, func(s string) string { return strings.Repeat(" ", len(s)) })
+		for _, m := range wikilink.FindAllStringSubmatchIndex(masked, -1) {
+			target := strings.TrimSpace(masked[m[2]:m[3]])
+			if target == "" || seen[target] {
+				continue
+			}
+			seen[target] = true
+			out = append(out, Link{Target: target, Line: v.line + strings.Count(masked[:m[0]], "\n")})
+		}
+	}
+	return out
+}
+
+func mergeLinks(first, rest []Link) []Link {
+	seen := map[string]bool{}
+	var out []Link
+	for _, l := range append(append([]Link{}, first...), rest...) {
+		if !seen[l.Target] {
+			seen[l.Target] = true
+			out = append(out, l)
+		}
+	}
+	return out
 }

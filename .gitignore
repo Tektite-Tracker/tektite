@@ -11,3 +11,6 @@ coverage.*
 .env
 .env.*
 .claude/settings.local.json
+
+/testdata/private/
+/scripts/.realnotes/

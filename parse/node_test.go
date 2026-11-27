@@ -1,6 +1,7 @@
 package parse_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -205,6 +206,81 @@ func TestSplitFrontmatter(t *testing.T) {
 			if ok || fm != nil || string(body) != in {
 				t.Errorf("%q: fm=%q body=%q ok=%v", in, fm, body, ok)
 			}
+		}
+	})
+}
+
+func codesWithSeverity(diags []parse.Diagnostic) map[string]parse.Severity {
+	out := map[string]parse.Severity{}
+	for _, d := range diags {
+		out[d.Code] = d.Severity
+	}
+	return out
+}
+
+func TestNode_ImportedNotes(t *testing.T) {
+	t.Run("A missing id or kind on an imported note is a note", func(t *testing.T) {
+		_, plain := parse.ParseNode("plain.md", []byte("# Heading\ntext\n"))
+		if got := codesWithSeverity(plain); len(got) != 1 || got[parse.CodeMissingID] != parse.SeverityNote {
+			t.Errorf("no frontmatter: %+v", plain)
+		}
+		_, partial := parse.ParseNode("partial.md", []byte("---\ntags: [a]\n---\n# Heading\n"))
+		got := codesWithSeverity(partial)
+		if got[parse.CodeMissingID] != parse.SeverityNote || got[parse.CodeMissingKind] != parse.SeverityNote || got[parse.CodeMissingTitle] != parse.SeverityWarning {
+			t.Errorf("partial frontmatter: %+v", partial)
+		}
+		_, noKind := parse.ParseNode("nokind.md", []byte("---\nid: 01HZ3K8Q5W2X9N4T7V6B1C0D3F\ntitle: T\n---\n"))
+		if got := codesWithSeverity(noKind); len(got) != 1 || got[parse.CodeMissingKind] != parse.SeverityNote {
+			t.Errorf("no kind: %+v", noKind)
+		}
+	})
+
+	t.Run("A node with complete frontmatter but no id is a warning", func(t *testing.T) {
+		_, d := parse.ParseNode("full.md", []byte("---\nkind: ticket\ntitle: T\nparent: \"\"\n---\nbody\n"))
+		if got := codesWithSeverity(d); len(got) != 1 || got[parse.CodeMissingID] != parse.SeverityWarning {
+			t.Errorf("diagnostics = %+v", d)
+		}
+		_, ok := parse.ParseNode("ok.md", []byte("---\nid: 01HZ3K8Q5W2X9N4T7V6B1C0D3F\nkind: ticket\ntitle: T\nparent: \"\"\n---\n"))
+		if len(ok) != 0 {
+			t.Errorf("diagnostics = %+v", ok)
+		}
+	})
+
+	t.Run("A heading title keeps literal characters exactly as written", func(t *testing.T) {
+		const heading = "snake_case <tag> & a < b *x* &amp; `code`"
+		n, _ := parse.ParseNode("note.md", []byte("# "+heading+"\ntext\n"))
+		if n.Title != heading {
+			t.Errorf("title = %q", n.Title)
+		}
+		deep, _ := parse.ParseNode("note.md", []byte("intro\n\n### a_b <c>\n"))
+		if deep.Title != "a_b <c>" {
+			t.Errorf("title = %q", deep.Title)
+		}
+	})
+}
+
+func TestNode_FrontmatterLinks(t *testing.T) {
+	t.Run("A wikilink in a frontmatter string value is a link", func(t *testing.T) {
+		src := "---\nid: 01HZ3K8Q5W2X9N4T7V6B1C0D3F\ntitle: T\nrelated: \"[[a-111]]\"\nrefs:\n  - \"see [[b-222|label]] and `[[in-code-333]]`\"\nnote: |\n  first\n  [[c-444#part]]\ncount: 3\n---\nbody [[a-111]] and [[d-555]]\n"
+		n, _ := parse.ParseNode("n.md", []byte(src))
+		got := []string{}
+		for _, l := range n.Links {
+			got = append(got, l.Target+":"+strconv.Itoa(l.Line))
+		}
+		want := []string{"a-111:4", "b-222:6", "c-444:9", "d-555:12"}
+		if strings.Join(got, ",") != strings.Join(want, ",") {
+			t.Errorf("links = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("Frontmatter links ignore keys, non-strings and broken frontmatter", func(t *testing.T) {
+		n, _ := parse.ParseNode("n.md", []byte("---\n\"[[key-111]]\": 1\nlist: [1, true]\n---\nbody\n"))
+		if len(n.Links) != 0 {
+			t.Errorf("links = %+v", n.Links)
+		}
+		bad, _ := parse.ParseNode("n.md", []byte("---\nx: \"[[a-111]]\"\ny: [oops\n---\nbody\n"))
+		if len(bad.Links) != 0 {
+			t.Errorf("links = %+v", bad.Links)
 		}
 	})
 }

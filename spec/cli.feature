@@ -170,6 +170,13 @@ Feature: Command line
       Then warnings and errors are listed with file, line, and a short fix hint
       And the exit code is 0 when there are no errors, and 1 when errors exist
 
+    Scenario: Notes alone do not fail the check
+      Given only files with no frontmatter or partial frontmatter
+      When a user runs `tkt check`
+      Then each missing id or kind is listed as a note
+      And the exit code is 0
+      And `tkt check --json` shows "note" as the severity of each
+
     Scenario: Check output as JSON
       When an agent runs `tkt check --json`
       Then each problem is an object with "severity", "code", "path", "line", and "message"
@@ -184,6 +191,18 @@ Feature: Command line
       When a user runs `tkt fmt` twice
       Then the second run changes nothing
       And a file whose frontmatter is malformed is reported as skipped and left untouched
+
+    Scenario: Formatting keeps the values, styles and comments of fields it does not own
+      Given a node with a date "2024-01-05", quoted strings, a block scalar, a list, and a YAML comment
+      When a user runs `tkt fmt`
+      Then only the id, kind, title, and parent keys are added or moved to the top
+      And every other field keeps its text, its quoting style, and its comments
+
+    Scenario: A file whose values would change is skipped and left untouched
+      Given a file whose reformatted frontmatter would parse to different field values or a different body
+      When a user runs `tkt fmt`
+      Then the file is reported as skipped
+      And the file is unchanged
 
     Scenario: Teaching agents the workflow
       When a user runs `tkt init-agent`
