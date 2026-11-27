@@ -33,7 +33,7 @@ linters:
     custom:
       commentlint:
         type: module
-        description: "comments must be docblocks, directives, or start with why:"
+        description: "comments must be directives, start with why:, or be name-first docblocks on exported declarations of public packages"
 formatters:
   enable:
     - gofumpt

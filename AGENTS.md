@@ -26,7 +26,7 @@ Go tests plus golden files under `testdata/`. Every test names the spec scenario
 
 ## Comments
 
-Only three kinds are allowed: docblocks on declarations, tool directives, and comments starting with `why:` that explain a non-obvious decision. Everything else is rejected by commentlint.
+Only three kinds are allowed: tool directives, comments starting with `why:` that explain a non-obvious decision, and docblocks that start with the declared name on exported declarations in public packages (`parse`). Docblocks are rejected in `internal/`, in tests and on unexported names. Everything else is rejected by commentlint.
 
 ## Commits and PRs
 

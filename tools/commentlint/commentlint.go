@@ -32,47 +32,81 @@ func (plugin) GetLoadMode() string {
 
 var Analyzer = &analysis.Analyzer{
 	Name: "commentlint",
-	Doc:  "reports comments that are not docblocks, tool directives, or marked with why:",
+	Doc:  "reports comments that are not directives, why: comments, or name-first docblocks on exported declarations of public packages",
 	Run:  run,
 }
 
 func run(pass *analysis.Pass) (any, error) {
+	public := !isInternal(pass.Pkg.Path())
 	for _, file := range pass.Files {
-		docs := docGroups(file)
+		docs := map[*ast.CommentGroup]bool{}
+		if public && !strings.HasSuffix(pass.Fset.File(file.Pos()).Name(), "_test.go") {
+			docs = docGroups(file)
+		}
 		for _, group := range file.Comments {
 			if docs[group] || allowed(group) {
 				continue
 			}
-			pass.Reportf(group.Pos(), "comment must be a docblock, a tool directive, or start with %q", reasonPrefix)
+			pass.Reportf(group.Pos(), "comment must be a directive, start with %q, or be a docblock on an exported declaration of a public package that starts with its name", reasonPrefix)
 		}
 	}
 	return nil, nil
 }
 
+func isInternal(path string) bool {
+	return path == "internal" || strings.HasPrefix(path, "internal/") ||
+		strings.HasSuffix(path, "/internal") || strings.Contains(path, "/internal/")
+}
+
 func docGroups(file *ast.File) map[*ast.CommentGroup]bool {
 	docs := map[*ast.CommentGroup]bool{}
-	add := func(g *ast.CommentGroup) {
-		if g != nil {
-			docs[g] = true
+	add := func(g *ast.CommentGroup, names ...*ast.Ident) {
+		if g == nil {
+			return
+		}
+		first := firstWord(g)
+		for _, n := range names {
+			if n != nil && n.IsExported() && n.Name == first {
+				docs[g] = true
+			}
 		}
 	}
-	add(file.Doc)
+	if file.Doc != nil && firstWord(file.Doc) == "Package" {
+		docs[file.Doc] = true
+	}
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch d := n.(type) {
 		case *ast.GenDecl:
-			add(d.Doc)
+			var names []*ast.Ident
+			for _, spec := range d.Specs {
+				switch sp := spec.(type) {
+				case *ast.TypeSpec:
+					names = append(names, sp.Name)
+				case *ast.ValueSpec:
+					names = append(names, sp.Names...)
+				}
+			}
+			add(d.Doc, names...)
 		case *ast.FuncDecl:
-			add(d.Doc)
+			add(d.Doc, d.Name)
 		case *ast.TypeSpec:
-			add(d.Doc)
+			add(d.Doc, d.Name)
 		case *ast.ValueSpec:
-			add(d.Doc)
+			add(d.Doc, d.Names...)
 		case *ast.Field:
-			add(d.Doc)
+			add(d.Doc, d.Names...)
 		}
 		return true
 	})
 	return docs
+}
+
+func firstWord(g *ast.CommentGroup) string {
+	words := strings.Fields(g.Text())
+	if len(words) == 0 {
+		return ""
+	}
+	return words[0]
 }
 
 func allowed(group *ast.CommentGroup) bool {

@@ -14,6 +14,12 @@ type Thing struct {
 //go:noinline
 func Directive() {}
 
+// helper is unexported so its docblock is rejected. // want `comment must be`
+func helper() {}
+
+// Mismatched does not start with its own name. // want `comment must be`
+func Other() {}
+
 func Body() {
 	// want `comment must be`
 	x := 1
