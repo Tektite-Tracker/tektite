@@ -1,0 +1,196 @@
+Feature: Nodes
+  A node is a markdown file in .tektite/nodes/. It is the unit of work, knowledge,
+  or proof. Specs, plans, tickets, gaps, and evidence are all nodes distinguished by kind.
+  The parser is lenient: any markdown file is a valid node, and problems are reported
+  by `tkt check` instead of blocking reads.
+
+  Background:
+    Given a repository with a .tektite/ directory
+
+  Rule: A node file carries minimal, stable frontmatter
+
+    Scenario: Parsing a complete node
+      Given the file .tektite/nodes/auth-retry-3fa.md contains
+        """
+        ---
+        id: 01HZ3K8Q5W2X9N4T7V6B1C0D3F
+        kind: ticket
+        title: Add retry on 429
+        parent: auth-hardening-7c1
+        ---
+        The client should back off and retry when the API returns 429.
+        """
+      When the node is parsed
+      Then its id is "01HZ3K8Q5W2X9N4T7V6B1C0D3F"
+      And its kind is "ticket"
+      And its title is "Add retry on 429"
+      And its parent is "auth-hardening-7c1"
+      And its body is "The client should back off and retry when the API returns 429."
+
+    Scenario: Optional fields are preserved but not required
+      Given a node with frontmatter fields "id", "kind", "title", "parent", "labels", and "priority"
+      When the node is parsed
+      Then "labels" and "priority" are available as optional fields
+      And a node without them is equally valid
+
+    Scenario: A root node has no parent
+      Given a node whose frontmatter has an empty "parent"
+      When the node is parsed
+      Then the node is a root of the tree
+      And `tkt check` reports no warning for the missing parent
+
+  Rule: Identity is the id, never the path or title
+
+    Scenario: Renaming a title does not change identity or the file name
+      Given a node "add-retry-on-429-3fa" with title "Add retry on 429"
+      When the title is changed to "Add backoff on 429"
+      Then the file is still named "add-retry-on-429-3fa.md"
+      And its reference is still "add-retry-on-429-3fa"
+      And `tkt show` displays the new title
+      And no file is renamed by `tkt fmt` or any other command
+
+    Scenario: The slug is derived from the title plus a short hash of the id
+      Given a node titled "Add retry on 429" with id "01HZ3K8Q5W2X9N4T7V6B1C0D3F"
+      When the node is created with `tkt new`
+      Then its reference has the form "add-retry-on-429-<hash>"
+      And the file is named after that reference with a .md extension
+      And the slug part is fixed at creation and never regenerated
+
+    Scenario: The hash is at least three characters and unique at creation
+      Given an existing node whose hash is "3fa"
+      When a new node would also get the hash "3fa"
+      Then the new node's hash is lengthened until it is unique
+
+    Scenario: A reference resolves by its hash suffix even if the slug part is stale
+      Given a node "add-retry-on-429-3fa"
+      When another node links to "retry-ticket-3fa"
+      Then the link resolves to "add-retry-on-429-3fa"
+      And `tkt check` notes that the slug part differs from the file name
+
+    Scenario: A reference resolves by unique hash suffix
+      Given nodes "auth-retry-3fa" and "auth-hardening-7c1"
+      When a user runs `tkt show 3fa`
+      Then the node "auth-retry-3fa" is shown
+
+    Scenario: An ambiguous reference is rejected
+      Given two nodes whose references end in the same hash prefix
+      When a user runs `tkt show` with that prefix
+      Then the command exits with code 2
+      And the output lists the matching nodes
+
+  Rule: Hierarchy lives in frontmatter, with unlimited depth
+
+    Scenario: Nodes nest to any depth
+      Given a spec, a plan whose parent is the spec, a ticket whose parent is the plan,
+        and a sub-ticket whose parent is the ticket
+      When the tree is built
+      Then the sub-ticket's ancestors are the ticket, the plan, and the spec, in that order
+
+    Scenario: Moving a node changes one line
+      Given a ticket with parent "auth-hardening-7c1"
+      When the ticket is moved under "session-rework-2ab"
+      Then only the "parent" line in its frontmatter changes
+      And no file is renamed
+
+    Scenario: A cycle in parents is reported and not followed
+      Given node A whose parent is B, and node B whose parent is A
+      When the tree is built
+      Then `tkt check` reports a cycle warning naming both nodes
+      And reads of A and B still succeed
+
+  Rule: Kind is an open string
+
+    Scenario: Built-in kinds have default rules
+      Given nodes of kind "spec", "plan", "ticket", "gap", "evidence", and "decision"
+      When the nodes are parsed
+      Then each kind is recognised with its default lifecycle and rendering
+
+    Scenario: An unknown kind is accepted
+      Given a node with kind "retro"
+      When the node is parsed
+      Then the node is valid
+      And `tkt check` reports no error for the kind
+
+    Scenario: A schema in .tektite/ can constrain a kind
+      Given a schema for kind "ticket" that requires "estimate"
+      And a ticket without "estimate"
+      When `tkt check` runs
+      Then a warning names the node and the missing field
+
+  Rule: The parser repairs instead of failing
+
+    Scenario: A file with no frontmatter is a valid node
+      Given a markdown file in .tektite/nodes/ with no frontmatter
+      When the node is parsed
+      Then its kind defaults to "note"
+      And its title is taken from the first heading, or the filename if there is none
+      And `tkt check` reports that an id is missing
+
+    Scenario: A missing id is assigned by tkt fmt
+      Given a node with no id
+      When a user runs `tkt fmt`
+      Then a new ULID is written into its frontmatter
+      And the body is unchanged
+
+    Scenario: Malformed frontmatter does not block reads
+      Given a node whose frontmatter is not valid YAML
+      When the node is parsed
+      Then the whole file is treated as body
+      And `tkt check` reports the YAML error with a line number
+
+    Scenario: Duplicate ids are reported and both nodes stay readable
+      Given two files that declare the same id
+      When `tkt check` runs
+      Then an error names both files
+      And `tkt ls` still lists both
+
+    Scenario: Unknown frontmatter fields are preserved
+      Given a node with a field "reviewed_by" that tektite does not know
+      When `tkt fmt` runs
+      Then the field is kept unchanged
+
+  Rule: Bodies are plain markdown with addressable blocks
+
+    Scenario: A checklist item can carry a stable block id
+      Given a node body containing
+        """
+        - [ ] <!-- g:01HZ3KB2 --> missing retry on 429
+        """
+      When the node is parsed
+      Then a block with id "01HZ3KB2" exists with text "missing retry on 429"
+      And the block is unchecked
+
+    Scenario: Blocks without ids are still parsed
+      Given a node body containing "- [ ] handle timeouts"
+      When the node is parsed
+      Then the block exists with no id
+      And `tkt fmt` offers to assign it one
+
+    Scenario: A hand-written GAPS.md list is treated like gap blocks
+      Given a node body with a section "## Gaps" containing checklist items
+      When the node is parsed
+      Then each item is available as a gap block
+
+    Scenario: Wikilinks in prose are recognised as links
+      Given a node body containing "see [[auth-retry-3fa]] for the retry logic"
+      When the node is parsed
+      Then the node has a link to "auth-retry-3fa"
+
+    Scenario: A broken wikilink is a warning, not an error
+      Given a node body containing "[[does-not-exist-000]]"
+      When `tkt check` runs
+      Then a warning names the node and the unresolved reference
+      And reads of the node still succeed
+
+  Rule: Volatile state is not stored in the node file
+
+    Scenario: Status is derived from events
+      Given a node with no status field and an event "set-status: done"
+      When the node's state is computed
+      Then its status is "done"
+
+    Scenario: A status field in frontmatter is ignored with a warning
+      Given a node whose frontmatter contains "status: done" and no matching event
+      When `tkt check` runs
+      Then a warning says status belongs in events
+      And the computed status is "open"
