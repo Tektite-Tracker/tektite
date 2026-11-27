@@ -57,7 +57,7 @@ Feature: Context bundles
       And a marker says the body was truncated
 
     Scenario: The default budget comes from configuration
-      Given a default budget of 8000 in .tektite/config
+      Given "context_budget: 8000" in .tektite/config
       When an agent runs `tkt context auth-retry-3fa` without a flag
       Then the budget is 8000
 
@@ -93,8 +93,9 @@ Feature: Context bundles
 
     Scenario: Token counts are estimates
       When the bundle is built
-      Then sizes are estimated by a documented approximation
-      And the budget is a soft limit within a small tolerance
+      Then sizes are estimated as the byte length divided by 4, rounded up
+      And the budget is a soft limit that only the node itself can exceed, by its truncation marker
+      And without a flag or a configured value the budget is 8000
 
     Scenario: Unknown nodes fail clearly
       When an agent runs `tkt context ghost-000`

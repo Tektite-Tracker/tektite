@@ -22,6 +22,7 @@ func main() {
 		getenv:      os.Getenv,
 		interactive: interactive(os.Stdin, os.Stdout),
 		gitUser:     gitUserName(cwd),
+		gitHead:     gitHead(cwd),
 	}))
 }
 
