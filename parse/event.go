@@ -67,6 +67,10 @@ func ParseEvent(name string, src []byte) (*Event, []Diagnostic) {
 		return e, diags
 	}
 
+	duplicateKeyDiags(fm, &diags)
+	if !IsULID(e.ID) {
+		diags = append(diags, diag(CodeEventNameNotULID, fmt.Sprintf("event file name %q is not a ULID, ordering falls back to at", e.ID), 0, ""))
+	}
 	e.Type = stringField(fm, "type", &diags)
 	e.Actor = stringField(fm, "actor", &diags)
 	if e.Type == "" {
