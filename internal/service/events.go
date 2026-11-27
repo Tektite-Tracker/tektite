@@ -110,7 +110,7 @@ type ReviseInput struct {
 
 type Revised struct {
 	*Appended
-	Number int
+	Number int `json:"number"`
 }
 
 func (s *Service) Revise(in ReviseInput) (*Revised, error) {

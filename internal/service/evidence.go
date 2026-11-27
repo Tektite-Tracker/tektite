@@ -30,14 +30,14 @@ type AttachInput struct {
 }
 
 type Attached struct {
-	Evidence string
-	Blob     string
-	Hash     string
-	Stored   bool
-	Parent   string
-	Event    string
-	Commit   string
-	Warnings []parse.Diagnostic
+	Evidence string             `json:"evidence"`
+	Blob     string             `json:"blob"`
+	Hash     string             `json:"hash"`
+	Stored   bool               `json:"stored"`
+	Parent   string             `json:"parent"`
+	Event    string             `json:"event"`
+	Commit   string             `json:"commit"`
+	Warnings []parse.Diagnostic `json:"warnings"`
 }
 
 type blob struct {

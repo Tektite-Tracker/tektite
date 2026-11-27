@@ -15,13 +15,13 @@ func (a *app) checkCmd() *cobra.Command {
 		Short: "Report problems in the repository",
 		Args:  exactArgs(0),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			r, err := a.repo()
+			svc, err := a.svc()
 			if err != nil {
 				return err
 			}
-			rep, err := check.RunWith(r, check.Options{Stale: stale, Log: a.gitLog})
+			rep, err := svc.Check(stale)
 			if err != nil {
-				return fmt.Errorf("check: %w", err)
+				return err
 			}
 			if err := a.emit(rep, func() { a.printReport(rep) }); err != nil {
 				return err

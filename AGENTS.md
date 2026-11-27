@@ -8,6 +8,7 @@ Guide for anyone, human or agent, changing this repo. See README.md for what tek
 - `internal/node`, `internal/event`, `internal/store`, `internal/check`: node model, event folding, on-disk store, policy checks. I/O belongs here, never in `parse`.
 - `internal/view`: read models (`show`, `ls`, `next`) shared by the CLI and later by the MCP server and UI. `cmd/tkt` only parses flags and prints; put logic a second front end would need in `internal/`.
 - `internal/service`: the write side (`set-status`, `claim`, `approve`, `revise`, `attach-evidence`, `new`, `link`, `note`). Typed inputs and results, structured `parse.Diagnostic` warnings, `*service.Error` with a kind that the CLI maps to an exit code. Shared by the CLI and the MCP server.
+- `internal/mcp`: the MCP server (`tkt mcp`), a dependency-free JSON-RPC 2.0 server over stdio. Each tool calls `internal/service`, never the CLI. Running commands is off unless `--allow-run` is passed.
 - `cmd/tkt`: the CLI entry point.
 - `spec/`: Gherkin feature files, the source of truth for behaviour.
 - `testdata/`: golden fixtures.
