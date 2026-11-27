@@ -37,7 +37,7 @@ Feature: Links
 
   Rule: Wikilinks in prose are untyped links
 
-    Scenario: A wikilink is a "mentions" link
+    Scenario: A wikilink is a mentions link
       Given a body containing "see [[auth-retry-3fa]]"
       When the node is parsed
       Then it has a "mentions" link to "auth-retry-3fa"
