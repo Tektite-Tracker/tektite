@@ -168,6 +168,30 @@ Feature: Command line
       Then the chosen node is claimed in the same command
       And a race with another agent is reported with code 4
 
+  Rule: Claims are visible and tunable
+
+    Scenario: A claim can set its own ttl
+      When agent "agent:a" runs `tkt claim auth-retry-3fa --ttl 10m`
+      Then the claim event has a ttl of 10 minutes
+      And an invalid ttl exits with code 2
+
+    Scenario: Show and ls display the current claim
+      Given the ticket is claimed by "agent:a" with a live lease
+      When a user runs `tkt show auth-retry-3fa` or `tkt ls`
+      Then the holder and the lease expiry are listed
+      And `--json` has a "claim" object with "holder", "expires_at" and "live"
+
+    Scenario: Next ranks by the priority field then by age
+      Given tickets with priority "low", "high" and a number 5
+      When an agent runs `tkt next --limit 3 --json`
+      Then they are listed by descending priority, where critical, high, medium and low rank 4 to 1
+      And equal priorities are ordered by oldest id first
+
+    Scenario: An expired claim does not hide a node from next
+      Given a ticket whose only claim has expired
+      When an agent runs `tkt next`
+      Then the ticket is returned
+
   Rule: Writing is explicit about git
 
     Scenario: Commits are manual by default

@@ -19,6 +19,7 @@ const (
 	CodeEventNameNotULID     = "TKT-W008"
 	CodeUnknownStatus        = "TKT-W009"
 	CodeDuplicateEventID     = "TKT-W010"
+	CodeInvalidTTL           = "TKT-W011"
 	CodeMalformedFrontmatter = "TKT-E001"
 	CodeUnterminatedFrontmtr = "TKT-E002"
 	CodeMissingEventType     = "TKT-E003"
@@ -27,6 +28,8 @@ const (
 	CodeUnknownEventType     = "TKT-N001"
 	CodeEventSkipped         = "TKT-N002"
 	CodeConcurrentStatus     = "TKT-N003"
+	CodeClaimConflict        = "TKT-N004"
+	CodeIgnoredLeaseEvent    = "TKT-N005"
 )
 
 type Diagnostic struct {

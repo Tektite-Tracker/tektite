@@ -10,13 +10,14 @@ import (
 )
 
 type lsItem struct {
-	Ref    string `json:"ref"`
-	ID     string `json:"id"`
-	Kind   string `json:"kind"`
-	Title  string `json:"title"`
-	Parent string `json:"parent"`
-	Status string `json:"status"`
-	Path   string `json:"path"`
+	Ref    string     `json:"ref"`
+	ID     string     `json:"id"`
+	Kind   string     `json:"kind"`
+	Title  string     `json:"title"`
+	Parent string     `json:"parent"`
+	Status string     `json:"status"`
+	Claim  *claimItem `json:"claim"`
+	Path   string     `json:"path"`
 }
 
 func (a *app) lsCmd() *cobra.Command {
@@ -57,14 +58,18 @@ func (a *app) lsCmd() *cobra.Command {
 				if parent == "" {
 					parent = nf.Node.Parent
 				}
-				items = append(items, lsItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: parent, Status: st.Status, Path: nf.Path})
+				items = append(items, lsItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: parent, Status: st.Status, Claim: claimOf(st, a.now()), Path: nf.Path})
 			}
 			if a.json {
 				return a.writeJSON(items)
 			}
 			w := tabwriter.NewWriter(a.out, 0, 4, 2, ' ', 0)
 			for _, it := range items {
-				a.printf(w, "%s\t%s\t%s\t%s\n", it.Ref, it.Kind, it.Status, it.Title)
+				holder := "-"
+				if it.Claim != nil && it.Claim.Live {
+					holder = it.Claim.Holder
+				}
+				a.printf(w, "%s\t%s\t%s\t%s\t%s\n", it.Ref, it.Kind, it.Status, holder, it.Title)
 			}
 			if err := w.Flush(); err != nil {
 				return fmt.Errorf("write list: %w", err)
