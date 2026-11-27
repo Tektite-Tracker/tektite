@@ -49,13 +49,9 @@ func (a *app) contextCmd() *cobra.Command {
 			if cmd.Flags().Changed("budget") && budget < 1 {
 				return usage("--budget must be at least 1")
 			}
-			r, err := a.repo()
+			r, snap, err := a.load()
 			if err != nil {
 				return err
-			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
 			}
 			nf, err := snap.Resolve(args[0])
 			if err != nil {

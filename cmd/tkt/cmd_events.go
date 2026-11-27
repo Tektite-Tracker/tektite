@@ -54,13 +54,9 @@ func gitUserName(dir string) func() string {
 type precheck func(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error)
 
 func (a *app) writeEvent(actorFlag, query string, d *event.Draft, check precheck) (*appended, error) {
-	r, err := a.repo()
+	r, snap, err := a.load()
 	if err != nil {
 		return nil, err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load repository: %w", err)
 	}
 	nf, err := snap.Resolve(query)
 	if err != nil {

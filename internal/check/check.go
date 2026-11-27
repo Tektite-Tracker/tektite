@@ -342,7 +342,7 @@ func (c *run) events(nf *store.NodeFile) event.State {
 			c.addDiag(f.Path, d)
 		}
 	}
-	st := event.Fold(c.snap.EventsOf(nf.Ref), event.Options{})
+	st := c.snap.State(nf.Ref)
 	for _, d := range st.Diagnostics {
 		if d.Code != parse.CodeEventSkipped {
 			c.addDiag(nf.Path, d)

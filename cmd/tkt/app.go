@@ -169,6 +169,18 @@ func (a *app) repo() (*store.Repo, error) {
 	return r, nil
 }
 
+func (a *app) load() (*store.Repo, *store.Snapshot, error) {
+	r, err := a.repo()
+	if err != nil {
+		return nil, nil, err
+	}
+	snap, err := r.Load()
+	if err != nil {
+		return nil, nil, fmt.Errorf("load repository: %w", err)
+	}
+	return r, snap, nil
+}
+
 func (a *app) newRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "tkt",

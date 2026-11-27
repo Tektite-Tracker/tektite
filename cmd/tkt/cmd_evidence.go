@@ -71,13 +71,9 @@ func (a *app) attachEvidenceCmd() *cobra.Command {
 }
 
 func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, actorFlag string, allowLarge bool) error {
-	r, err := a.repo()
+	r, snap, err := a.load()
 	if err != nil {
 		return err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return fmt.Errorf("load repository: %w", err)
 	}
 	target, err := snap.Resolve(query)
 	if err != nil {

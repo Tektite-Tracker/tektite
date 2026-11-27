@@ -290,7 +290,7 @@ func sized(e Entry) Entry {
 }
 
 func currentBody(snap *store.Snapshot, nf *store.NodeFile) (string, int) {
-	st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
+	st := snap.State(nf.Ref)
 	if st.Revision > 0 {
 		return st.Body, st.Revision
 	}

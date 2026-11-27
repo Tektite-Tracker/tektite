@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/store"
 	"github.com/tektite-tracker/tektite/parse"
 )
@@ -87,13 +86,9 @@ func (a *app) showCmd() *cobra.Command {
 		Short: "Show a node with its state",
 		Args:  exactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			r, err := a.repo()
+			_, snap, err := a.load()
 			if err != nil {
 				return err
-			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
 			}
 			nf, err := snap.Resolve(args[0])
 			if err != nil {
@@ -110,7 +105,7 @@ func (a *app) showCmd() *cobra.Command {
 }
 
 func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc {
-	st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
+	st := snap.State(nf.Ref)
 	ancestors, _ := snap.Tree.Ancestors(nf.Ref)
 	children := snap.Tree.Children[nf.Ref]
 	if children == nil {

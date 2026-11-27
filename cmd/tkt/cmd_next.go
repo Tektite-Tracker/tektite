@@ -2,7 +2,6 @@ package main
 
 import (
 	"cmp"
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -51,7 +50,7 @@ func priorityOf(v any) float64 {
 func (a *app) eligible(snap *store.Snapshot, kind string) []*store.NodeFile {
 	states := map[string]event.State{}
 	for _, nf := range snap.Nodes {
-		states[nf.Ref] = a.held(snap, nf.Ref)
+		states[nf.Ref] = snap.State(nf.Ref)
 	}
 	blocked := snap.BuildGraph().Blockers
 	out := []*store.NodeFile{}
@@ -96,13 +95,9 @@ func (a *app) nextCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r, err := a.repo()
+			_, snap, err := a.load()
 			if err != nil {
 				return err
-			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
 			}
 			list := a.eligible(snap, kind)
 			p, warnings, err := a.loadPolicy()

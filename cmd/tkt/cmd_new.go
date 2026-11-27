@@ -70,13 +70,9 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 	if err != nil {
 		return err
 	}
-	r, err := a.repo()
+	r, snap, err := a.load()
 	if err != nil {
 		return err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return fmt.Errorf("load repository: %w", err)
 	}
 	schemas, err := r.LoadSchemas()
 	if err != nil {

@@ -5,8 +5,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-
-	"github.com/tektite-tracker/tektite/internal/event"
 )
 
 type lsItem struct {
@@ -28,13 +26,9 @@ func (a *app) lsCmd() *cobra.Command {
 		Short: "List nodes",
 		Args:  exactArgs(0),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			r, err := a.repo()
+			_, snap, err := a.load()
 			if err != nil {
 				return err
-			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
 			}
 			scope := map[string]bool{}
 			if under != "" {
@@ -49,7 +43,7 @@ func (a *app) lsCmd() *cobra.Command {
 			graph := snap.BuildGraph()
 			items := []lsItem{}
 			for _, nf := range snap.Nodes {
-				st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
+				st := snap.State(nf.Ref)
 				switch {
 				case kind != "" && nf.Node.Kind != kind,
 					status != "" && st.Status != status,

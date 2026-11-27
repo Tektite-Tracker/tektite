@@ -50,7 +50,7 @@ func (a *app) reviseCmd() *cobra.Command {
 			d := &event.Draft{Type: parse.EventRevision, Body: body}
 			number := 0
 			check := func(snap *store.Snapshot, nf *store.NodeFile, _ string) ([]string, error) {
-				number = a.held(snap, nf.Ref).NextRevision()
+				number = snap.State(nf.Ref).NextRevision()
 				d.Fields = []node.Field{{Key: "number", Value: number}}
 				return nil, nil
 			}
@@ -98,7 +98,7 @@ func (a *app) revisionsCmd() *cobra.Command {
 		Short: "List the revisions of a plan",
 		Args:  exactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			_, st, nf, err := a.loadState(args[0])
+			st, nf, err := a.loadState("revisions", args[0])
 			if err != nil {
 				return err
 			}
@@ -144,7 +144,7 @@ func (a *app) diffCmd() *cobra.Command {
 		Short: "Show a unified diff between two revisions of a plan",
 		Args:  exactArgs(3),
 		RunE: func(_ *cobra.Command, args []string) error {
-			_, st, nf, err := a.loadState(args[0])
+			st, nf, err := a.loadState("diff", args[0])
 			if err != nil {
 				return err
 			}
@@ -170,18 +170,14 @@ func (a *app) diffCmd() *cobra.Command {
 	}
 }
 
-func (a *app) loadState(query string) (*store.Snapshot, event.State, *store.NodeFile, error) {
-	r, err := a.repo()
+func (a *app) loadState(verb, query string) (event.State, *store.NodeFile, error) {
+	_, snap, err := a.load()
 	if err != nil {
-		return nil, event.State{}, nil, err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return nil, event.State{}, nil, fmt.Errorf("load repository: %w", err)
+		return event.State{}, nil, err
 	}
 	nf, err := snap.Resolve(query)
 	if err != nil {
-		return nil, event.State{}, nil, fmt.Errorf("revisions: %w", err)
+		return event.State{}, nil, fmt.Errorf("%s: %w", verb, err)
 	}
-	return snap, a.held(snap, nf.Ref), nf, nil
+	return snap.State(nf.Ref), nf, nil
 }

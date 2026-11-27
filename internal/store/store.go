@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/parse"
 )
@@ -259,6 +260,10 @@ func (s *Snapshot) DuplicateIDs() map[string][]string {
 		}
 	}
 	return byID
+}
+
+func (s *Snapshot) State(ref string) event.State {
+	return event.Fold(s.EventsOf(ref), event.Options{})
 }
 
 func (s *Snapshot) EventsOf(ref string) []*parse.Event {

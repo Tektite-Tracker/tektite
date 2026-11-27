@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -25,10 +24,6 @@ func claimOf(st event.State, now time.Time) *claimItem {
 	return &claimItem{Holder: st.Lease.Holder, ExpiresAt: parse.FormatTime(st.Lease.Expires), Live: st.Lease.LiveAt(now)}
 }
 
-func (a *app) held(snap *store.Snapshot, ref string) event.State {
-	return event.Fold(snap.EventsOf(ref), event.Options{})
-}
-
 func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int) (*appended, error) {
 	d := &event.Draft{Type: parse.EventClaim, Fields: []node.Field{{Key: "ttl", Value: ttl.String()}}}
 	if revision > 0 {
@@ -39,7 +34,7 @@ func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int
 		if err != nil {
 			return nil, err
 		}
-		l := a.held(snap, nf.Ref).Lease
+		l := snap.State(nf.Ref).Lease
 		if l.LiveAt(a.now()) && l.Holder != actor {
 			return nil, fail(exitConflict, "wait for the lease to expire or pick another node with `tkt next`",
 				"%s is claimed by %s until %s", nf.Ref, l.Holder, parse.FormatTime(l.Expires))
@@ -50,15 +45,11 @@ func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int
 	if err != nil {
 		return nil, err
 	}
-	r, err := a.repo()
+	_, snap, err := a.load()
 	if err != nil {
 		return nil, err
 	}
-	snap, err := r.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load repository: %w", err)
-	}
-	if l := a.held(snap, res.Ref).Lease; l == nil || l.Holder != res.Actor {
+	if l := snap.State(res.Ref).Lease; l == nil || l.Holder != res.Actor {
 		holder := "another actor"
 		if l != nil {
 			holder = l.Holder
@@ -112,7 +103,7 @@ func (a *app) leaseCmd(typ, short string, needLive bool) *cobra.Command {
 		Args:  exactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			check := func(snap *store.Snapshot, nf *store.NodeFile, who string) ([]string, error) {
-				l := a.held(snap, nf.Ref).Lease
+				l := snap.State(nf.Ref).Lease
 				switch {
 				case l == nil:
 					return nil, fail(exitConflict, "claim the node first with `tkt claim`", "%s is not claimed", nf.Ref)

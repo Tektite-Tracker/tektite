@@ -30,7 +30,7 @@ func (s *Snapshot) BuildGraph() *Graph {
 		States:   map[string]event.State{},
 	}
 	for _, nf := range s.Nodes {
-		st := event.Fold(s.EventsOf(nf.Ref), event.Options{})
+		st := s.State(nf.Ref)
 		g.States[nf.Ref] = st
 		g.Out[nf.Ref] = s.foldLinks(nf.Node.Links, st.LinkOps)
 	}

@@ -111,7 +111,7 @@ func (a *app) approveCmd() *cobra.Command {
 				if !event.IsHuman(who) {
 					return nil, &cliError{code: exitPolicy, hint: "run it as a human, for example with --actor human:name", msg: fmt.Sprintf("approve on %s is blocked: only a human can approve, got %q", nf.Ref, who)}
 				}
-				current := a.held(snap, nf.Ref).EffectiveRevision()
+				current := snap.State(nf.Ref).EffectiveRevision()
 				if revision > 0 && revision != current {
 					return nil, usage("%s is at revision %d, so revision %d cannot be approved", nf.Ref, current, revision)
 				}
@@ -154,13 +154,9 @@ func (a *app) policyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r, err := a.repo()
+			_, snap, err := a.load()
 			if err != nil {
 				return err
-			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
 			}
 			nf, err := snap.Resolve(args[0])
 			if err != nil {
