@@ -61,6 +61,7 @@ type Service struct {
 	Rand   io.Reader
 	Getenv func(string) string
 	Git    Git
+	Exec   Executor
 }
 
 type Appended struct {
