@@ -22,6 +22,7 @@ type lsItem struct {
 
 func (a *app) lsCmd() *cobra.Command {
 	var kind, status, under string
+	var all bool
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List nodes",
@@ -45,13 +46,15 @@ func (a *app) lsCmd() *cobra.Command {
 					scope[v.Ref] = true
 				}
 			}
+			graph := snap.BuildGraph()
 			items := []lsItem{}
 			for _, nf := range snap.Nodes {
 				st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
 				switch {
 				case kind != "" && nf.Node.Kind != kind,
 					status != "" && st.Status != status,
-					under != "" && !scope[nf.Ref]:
+					under != "" && !scope[nf.Ref],
+					!all && graph.Superseded(nf.Ref):
 					continue
 				}
 				parent := nf.ParentRef
@@ -80,5 +83,6 @@ func (a *app) lsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&kind, "kind", "", "only nodes of this kind")
 	cmd.Flags().StringVar(&status, "status", "", "only nodes with this status")
 	cmd.Flags().StringVar(&under, "under", "", "only descendants of this node")
+	cmd.Flags().BoolVar(&all, "all", false, "include superseded nodes")
 	return cmd
 }

@@ -109,3 +109,12 @@ func (s *Snapshot) foldLinks(declared []parse.Link, ops []event.LinkOp) []parse.
 	}
 	return res
 }
+
+func (g *Graph) Superseded(ref string) bool {
+	for _, b := range g.In[ref] {
+		if b.Rel == "superseded-by" {
+			return true
+		}
+	}
+	return false
+}

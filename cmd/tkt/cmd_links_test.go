@@ -100,12 +100,39 @@ func TestCLI_Links(t *testing.T) {
 		}
 	})
 
-	t.Run("Mutually blocking nodes are not offered by next", func(t *testing.T) {
+	t.Run("Cyclic blocking is reported", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("ticket-a-3f1", "01HZ3K8Q5W2X9N4T7V6B1C0D01", "ticket", "", "blocks: [ticket-b-3f3]\n", "x")
 		s.node("ticket-b-3f3", "01HZ3K8Q5W2X9N4T7V6B1C0D03", "ticket", "", "blocks: [ticket-a-3f1]\n", "x")
 		if got := s.tkt("next"); got.code != exitNotFound {
 			t.Errorf("next = %+v", got)
+		}
+		out := s.tkt("check")
+		if out.code != 0 || !strings.Contains(out.stdout, "TKT-W112") || !strings.Contains(out.stdout, "ticket-a-3f1 is blocked by ticket-b-3f3 is blocked by ticket-a-3f1") {
+			t.Errorf("check = %+v", out)
+		}
+	})
+
+	t.Run("A superseded node is hidden by default", func(t *testing.T) {
+		s := newSandbox(t)
+		s.node("plan-p1-3f1", "01HZ3K8Q5W2X9N4T7V6B1C0D01", "plan", "", "", "x")
+		s.node("plan-p2-3f2", "01HZ3K8Q5W2X9N4T7V6B1C0D02", "plan", "", "supersedes: [plan-p1-3f1]\n", "x")
+		if got := s.tkt("ls"); strings.Contains(got.stdout, "plan-p1-3f1") || !strings.Contains(got.stdout, "plan-p2-3f2") {
+			t.Errorf("ls = %s", got.stdout)
+		}
+		if got := s.tkt("ls", "--all"); !strings.Contains(got.stdout, "plan-p1-3f1") || !strings.Contains(got.stdout, "plan-p2-3f2") {
+			t.Errorf("ls --all = %s", got.stdout)
+		}
+	})
+
+	t.Run("A superseded node keeps its history", func(t *testing.T) {
+		s := newSandbox(t)
+		s.node("plan-p1-3f1", "01HZ3K8Q5W2X9N4T7V6B1C0D01", "plan", "", "", "x")
+		s.node("plan-p2-3f2", "01HZ3K8Q5W2X9N4T7V6B1C0D02", "plan", "", "supersedes: [plan-p1-3f1]\n", "x")
+		s.event("plan-p1-3f1", "01HZ3M0A1B2C3D4E5F6G7H8J91", "note", "2026-11-27T09:00:00Z", "")
+		got := s.tkt("show", "plan-p1-3f1")
+		if !strings.Contains(got.stdout, "superseded-by: plan-p2-3f2") || !strings.Contains(got.stdout, "note") {
+			t.Errorf("show = %s", got.stdout)
 		}
 	})
 

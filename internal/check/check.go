@@ -24,6 +24,7 @@ const (
 	CodeMissingRequired  = "TKT-W108"
 	CodeDisallowedStatus = "TKT-W109"
 	CodeDisallowedParent = "TKT-W111"
+	CodeBlockCycle       = "TKT-W112"
 	CodeStaleSlug        = "TKT-N101"
 	CodeDroppedBlocker   = "TKT-N102"
 )
@@ -41,6 +42,7 @@ var hints = map[string]string{
 	parse.CodeUnknownStatus:        "use one of open, active, blocked, review, done, dropped",
 	parse.CodeDuplicateEventID:     "rename one of the event files",
 	CodeDuplicateID:                "give one of the nodes a new id",
+	CodeBlockCycle:                 "remove a blocks link from one node in the cycle",
 	CodeDroppedBlocker:             "remove the blocks link or reopen the blocker",
 	CodeBrokenLink:                 "fix the reference or remove the link",
 	CodeSelfLink:                   "remove the link to the node itself",
@@ -100,6 +102,7 @@ func Analyze(snap *store.Snapshot, schemas *store.Schemas) Report {
 	c.schemaProblems()
 	c.duplicateIDs()
 	c.cycles()
+	c.blockCycles()
 	for _, n := range snap.Nodes {
 		c.node(n)
 	}
@@ -173,6 +176,61 @@ func (c *run) cycles() {
 		nf, _ := c.snap.Get(cyc[0])
 		c.add(parse.SeverityWarning, CodeParentCycle, nf.Path, 0, "parent cycle: "+strings.Join(append(append([]string{}, cyc...), cyc[0]), " -> "))
 	}
+}
+
+func (c *run) blockCycles() {
+	refs := c.snap.Refs()
+	sort.Strings(refs)
+	const (
+		visiting = 1
+		finished = 2
+	)
+	color := map[string]int{}
+	seen := map[string]bool{}
+	var stack []string
+	var walk func(string)
+	walk = func(ref string) {
+		color[ref] = visiting
+		stack = append(stack, ref)
+		for _, b := range c.graph.Blockers[ref] {
+			switch color[b] {
+			case 0:
+				walk(b)
+			case visiting:
+				i := len(stack) - 1
+				for stack[i] != b {
+					i--
+				}
+				c.blockCycle(append([]string{}, stack[i:]...), seen)
+			}
+		}
+		stack = stack[:len(stack)-1]
+		color[ref] = finished
+	}
+	for _, ref := range refs {
+		if color[ref] == 0 {
+			walk(ref)
+		}
+	}
+}
+
+func (c *run) blockCycle(cycle []string, seen map[string]bool) {
+	lo := 0
+	for i, r := range cycle {
+		if r < cycle[lo] {
+			lo = i
+		}
+	}
+	cycle = append(append([]string{}, cycle[lo:]...), cycle[:lo]...)
+	key := strings.Join(cycle, ",")
+	if seen[key] {
+		return
+	}
+	seen[key] = true
+	nf, _ := c.snap.Get(cycle[0])
+	chain := append([]string{}, cycle...)
+	chain = append(chain, cycle[0])
+	c.add(parse.SeverityWarning, CodeBlockCycle, nf.Path, 0, "blocking cycle: "+strings.Join(chain, " is blocked by "))
 }
 
 func (c *run) orphans() {
