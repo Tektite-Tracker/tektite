@@ -1,0 +1,22 @@
+{
+  "node": {
+    "id": "",
+    "kind": "note",
+    "title": "loose-idea",
+    "parent": "",
+    "body": "Just a paragraph, no heading anywhere.",
+    "fields": {},
+    "field_order": [],
+    "frontmatter": false,
+    "blocks": [],
+    "links": []
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-W002",
+      "severity": "warning",
+      "message": "node has no id",
+      "field": "id"
+    }
+  ]
+}

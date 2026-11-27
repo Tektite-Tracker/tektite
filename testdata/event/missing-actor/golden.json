@@ -1,0 +1,21 @@
+{
+  "event": {
+    "id": "01HZ3M0A1B2C3D4E5F6G7H8J9K",
+    "type": "release",
+    "actor": "",
+    "at": "2026-11-27T10:30:00Z",
+    "fields": {},
+    "field_order": [],
+    "body": "",
+    "known": true,
+    "valid": true
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-W006",
+      "severity": "warning",
+      "message": "event has no actor",
+      "field": "actor"
+    }
+  ]
+}

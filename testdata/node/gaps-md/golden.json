@@ -1,0 +1,47 @@
+{
+  "node": {
+    "id": "",
+    "kind": "note",
+    "title": "GAPS",
+    "parent": "",
+    "body": "# GAPS\n\nFindings from the last review of the sync layer.\n\n## Gaps\n\n- [ ] merge driver for events not specified\n- [ ] blob size cap has no default\n- [x] actor format undefined\n\n### Resolved later\n\n- [x] ULID source decided",
+    "fields": {},
+    "field_order": [],
+    "frontmatter": false,
+    "blocks": [
+      {
+        "text": "merge driver for events not specified",
+        "checked": false,
+        "gap": true,
+        "line": 7
+      },
+      {
+        "text": "blob size cap has no default",
+        "checked": false,
+        "gap": true,
+        "line": 8
+      },
+      {
+        "text": "actor format undefined",
+        "checked": true,
+        "gap": true,
+        "line": 9
+      },
+      {
+        "text": "ULID source decided",
+        "checked": true,
+        "gap": true,
+        "line": 13
+      }
+    ],
+    "links": []
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-W002",
+      "severity": "warning",
+      "message": "node has no id",
+      "field": "id"
+    }
+  ]
+}

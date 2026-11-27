@@ -1,0 +1,18 @@
+{
+  "event": {
+    "id": "01HZ3M0A1B2C3D4E5F6G7H8J9K",
+    "type": "set-status",
+    "actor": "agent:claude-opus/s-4f2a",
+    "at": "2026-11-27T10:15:00Z",
+    "fields": {
+      "status": "active"
+    },
+    "field_order": [
+      "status"
+    ],
+    "body": "Starting on the retry logic.",
+    "known": true,
+    "valid": true
+  },
+  "diagnostics": []
+}

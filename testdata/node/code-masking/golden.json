@@ -1,0 +1,30 @@
+{
+  "node": {
+    "id": "01HZ3K8Q5W2X9N4T7V6B1C0D4B",
+    "kind": "ticket",
+    "title": "Code",
+    "parent": "",
+    "body": "Inline `[[in-code-000]]` is ignored.\n\n```\n[[in-fence-111]]\n- [ ] not a task\n```\n\nReal [[real-222]].",
+    "fields": {
+      "id": "01HZ3K8Q5W2X9N4T7V6B1C0D4B",
+      "kind": "ticket",
+      "parent": null,
+      "title": "Code"
+    },
+    "field_order": [
+      "id",
+      "kind",
+      "title",
+      "parent"
+    ],
+    "frontmatter": true,
+    "blocks": [],
+    "links": [
+      {
+        "target": "real-222",
+        "line": 14
+      }
+    ]
+  },
+  "diagnostics": []
+}

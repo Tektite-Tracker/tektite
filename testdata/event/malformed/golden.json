@@ -1,0 +1,21 @@
+{
+  "event": {
+    "id": "01HZ3M0A1B2C3D4E5F6G7H8J9K",
+    "type": "",
+    "actor": "",
+    "at": "0001-01-01T00:00:00Z",
+    "fields": {},
+    "field_order": [],
+    "body": "---\ntype: [unclosed\nactor: human:jesus\n---\nbody",
+    "known": false,
+    "valid": false
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-E001",
+      "severity": "error",
+      "message": "invalid YAML in frontmatter: yaml: line 1: did not find expected ',' or ']'",
+      "line": 2
+    }
+  ]
+}

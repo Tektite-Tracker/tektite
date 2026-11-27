@@ -1,0 +1,32 @@
+{
+  "node": {
+    "id": "01HZ3K8Q5W2X9N4T7V6B1C0D46",
+    "kind": "ticket",
+    "title": "Plain checklist",
+    "parent": "",
+    "body": "- [ ] handle timeouts\n- not a task item",
+    "fields": {
+      "id": "01HZ3K8Q5W2X9N4T7V6B1C0D46",
+      "kind": "ticket",
+      "parent": null,
+      "title": "Plain checklist"
+    },
+    "field_order": [
+      "id",
+      "kind",
+      "title",
+      "parent"
+    ],
+    "frontmatter": true,
+    "blocks": [
+      {
+        "text": "handle timeouts",
+        "checked": false,
+        "gap": false,
+        "line": 7
+      }
+    ],
+    "links": []
+  },
+  "diagnostics": []
+}

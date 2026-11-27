@@ -1,0 +1,34 @@
+{
+  "node": {
+    "id": "01HZ3K8Q5W2X9N4T7V6B1C0D4A",
+    "kind": "ticket",
+    "title": "Windows file",
+    "parent": "",
+    "body": "Line one.\n\n- [ ] item \u003c!-- g:ABC12345 --\u003e",
+    "fields": {
+      "id": "01HZ3K8Q5W2X9N4T7V6B1C0D4A",
+      "kind": "ticket",
+      "parent": null,
+      "title": "Windows file"
+    },
+    "field_order": [
+      "id",
+      "kind",
+      "title",
+      "parent"
+    ],
+    "frontmatter": true,
+    "blocks": [
+      {
+        "id": "ABC12345",
+        "marker": "g",
+        "text": "item",
+        "checked": false,
+        "gap": true,
+        "line": 9
+      }
+    ],
+    "links": []
+  },
+  "diagnostics": []
+}

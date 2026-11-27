@@ -1,0 +1,42 @@
+{
+  "node": {
+    "id": "01HZ3K8Q5W2X9N4T7V6B1C0D45",
+    "kind": "ticket",
+    "title": "Gaps with ids",
+    "parent": "",
+    "body": "- [ ] \u003c!-- g:01HZ3KB2 --\u003e missing retry on 429\n- [x] \u003c!-- g:01HZ3KB3 --\u003e jitter added",
+    "fields": {
+      "id": "01HZ3K8Q5W2X9N4T7V6B1C0D45",
+      "kind": "ticket",
+      "parent": null,
+      "title": "Gaps with ids"
+    },
+    "field_order": [
+      "id",
+      "kind",
+      "title",
+      "parent"
+    ],
+    "frontmatter": true,
+    "blocks": [
+      {
+        "id": "01HZ3KB2",
+        "marker": "g",
+        "text": "missing retry on 429",
+        "checked": false,
+        "gap": true,
+        "line": 7
+      },
+      {
+        "id": "01HZ3KB3",
+        "marker": "g",
+        "text": "jitter added",
+        "checked": true,
+        "gap": true,
+        "line": 8
+      }
+    ],
+    "links": []
+  },
+  "diagnostics": []
+}

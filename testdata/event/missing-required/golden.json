@@ -1,0 +1,21 @@
+{
+  "event": {
+    "id": "01HZ3M0A1B2C3D4E5F6G7H8J9K",
+    "type": "claim",
+    "actor": "agent:a",
+    "at": "2026-11-27T10:00:00Z",
+    "fields": {},
+    "field_order": [],
+    "body": "",
+    "known": true,
+    "valid": false
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-E005",
+      "severity": "error",
+      "message": "claim event is missing required field \"ttl\"",
+      "field": "ttl"
+    }
+  ]
+}

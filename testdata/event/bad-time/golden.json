@@ -1,0 +1,21 @@
+{
+  "event": {
+    "id": "01HZ3M0A1B2C3D4E5F6G7H8J9K",
+    "type": "note",
+    "actor": "agent:a",
+    "at": "0001-01-01T00:00:00Z",
+    "fields": {},
+    "field_order": [],
+    "body": "text",
+    "known": true,
+    "valid": false
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-E004",
+      "severity": "error",
+      "message": "at \"yesterday\" is not an RFC 3339 time",
+      "field": "at"
+    }
+  ]
+}

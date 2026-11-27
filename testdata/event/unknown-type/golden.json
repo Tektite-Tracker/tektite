@@ -1,0 +1,25 @@
+{
+  "event": {
+    "id": "01HZ3M0A1B2C3D4E5F6G7H8J9K",
+    "type": "reaction",
+    "actor": "human:jesus",
+    "at": "2026-11-27T10:31:00Z",
+    "fields": {
+      "emoji": "thumbs-up"
+    },
+    "field_order": [
+      "emoji"
+    ],
+    "body": "",
+    "known": false,
+    "valid": true
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-N001",
+      "severity": "note",
+      "message": "unknown event type \"reaction\" is kept in history",
+      "field": "type"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "event": {
+    "id": "01HZ3M0A1B2C3D4E5F6G7H8J9K",
+    "type": "note",
+    "actor": "human:jesus",
+    "at": "2026-11-27T10:20:00Z",
+    "fields": {},
+    "field_order": [],
+    "body": "backoff needs jitter",
+    "known": true,
+    "valid": true
+  },
+  "diagnostics": []
+}

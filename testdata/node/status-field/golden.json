@@ -1,0 +1,34 @@
+{
+  "node": {
+    "id": "01HZ3K8Q5W2X9N4T7V6B1C0D49",
+    "kind": "ticket",
+    "title": "Has status",
+    "parent": "",
+    "body": "Body.",
+    "fields": {
+      "id": "01HZ3K8Q5W2X9N4T7V6B1C0D49",
+      "kind": "ticket",
+      "parent": null,
+      "status": "done",
+      "title": "Has status"
+    },
+    "field_order": [
+      "id",
+      "kind",
+      "title",
+      "parent",
+      "status"
+    ],
+    "frontmatter": true,
+    "blocks": [],
+    "links": []
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-W001",
+      "severity": "warning",
+      "message": "status belongs in events and is ignored in frontmatter",
+      "field": "status"
+    }
+  ]
+}

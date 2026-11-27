@@ -1,0 +1,56 @@
+{
+  "node": {
+    "id": "01HZ3K8Q5W2X9N4T7V6B1C0D47",
+    "kind": "spec",
+    "title": "Spec with gaps",
+    "parent": "",
+    "body": "## Scope\n\n- [ ] ship the parser\n\n## Gaps\n\n- [ ] no handling for expired tokens\n- [x] retry budget undefined\n  - [ ] nested gap item\n\n## Notes\n\n- [ ] unrelated task",
+    "fields": {
+      "id": "01HZ3K8Q5W2X9N4T7V6B1C0D47",
+      "kind": "spec",
+      "parent": null,
+      "title": "Spec with gaps"
+    },
+    "field_order": [
+      "id",
+      "kind",
+      "title",
+      "parent"
+    ],
+    "frontmatter": true,
+    "blocks": [
+      {
+        "text": "ship the parser",
+        "checked": false,
+        "gap": false,
+        "line": 9
+      },
+      {
+        "text": "no handling for expired tokens",
+        "checked": false,
+        "gap": true,
+        "line": 13
+      },
+      {
+        "text": "retry budget undefined",
+        "checked": true,
+        "gap": true,
+        "line": 14
+      },
+      {
+        "text": "nested gap item",
+        "checked": false,
+        "gap": true,
+        "line": 15
+      },
+      {
+        "text": "unrelated task",
+        "checked": false,
+        "gap": false,
+        "line": 19
+      }
+    ],
+    "links": []
+  },
+  "diagnostics": []
+}

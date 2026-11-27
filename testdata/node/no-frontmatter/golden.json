@@ -1,0 +1,22 @@
+{
+  "node": {
+    "id": "",
+    "kind": "note",
+    "title": "Notes on session handling",
+    "parent": "",
+    "body": "# Notes on session handling\n\nSome loose thoughts without any metadata.",
+    "fields": {},
+    "field_order": [],
+    "frontmatter": false,
+    "blocks": [],
+    "links": []
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-W002",
+      "severity": "warning",
+      "message": "node has no id",
+      "field": "id"
+    }
+  ]
+}

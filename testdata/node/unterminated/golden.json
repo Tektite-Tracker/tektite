@@ -1,0 +1,28 @@
+{
+  "node": {
+    "id": "",
+    "kind": "note",
+    "title": "input",
+    "parent": "",
+    "body": "---\nid: 01HZ3K8Q5W2X9N4T7V6B1C0D43\nkind: ticket\n\nNever closed.",
+    "fields": {},
+    "field_order": [],
+    "frontmatter": false,
+    "blocks": [],
+    "links": []
+  },
+  "diagnostics": [
+    {
+      "code": "TKT-E002",
+      "severity": "error",
+      "message": "frontmatter is not closed by a --- line",
+      "line": 1
+    },
+    {
+      "code": "TKT-W002",
+      "severity": "warning",
+      "message": "node has no id",
+      "field": "id"
+    }
+  ]
+}
