@@ -12,8 +12,6 @@ import (
 	"github.com/tektite-tracker/tektite/parse"
 )
 
-const timeLayout = "2006-01-02T15:04:05Z"
-
 type claimItem struct {
 	Holder    string `json:"holder"`
 	ExpiresAt string `json:"expires_at"`
@@ -24,7 +22,7 @@ func claimOf(st event.State, now time.Time) *claimItem {
 	if st.Lease == nil {
 		return nil
 	}
-	return &claimItem{Holder: st.Lease.Holder, ExpiresAt: st.Lease.Expires.UTC().Format(timeLayout), Live: st.Lease.LiveAt(now)}
+	return &claimItem{Holder: st.Lease.Holder, ExpiresAt: parse.FormatTime(st.Lease.Expires), Live: st.Lease.LiveAt(now)}
 }
 
 func (a *app) held(snap *store.Snapshot, ref string) event.State {
@@ -44,7 +42,7 @@ func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int
 		l := a.held(snap, nf.Ref).Lease
 		if l.LiveAt(a.now()) && l.Holder != actor {
 			return nil, fail(exitConflict, "wait for the lease to expire or pick another node with `tkt next`",
-				"%s is claimed by %s until %s", nf.Ref, l.Holder, l.Expires.UTC().Format(timeLayout))
+				"%s is claimed by %s until %s", nf.Ref, l.Holder, parse.FormatTime(l.Expires))
 		}
 		return warnings, nil
 	}
@@ -119,9 +117,9 @@ func (a *app) leaseCmd(typ, short string, needLive bool) *cobra.Command {
 				case l == nil:
 					return nil, fail(exitConflict, "claim the node first with `tkt claim`", "%s is not claimed", nf.Ref)
 				case l.Holder != who:
-					return nil, fail(exitConflict, "only the holder can do this", "%s is claimed by %s until %s", nf.Ref, l.Holder, l.Expires.UTC().Format(timeLayout))
+					return nil, fail(exitConflict, "only the holder can do this", "%s is claimed by %s until %s", nf.Ref, l.Holder, parse.FormatTime(l.Expires))
 				case needLive && !l.LiveAt(a.now()):
-					return nil, fail(exitConflict, "claim the node again with `tkt claim`", "the lease on %s expired at %s", nf.Ref, l.Expires.UTC().Format(timeLayout))
+					return nil, fail(exitConflict, "claim the node again with `tkt claim`", "the lease on %s expired at %s", nf.Ref, parse.FormatTime(l.Expires))
 				}
 				return nil, nil
 			}

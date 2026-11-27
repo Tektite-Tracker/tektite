@@ -107,7 +107,7 @@ func (a *app) revisionsCmd() *cobra.Command {
 			items := []revisionItem{}
 			for _, r := range st.Revisions {
 				items = append(items, revisionItem{
-					Number: r.Number, Event: r.Event, Actor: r.Actor, At: r.At.UTC().Format(timeLayout),
+					Number: r.Number, Event: r.Event, Actor: r.Actor, At: parse.FormatTime(r.At),
 					Bytes: len(r.Body), Current: r.Event == currentRevisionEvent(st), Diverged: st.Diverged(r.Number),
 				})
 			}

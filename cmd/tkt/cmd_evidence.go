@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -129,7 +128,7 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 			commit = head[:shortSHA]
 		}
 	}
-	prov := map[string]any{"actor": actor, "at": at.UTC().Format(time.RFC3339)}
+	prov := map[string]any{"actor": actor, "at": parse.FormatTime(at)}
 	if commit != "" {
 		prov["commit"] = commit
 		if a.gitDirty != nil && a.gitDirty() {

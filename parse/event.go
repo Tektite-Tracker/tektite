@@ -20,6 +20,10 @@ type Event struct {
 	Valid      bool           `json:"valid"`
 }
 
+func FormatTime(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
+}
+
 const (
 	EventSetStatus = "set-status"
 	EventClaim     = "claim"

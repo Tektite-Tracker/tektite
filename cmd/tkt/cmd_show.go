@@ -149,16 +149,16 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 			Command: ev.Command, ExitCode: ev.ExitCode, Attachments: append([]string{}, ev.Attachments...),
 		}
 		if !ev.At.IsZero() {
-			item.At = ev.At.UTC().Format("2006-01-02T15:04:05Z")
+			item.At = parse.FormatTime(ev.At)
 		}
 		doc.Evidence = append(doc.Evidence, item)
 	}
 	for _, h := range st.History {
 		if h.Event.Type == parse.EventNote && h.Event.Valid {
-			doc.Notes = append(doc.Notes, noteItem{ID: h.Event.ID, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Body: h.Event.Body})
+			doc.Notes = append(doc.Notes, noteItem{ID: h.Event.ID, Actor: h.Actor, At: parse.FormatTime(h.Event.At), Body: h.Event.Body})
 		}
 		doc.History = append(doc.History, historyItem{
-			ID: h.Event.ID, Type: h.Event.Type, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Applied: h.Applied, Override: h.Override,
+			ID: h.Event.ID, Type: h.Event.Type, Actor: h.Actor, At: parse.FormatTime(h.Event.At), Applied: h.Applied, Override: h.Override,
 		})
 	}
 	return doc

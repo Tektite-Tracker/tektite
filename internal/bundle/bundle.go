@@ -192,7 +192,7 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 		hist = hist[len(hist)-historyLimit:]
 	}
 	for _, h := range hist {
-		line := fmt.Sprintf("%s %s %s", h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), h.Actor, h.Event.Type)
+		line := fmt.Sprintf("%s %s %s", parse.FormatTime(h.Event.At), h.Actor, h.Event.Type)
 		if h.Event.Type == parse.EventSetStatus {
 			line += " " + fmt.Sprint(h.Event.Fields["status"])
 		}

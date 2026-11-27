@@ -87,7 +87,7 @@ func (a *app) writeEvent(actorFlag, query string, d *event.Draft, check precheck
 	if err != nil {
 		return nil, fmt.Errorf("append %s event: %w", d.Type, err)
 	}
-	return &appended{Ref: nf.Ref, Event: id, Type: d.Type, Actor: actor, At: d.At.UTC().Format("2006-01-02T15:04:05Z"), Path: path, Warnings: warnings}, nil
+	return &appended{Ref: nf.Ref, Event: id, Type: d.Type, Actor: actor, At: parse.FormatTime(d.At), Path: path, Warnings: warnings}, nil
 }
 
 func (a *app) report(res *appended) error {
