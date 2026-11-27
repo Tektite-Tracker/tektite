@@ -6,6 +6,7 @@ Guide for anyone, human or agent, changing this repo. See README.md for what tek
 
 - `parse/`: public package. Pure functions from bytes to nodes, events and diagnostics. No I/O.
 - `internal/node`, `internal/event`, `internal/store`, `internal/check`: node model, event folding, on-disk store, policy checks. I/O belongs here, never in `parse`.
+- `internal/view`: read models (`show`, `ls`, `next`) shared by the CLI and later by the MCP server and UI. `cmd/tkt` only parses flags and prints; put logic a second front end would need in `internal/`.
 - `cmd/tkt`: the CLI entry point.
 - `spec/`: Gherkin feature files, the source of truth for behaviour.
 - `testdata/`: golden fixtures.
@@ -19,6 +20,10 @@ Guide for anyone, human or agent, changing this repo. See README.md for what tek
 - `scripts/spec-coverage.sh`: lists spec scenarios that no test names.
 
 Run lint, test and build before pushing.
+
+## Conventions
+
+- Use `[]T{}` (not `var x []T`) for values serialised to JSON so they encode as `[]`, not `null`. Name statuses, event types and node kinds through the constants in `event` and `parse`, not string literals.
 
 ## Tests
 
