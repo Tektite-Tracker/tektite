@@ -253,7 +253,7 @@ Feature: Events
       And `tkt check` reports that the plan has diverged
 
     Scenario: Work records which revision it was built against
-      Given a ticket implementing the plan at revision 2
+      Given a ticket implementing the plan at revision 2, recorded with `--revision 2` on claim or set-status
       And the plan is now at revision 4
       When `tkt check` runs
       Then a note says the ticket was built against an older revision

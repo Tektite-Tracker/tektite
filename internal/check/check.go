@@ -27,6 +27,7 @@ const (
 	CodeBlockCycle       = "TKT-W112"
 	CodeStaleSlug        = "TKT-N101"
 	CodeDroppedBlocker   = "TKT-N102"
+	CodeOlderRevision    = "TKT-N104"
 )
 
 var hints = map[string]string{
@@ -43,6 +44,7 @@ var hints = map[string]string{
 	parse.CodeDuplicateEventID:     "rename one of the event files",
 	CodeDuplicateID:                "give one of the nodes a new id",
 	CodeBlockCycle:                 "remove a blocks link from one node in the cycle",
+	CodeOlderRevision:              "re-check the work against the current plan revision and record it with --revision",
 	CodeDroppedBlocker:             "remove the blocks link or reopen the blocker",
 	CodeBrokenLink:                 "fix the reference or remove the link",
 	CodeSelfLink:                   "remove the link to the node itself",
@@ -253,8 +255,30 @@ func (c *run) node(nf *store.NodeFile) {
 		c.link(nf, l)
 	}
 	c.droppedBlockers(nf)
+	c.olderRevision(nf)
 	st := c.events(nf)
 	c.schema(nf, st)
+}
+
+func (c *run) olderRevision(nf *store.NodeFile) {
+	built := c.graph.States[nf.Ref].BuiltAgainst
+	if built == nil {
+		return
+	}
+	plans := []string{}
+	if nf.ParentRef != "" {
+		plans = append(plans, nf.ParentRef)
+	}
+	for _, l := range c.graph.Out[nf.Ref] {
+		if t, err := c.snap.Resolve(l.Target); err == nil && l.Rel == "implements" && !contains(plans, t.Ref) {
+			plans = append(plans, t.Ref)
+		}
+	}
+	for _, p := range plans {
+		if cur := c.graph.States[p].Revision; cur > *built {
+			c.add(parse.SeverityNote, CodeOlderRevision, nf.Path, 0, fmt.Sprintf("%s was built against revision %d of %s, which is now at revision %d", nf.Ref, *built, p, cur))
+		}
+	}
 }
 
 func (c *run) parent(nf *store.NodeFile) {

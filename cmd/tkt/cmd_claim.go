@@ -30,8 +30,11 @@ func (a *app) held(snap *store.Snapshot, ref string) event.State {
 	return event.Fold(snap.EventsOf(ref), event.Options{})
 }
 
-func (a *app) claimNode(actorFlag, query string, ttl time.Duration) (*appended, error) {
+func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int) (*appended, error) {
 	d := &event.Draft{Type: "claim", Fields: []node.Field{{Key: "ttl", Value: ttl.String()}}}
+	if revision > 0 {
+		d.Fields = append(d.Fields, node.Field{Key: "revision", Value: revision})
+	}
 	check := func(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error) {
 		l := a.held(snap, nf.Ref).Lease
 		if l.LiveAt(a.now()) && l.Holder != actor {
@@ -72,16 +75,20 @@ func parseTTLFlag(v string) (time.Duration, error) {
 
 func (a *app) claimCmd() *cobra.Command {
 	var actor, ttl string
+	var revision int
 	cmd := &cobra.Command{
 		Use:   "claim <ref>",
 		Short: "Claim a node with an expiring lease",
 		Args:  exactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			d, err := parseTTLFlag(ttl)
 			if err != nil {
 				return err
 			}
-			res, err := a.claimNode(actor, args[0], d)
+			if err := checkRevisionFlag(cmd, revision); err != nil {
+				return err
+			}
+			res, err := a.claimNode(actor, args[0], d, revision)
 			if err != nil {
 				return err
 			}
@@ -90,6 +97,7 @@ func (a *app) claimCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
 	cmd.Flags().StringVar(&ttl, "ttl", event.DefaultTTL.String(), "lease duration such as 30m")
+	cmd.Flags().IntVar(&revision, "revision", 0, "plan revision the work is built against")
 	return cmd
 }
 
