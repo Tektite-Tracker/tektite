@@ -267,6 +267,7 @@ func (a *app) load() (*store.Repo, *store.Snapshot, error) {
 func (a *app) newRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "tkt",
+		Version:       version,
 		Short:         "Git-like, local-first work tracking for humans and agents",
 		SilenceUsage:  true,
 		SilenceErrors: true,
