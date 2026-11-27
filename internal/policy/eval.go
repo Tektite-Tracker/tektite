@@ -91,15 +91,10 @@ func (e *Env) evidence(nf *store.NodeFile, g Gate) Result {
 }
 
 func (e *Env) OpenGaps(nf *store.NodeFile) []string {
-	closed := map[string]bool{}
-	for _, ev := range e.Snap.EventsOf(nf.Ref) {
-		if ev != nil && ev.Valid && ev.Type == parse.EventClose {
-			closed[strings.ToLower(ev.String("block"))] = true
-		}
-	}
+	closed := e.Snap.ClosedBlocks(nf.Ref)
 	out := []string{}
 	for _, b := range nf.Node.Blocks {
-		if !b.Gap || b.Checked || (b.ID != "" && closed[strings.ToLower(b.ID)]) {
+		if !b.Gap || b.Checked || (b.ID != "" && hasKey(closed, strings.ToLower(b.ID))) {
 			continue
 		}
 		item := b.Text
@@ -197,4 +192,9 @@ func Failed(rs []Result) []Result {
 		}
 	}
 	return out
+}
+
+func hasKey(m map[string]string, key string) bool {
+	_, ok := m[key]
+	return ok
 }

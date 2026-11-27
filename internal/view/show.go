@@ -1,6 +1,7 @@
 package view
 
 import (
+	"strings"
 	"time"
 
 	"github.com/tektite-tracker/tektite/internal/store"
@@ -52,6 +53,13 @@ type EvidenceItem struct {
 	Attachments []string `json:"attachments"`
 }
 
+type GapItem struct {
+	Block    string `json:"block"`
+	Text     string `json:"text"`
+	Closed   bool   `json:"closed"`
+	Evidence string `json:"evidence,omitempty"`
+}
+
 type ShowDoc struct {
 	Ref          string             `json:"ref"`
 	ID           string             `json:"id"`
@@ -70,6 +78,7 @@ type ShowDoc struct {
 	Links        []LinkItem         `json:"links"`
 	Backlinks    []BacklinkItem     `json:"backlinks"`
 	Evidence     []EvidenceItem     `json:"evidence"`
+	Gaps         []GapItem          `json:"gaps,omitempty"`
 	Notes        []NoteItem         `json:"notes"`
 	History      []HistoryItem      `json:"history"`
 	Diagnostics  []parse.Diagnostic `json:"diagnostics"`
@@ -115,6 +124,14 @@ func BuildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) ShowDoc 
 			item.At = parse.FormatTime(ev.At)
 		}
 		doc.Evidence = append(doc.Evidence, item)
+	}
+	closed := snap.ClosedBlocks(nf.Ref)
+	for _, b := range nf.Node.Blocks {
+		if !b.Gap || b.ID == "" {
+			continue
+		}
+		by, isClosed := closed[strings.ToLower(b.ID)]
+		doc.Gaps = append(doc.Gaps, GapItem{Block: b.ID, Text: b.Text, Closed: b.Checked || isClosed, Evidence: by})
 	}
 	for _, h := range st.History {
 		if h.Event.Type == parse.EventNote && h.Event.Valid {
