@@ -4,11 +4,13 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
@@ -280,6 +282,41 @@ func (r *Repo) WriteNode(ref string, data []byte) (string, error) {
 		return "", fmt.Errorf("write node %q: %w", ref, ErrBadRef)
 	}
 	return r.publishNew(r.NodesDir(), ref, extension, data)
+}
+
+type NewNode struct {
+	Kind   string
+	Title  string
+	Parent string
+	Extra  []node.Field
+	Body   string
+}
+
+type Created struct {
+	Ref  string
+	ID   string
+	Path string
+}
+
+func (r *Repo) CreateNode(snap *Snapshot, now time.Time, entropy io.Reader, n NewNode) (Created, error) {
+	id, err := node.NewID(now, entropy)
+	if err != nil {
+		return Created{}, fmt.Errorf("new id: %w", err)
+	}
+	ref, err := node.NewRef(n.Title, id, snap.Refs())
+	if err != nil {
+		return Created{}, fmt.Errorf("new reference: %w", err)
+	}
+	fields := append([]node.Field{{Key: "id", Value: id}, {Key: "kind", Value: n.Kind}, {Key: "title", Value: n.Title}, {Key: "parent", Value: n.Parent}}, n.Extra...)
+	data, err := node.Render(fields, n.Body)
+	if err != nil {
+		return Created{}, fmt.Errorf("render node: %w", err)
+	}
+	path, err := r.WriteNode(ref, data)
+	if err != nil {
+		return Created{}, fmt.Errorf("create node: %w", err)
+	}
+	return Created{Ref: ref, ID: id, Path: path}, nil
 }
 
 func (r *Repo) WriteEvent(ref, id string, data []byte) (string, error) {

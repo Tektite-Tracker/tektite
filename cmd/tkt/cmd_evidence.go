@@ -13,6 +13,7 @@ import (
 	"github.com/tektite-tracker/tektite/internal/check"
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/internal/store"
 	"github.com/tektite-tracker/tektite/parse"
 )
 
@@ -128,31 +129,21 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 		prov["exit_code"] = *exitCode
 	}
 
-	id, err := node.NewID(at, a.rand)
+	created, err := r.CreateNode(snap, at, a.rand, store.NewNode{
+		Kind:   parse.KindEvidence,
+		Title:  claim,
+		Parent: target.Ref,
+		Extra: []node.Field{
+			{Key: "evidences", Value: []string{target.Ref}},
+			{Key: "claim", Value: claim},
+			{Key: "attachments", Value: []string{"blobs/" + name}},
+			{Key: "provenance", Value: prov},
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("new id: %w", err)
+		return fmt.Errorf("attach-evidence: %w", err)
 	}
-	ref, err := node.NewRef(claim, id, snap.Refs())
-	if err != nil {
-		return fmt.Errorf("new reference: %w", err)
-	}
-	fields := []node.Field{
-		{Key: "id", Value: id},
-		{Key: "kind", Value: parse.KindEvidence},
-		{Key: "title", Value: claim},
-		{Key: "parent", Value: target.Ref},
-		{Key: "evidences", Value: []string{target.Ref}},
-		{Key: "claim", Value: claim},
-		{Key: "attachments", Value: []string{"blobs/" + name}},
-		{Key: "provenance", Value: prov},
-	}
-	src, err := node.Render(fields, "")
-	if err != nil {
-		return fmt.Errorf("render evidence: %w", err)
-	}
-	if _, err := r.WriteNode(ref, src); err != nil {
-		return fmt.Errorf("create evidence node: %w", err)
-	}
+	ref := created.Ref
 	res, err := a.writeEvent(actorFlag, target.Ref, &event.Draft{Type: parse.EventAttach, Fields: []node.Field{{Key: "evidence", Value: ref}}}, nil)
 	if err != nil {
 		return err

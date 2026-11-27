@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/internal/store"
 )
 
 var (
@@ -106,15 +107,7 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 		}
 	}
 
-	id, err := node.NewID(a.now(), a.rand)
-	if err != nil {
-		return fmt.Errorf("new id: %w", err)
-	}
-	ref, err := node.NewRef(title, id, snap.Refs())
-	if err != nil {
-		return fmt.Errorf("new reference: %w", err)
-	}
-	fields := []node.Field{{Key: "id", Value: id}, {Key: "kind", Value: kind}, {Key: "title", Value: title}, {Key: "parent", Value: parentRef}}
+	fields := []node.Field{}
 	present := map[string]bool{}
 	for _, f := range extra {
 		fields = append(fields, node.Field{Key: f.key, Value: f.value})
@@ -124,13 +117,9 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 	if text != "" {
 		text += "\n"
 	}
-	data, err := node.Render(fields, text)
+	created, err := r.CreateNode(snap, a.now(), a.rand, store.NewNode{Kind: kind, Title: title, Parent: parentRef, Extra: fields, Body: text})
 	if err != nil {
-		return fmt.Errorf("render node: %w", err)
-	}
-	path, err := r.WriteNode(ref, data)
-	if err != nil {
-		return fmt.Errorf("create node: %w", err)
+		return fmt.Errorf("new %s: %w", kind, err)
 	}
 
 	missing := []string{}
@@ -144,7 +133,7 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 	for _, f := range missing {
 		a.printf(a.err, "note: field %q is required by the %s schema, set it with --set %s=<value>\n", f, kind, f)
 	}
-	return a.printCreated(ref, id, kind, title, parentRef, path, missing)
+	return a.printCreated(created.Ref, created.ID, kind, title, parentRef, created.Path, missing)
 }
 
 type createdResult struct {
