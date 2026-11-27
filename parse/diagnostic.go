@@ -17,12 +17,14 @@ const (
 	CodeMissingActor         = "TKT-W006"
 	CodeDuplicateKey         = "TKT-W007"
 	CodeEventNameNotULID     = "TKT-W008"
+	CodeUnknownStatus        = "TKT-W009"
 	CodeMalformedFrontmatter = "TKT-E001"
 	CodeUnterminatedFrontmtr = "TKT-E002"
 	CodeMissingEventType     = "TKT-E003"
 	CodeInvalidEventTime     = "TKT-E004"
 	CodeMissingRequiredField = "TKT-E005"
 	CodeUnknownEventType     = "TKT-N001"
+	CodeEventSkipped         = "TKT-N002"
 )
 
 type Diagnostic struct {
