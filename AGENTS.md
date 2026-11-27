@@ -40,4 +40,5 @@ Only three kinds are allowed: tool directives, comments starting with `why:` tha
 - One branch and PR per piece of work, branched from an up-to-date `main`, named `{type}/{short_desc}` in lowercase, e.g. `feat/node-event-fold`.
 - Commits are a single Conventional Commit line (`feat:`, `fix:`, `chore:`, `docs:`), no body, no attribution trailers.
 - PR descriptions are a one-line tl;dr and one or two short paragraphs, no attribution.
+- The commit type picks the release version on merge to `main` (`feat` minor, `fix` patch, `!` or `BREAKING CHANGE` major, held below 1.0). `docs`, `chore`, `test`, `ci` and `refactor` do not release.
 - Wait for CI to pass. Do not merge your own PR.
