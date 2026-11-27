@@ -1,7 +1,7 @@
 package store
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/tektite-tracker/tektite/internal/node"
 )
@@ -29,9 +29,9 @@ func buildTree(refs []string, parents map[string]string) *Tree {
 		t.Children[p] = append(t.Children[p], ref)
 	}
 	for _, kids := range t.Children {
-		sort.Strings(kids)
+		slices.Sort(kids)
 	}
-	sort.Strings(t.Roots)
+	slices.Sort(t.Roots)
 	t.Cycles = node.Cycles(parents)
 	return t
 }

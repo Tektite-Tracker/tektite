@@ -1,14 +1,18 @@
 package store
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
+	"time"
 
+	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/parse"
 )
@@ -37,6 +41,13 @@ type NodeFile struct {
 	Diags     []parse.Diagnostic
 	ParentRef string
 	ParentErr error
+}
+
+func (nf *NodeFile) ParentOrRaw() string {
+	if nf.ParentRef != "" {
+		return nf.ParentRef
+	}
+	return nf.Node.Parent
 }
 
 type EventFile struct {
@@ -148,7 +159,7 @@ func (r *Repo) loadNodes() ([]*NodeFile, error) {
 			Diags: diags,
 		})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Ref < out[j].Ref })
+	slices.SortFunc(out, func(a, b *NodeFile) int { return cmp.Compare(a.Ref, b.Ref) })
 	return out, nil
 }
 
@@ -253,6 +264,10 @@ func (s *Snapshot) DuplicateIDs() map[string][]string {
 	return byID
 }
 
+func (s *Snapshot) State(ref string) event.State {
+	return event.Fold(s.EventsOf(ref), event.Options{})
+}
+
 func (s *Snapshot) EventsOf(ref string) []*parse.Event {
 	files := s.Events[ref]
 	out := make([]*parse.Event, 0, len(files))
@@ -267,6 +282,41 @@ func (r *Repo) WriteNode(ref string, data []byte) (string, error) {
 		return "", fmt.Errorf("write node %q: %w", ref, ErrBadRef)
 	}
 	return r.publishNew(r.NodesDir(), ref, extension, data)
+}
+
+type NewNode struct {
+	Kind   string
+	Title  string
+	Parent string
+	Extra  []node.Field
+	Body   string
+}
+
+type Created struct {
+	Ref  string
+	ID   string
+	Path string
+}
+
+func (r *Repo) CreateNode(snap *Snapshot, now time.Time, entropy io.Reader, n NewNode) (Created, error) {
+	id, err := node.NewID(now, entropy)
+	if err != nil {
+		return Created{}, fmt.Errorf("new id: %w", err)
+	}
+	ref, err := node.NewRef(n.Title, id, snap.Refs())
+	if err != nil {
+		return Created{}, fmt.Errorf("new reference: %w", err)
+	}
+	fields := append([]node.Field{{Key: "id", Value: id}, {Key: "kind", Value: n.Kind}, {Key: "title", Value: n.Title}, {Key: "parent", Value: n.Parent}}, n.Extra...)
+	data, err := node.Render(fields, n.Body)
+	if err != nil {
+		return Created{}, fmt.Errorf("render node: %w", err)
+	}
+	path, err := r.WriteNode(ref, data)
+	if err != nil {
+		return Created{}, fmt.Errorf("create node: %w", err)
+	}
+	return Created{Ref: ref, ID: id, Path: path}, nil
 }
 
 func (r *Repo) WriteEvent(ref, id string, data []byte) (string, error) {

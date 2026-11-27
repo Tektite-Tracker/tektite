@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -31,36 +30,18 @@ func (a *app) resolveActor(flag string) (string, []string) {
 	if v := strings.TrimSpace(a.getenv("TKT_ACTOR")); v != "" {
 		return v, nil
 	}
-	if a.gitUser != nil {
-		if v := strings.TrimSpace(a.gitUser()); v != "" {
-			return "human:" + v, nil
-		}
+	if v := strings.TrimSpace(a.gitUser()); v != "" {
+		return "human:" + v, nil
 	}
 	return event.UnknownActor, []string{fmt.Sprintf("%s: no actor given, set --actor or TKT_ACTOR, recorded as %q", parse.CodeMissingActor, event.UnknownActor)}
-}
-
-func gitUserName(dir string) func() string {
-	return func() string {
-		c := exec.Command("git", "config", "user.name")
-		c.Dir = dir
-		out, err := c.Output()
-		if err != nil {
-			return ""
-		}
-		return string(out)
-	}
 }
 
 type precheck func(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error)
 
 func (a *app) writeEvent(actorFlag, query string, d *event.Draft, check precheck) (*appended, error) {
-	r, err := a.repo()
+	r, snap, err := a.load()
 	if err != nil {
 		return nil, err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load repository: %w", err)
 	}
 	nf, err := snap.Resolve(query)
 	if err != nil {
@@ -87,16 +68,14 @@ func (a *app) writeEvent(actorFlag, query string, d *event.Draft, check precheck
 	if err != nil {
 		return nil, fmt.Errorf("append %s event: %w", d.Type, err)
 	}
-	return &appended{Ref: nf.Ref, Event: id, Type: d.Type, Actor: actor, At: d.At.UTC().Format("2006-01-02T15:04:05Z"), Path: path, Warnings: warnings}, nil
+	return &appended{Ref: nf.Ref, Event: id, Type: d.Type, Actor: actor, At: parse.FormatTime(d.At), Path: path, Warnings: warnings}, nil
 }
 
 func (a *app) report(res *appended) error {
 	if a.json {
 		return a.writeJSON(res)
 	}
-	for _, w := range res.Warnings {
-		a.printf(a.err, "warning: %s\n", w)
-	}
+	a.warn(res.Warnings)
 	a.printf(a.out, "%s %s %s\n", res.Ref, res.Type, res.Event)
 	return nil
 }
@@ -133,7 +112,7 @@ func (a *app) setStatusCmd() *cobra.Command {
 			}
 			check := func(snap *store.Snapshot, nf *store.NodeFile, who string) ([]string, error) {
 				warnings := []string{}
-				if status == "done" {
+				if status == event.StatusDone {
 					w, err := a.gateDone(snap, nf, who, strings.TrimSpace(override))
 					if err != nil {
 						return nil, err
@@ -145,12 +124,12 @@ func (a *app) setStatusCmd() *cobra.Command {
 				}
 				return warnings, nil
 			}
-			return a.appendEvent(actor, args[0], &event.Draft{Type: "set-status", Fields: fields}, check)
+			return a.appendEvent(actor, args[0], &event.Draft{Type: parse.EventSetStatus, Fields: fields}, check)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	cmd.Flags().StringVar(&override, "override", "", "reason for overriding a rule")
-	cmd.Flags().IntVar(&revision, "revision", 0, "plan revision the work is built against")
+	addRevisionFlag(cmd, &revision)
 	return cmd
 }
 
@@ -172,10 +151,10 @@ func (a *app) noteCmd() *cobra.Command {
 			if strings.TrimSpace(text) == "" {
 				return usage("note text must not be empty")
 			}
-			return a.appendEvent(actor, args[0], &event.Draft{Type: "note", Body: text}, nil)
+			return a.appendEvent(actor, args[0], &event.Draft{Type: parse.EventNote, Body: text}, nil)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	return cmd
 }
 
@@ -204,6 +183,6 @@ func (a *app) linkCmd(typ, short string) *cobra.Command {
 			return a.appendEvent(actor, args[0], d, check)
 		},
 	}
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	return cmd
 }

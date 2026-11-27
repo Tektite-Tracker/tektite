@@ -5,29 +5,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/check"
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/internal/store"
 	"github.com/tektite-tracker/tektite/parse"
 )
 
 const shortSHA = 7
-
-func gitDirty(dir string) func() bool {
-	return func() bool {
-		c := exec.Command("git", "status", "--porcelain", "--", ".", ":(exclude).tektite")
-		c.Dir = dir
-		out, err := c.Output()
-		return err == nil && strings.TrimSpace(string(out)) != ""
-	}
-}
 
 type attachResult struct {
 	Evidence string   `json:"evidence"`
@@ -66,19 +56,15 @@ func (a *app) attachEvidenceCmd() *cobra.Command {
 	cmd.Flags().StringVar(&claim, "claim", "", "what the evidence is meant to prove")
 	cmd.Flags().StringVar(&command, "command", "", "command that produced the evidence")
 	cmd.Flags().IntVar(&exitCode, "exit-code", 0, "exit code of the command")
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the evidence")
+	addActorFlag(cmd, &actor)
 	cmd.Flags().BoolVar(&allowLarge, "allow-large", false, "store a file above the size cap")
 	return cmd
 }
 
 func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, actorFlag string, allowLarge bool) error {
-	r, err := a.repo()
+	r, snap, err := a.load()
 	if err != nil {
 		return err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return fmt.Errorf("load repository: %w", err)
 	}
 	target, err := snap.Resolve(query)
 	if err != nil {
@@ -124,15 +110,13 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 	warnings = append(warnings, actorWarn...)
 	at := a.now()
 	commit := ""
-	if a.gitHead != nil {
-		if head := a.gitHead(); len(head) >= shortSHA {
-			commit = head[:shortSHA]
-		}
+	if head := a.gitHead(); len(head) >= shortSHA {
+		commit = head[:shortSHA]
 	}
-	prov := map[string]any{"actor": actor, "at": at.UTC().Format(time.RFC3339)}
+	prov := map[string]any{"actor": actor, "at": parse.FormatTime(at)}
 	if commit != "" {
 		prov["commit"] = commit
-		if a.gitDirty != nil && a.gitDirty() {
+		if a.gitDirty() {
 			prov["dirty"] = true
 		}
 	} else {
@@ -145,31 +129,21 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 		prov["exit_code"] = *exitCode
 	}
 
-	id, err := node.NewID(at, a.rand)
+	created, err := r.CreateNode(snap, at, a.rand, store.NewNode{
+		Kind:   parse.KindEvidence,
+		Title:  claim,
+		Parent: target.Ref,
+		Extra: []node.Field{
+			{Key: "evidences", Value: []string{target.Ref}},
+			{Key: "claim", Value: claim},
+			{Key: "attachments", Value: []string{"blobs/" + name}},
+			{Key: "provenance", Value: prov},
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("new id: %w", err)
+		return fmt.Errorf("attach-evidence: %w", err)
 	}
-	ref, err := node.NewRef(claim, id, snap.Refs())
-	if err != nil {
-		return fmt.Errorf("new reference: %w", err)
-	}
-	fields := []node.Field{
-		{Key: "id", Value: id},
-		{Key: "kind", Value: "evidence"},
-		{Key: "title", Value: claim},
-		{Key: "parent", Value: target.Ref},
-		{Key: "evidences", Value: []string{target.Ref}},
-		{Key: "claim", Value: claim},
-		{Key: "attachments", Value: []string{"blobs/" + name}},
-		{Key: "provenance", Value: prov},
-	}
-	src, err := node.Render(fields, "")
-	if err != nil {
-		return fmt.Errorf("render evidence: %w", err)
-	}
-	if _, err := r.WriteNode(ref, src); err != nil {
-		return fmt.Errorf("create evidence node: %w", err)
-	}
+	ref := created.Ref
 	res, err := a.writeEvent(actorFlag, target.Ref, &event.Draft{Type: parse.EventAttach, Fields: []node.Field{{Key: "evidence", Value: ref}}}, nil)
 	if err != nil {
 		return err
@@ -178,9 +152,7 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 	if a.json {
 		return a.writeJSON(out)
 	}
-	for _, w := range warnings {
-		a.printf(a.err, "warning: %s\n", w)
-	}
+	a.warn(warnings)
 	a.printf(a.out, "%s\n", ref)
 	return nil
 }

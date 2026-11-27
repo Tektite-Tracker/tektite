@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/internal/store"
 )
 
 var (
@@ -70,13 +71,9 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 	if err != nil {
 		return err
 	}
-	r, err := a.repo()
+	r, snap, err := a.load()
 	if err != nil {
 		return err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return fmt.Errorf("load repository: %w", err)
 	}
 	schemas, err := r.LoadSchemas()
 	if err != nil {
@@ -110,15 +107,7 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 		}
 	}
 
-	id, err := node.NewID(a.now(), a.rand)
-	if err != nil {
-		return fmt.Errorf("new id: %w", err)
-	}
-	ref, err := node.NewRef(title, id, snap.Refs())
-	if err != nil {
-		return fmt.Errorf("new reference: %w", err)
-	}
-	fields := []node.Field{{Key: "id", Value: id}, {Key: "kind", Value: kind}, {Key: "title", Value: title}, {Key: "parent", Value: parentRef}}
+	fields := []node.Field{}
 	present := map[string]bool{}
 	for _, f := range extra {
 		fields = append(fields, node.Field{Key: f.key, Value: f.value})
@@ -128,13 +117,9 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 	if text != "" {
 		text += "\n"
 	}
-	data, err := node.Render(fields, text)
+	created, err := r.CreateNode(snap, a.now(), a.rand, store.NewNode{Kind: kind, Title: title, Parent: parentRef, Extra: fields, Body: text})
 	if err != nil {
-		return fmt.Errorf("render node: %w", err)
-	}
-	path, err := r.WriteNode(ref, data)
-	if err != nil {
-		return fmt.Errorf("create node: %w", err)
+		return fmt.Errorf("new %s: %w", kind, err)
 	}
 
 	missing := []string{}
@@ -148,14 +133,22 @@ func (a *app) create(kind, title, parent, body string, bodySet bool, sets []stri
 	for _, f := range missing {
 		a.printf(a.err, "note: field %q is required by the %s schema, set it with --set %s=<value>\n", f, kind, f)
 	}
-	return a.printCreated(ref, id, kind, title, parentRef, path, missing)
+	return a.printCreated(created.Ref, created.ID, kind, title, parentRef, created.Path, missing)
+}
+
+type createdResult struct {
+	ID              string   `json:"id"`
+	Kind            string   `json:"kind"`
+	MissingRequired []string `json:"missing_required"`
+	Parent          string   `json:"parent"`
+	Path            string   `json:"path"`
+	Ref             string   `json:"ref"`
+	Title           string   `json:"title"`
 }
 
 func (a *app) printCreated(ref, id, kind, title, parent, path string, missing []string) error {
 	if a.json {
-		return a.writeJSON(map[string]any{
-			"ref": ref, "id": id, "kind": kind, "title": title, "parent": parent, "path": path, "missing_required": missing,
-		})
+		return a.writeJSON(createdResult{ID: id, Kind: kind, MissingRequired: missing, Parent: parent, Path: path, Ref: ref, Title: title})
 	}
 	a.printf(a.out, "%s\n", ref)
 	return nil

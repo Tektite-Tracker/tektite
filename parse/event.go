@@ -2,7 +2,6 @@ package parse
 
 import (
 	"fmt"
-	"io"
 	"path"
 	"strings"
 	"time"
@@ -20,21 +19,40 @@ type Event struct {
 	Valid      bool           `json:"valid"`
 }
 
-// EventAttach is the type of the event that attaches an evidence node to a node.
-const EventAttach = "attach"
+func (e *Event) String(key string) string {
+	return strings.TrimSpace(fmt.Sprint(e.Fields[key]))
+}
+
+func FormatTime(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
+}
+
+const (
+	EventSetStatus = "set-status"
+	EventClaim     = "claim"
+	EventHeartbeat = "heartbeat"
+	EventRelease   = "release"
+	EventNote      = "note"
+	EventLink      = "link"
+	EventUnlink    = "unlink"
+	EventRevision  = "revision"
+	EventAttach    = "attach"
+	EventClose     = "close"
+	EventApprove   = "approve"
+)
 
 var EventRequiredFields = map[string][]string{
-	"set-status": {"status"},
-	"claim":      {"ttl"},
-	"heartbeat":  nil,
-	"release":    nil,
-	"note":       nil,
-	"link":       {"rel", "target"},
-	"unlink":     {"rel", "target"},
-	"revision":   {"number"},
-	"attach":     {"evidence"},
-	"close":      {"block"},
-	"approve":    {"revision"},
+	EventSetStatus: {"status"},
+	EventClaim:     {"ttl"},
+	EventHeartbeat: nil,
+	EventRelease:   nil,
+	EventNote:      nil,
+	EventLink:      {"rel", "target"},
+	EventUnlink:    {"rel", "target"},
+	EventRevision:  {"number"},
+	EventAttach:    {"evidence"},
+	EventClose:     {"block"},
+	EventApprove:   {"revision"},
 }
 
 var eventCore = map[string]bool{"type": true, "actor": true, "at": true}
@@ -114,13 +132,4 @@ func ParseEvent(name string, src []byte) (*Event, []Diagnostic) {
 		}
 	}
 	return e, diags
-}
-
-func ParseEventReader(name string, r io.Reader) (*Event, []Diagnostic, error) {
-	src, err := io.ReadAll(r)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read source: %w", err)
-	}
-	e, d := ParseEvent(name, src)
-	return e, d, nil
 }

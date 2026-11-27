@@ -27,13 +27,9 @@ func (a *app) fmtCmd() *cobra.Command {
 		Short: "Assign missing ids and normalise frontmatter",
 		Args:  exactArgs(0),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			r, err := a.repo()
+			r, snap, err := a.load()
 			if err != nil {
 				return err
-			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
 			}
 			gen := node.NewGenerator(a.rand)
 			items := []fmtItem{}

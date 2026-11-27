@@ -1,9 +1,10 @@
 package check
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/event"
@@ -138,17 +139,8 @@ func (c *run) addDiag(path string, d parse.Diagnostic) {
 }
 
 func (c *run) report() Report {
-	sort.SliceStable(c.out, func(i, j int) bool {
-		a, b := c.out[i], c.out[j]
-		switch {
-		case a.Path != b.Path:
-			return a.Path < b.Path
-		case a.Line != b.Line:
-			return a.Line < b.Line
-		case a.Code != b.Code:
-			return a.Code < b.Code
-		}
-		return a.Message < b.Message
+	slices.SortStableFunc(c.out, func(a, b Problem) int {
+		return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line), cmp.Compare(a.Code, b.Code), cmp.Compare(a.Message, b.Message))
 	})
 	rep := Report{Problems: c.out}
 	for _, p := range c.out {
@@ -176,7 +168,7 @@ func (c *run) duplicateIDs() {
 	for id := range dups {
 		ids = append(ids, id)
 	}
-	sort.Strings(ids)
+	slices.Sort(ids)
 	for _, id := range ids {
 		paths := make([]string, 0, len(dups[id]))
 		for _, ref := range dups[id] {
@@ -199,7 +191,7 @@ func (c *run) cycles() {
 
 func (c *run) blockCycles() {
 	refs := c.snap.Refs()
-	sort.Strings(refs)
+	slices.Sort(refs)
 	const (
 		visiting = 1
 		finished = 2
@@ -288,7 +280,7 @@ func (c *run) olderRevision(nf *store.NodeFile) {
 		plans = append(plans, nf.ParentRef)
 	}
 	for _, l := range c.graph.Out[nf.Ref] {
-		if t, err := c.snap.Resolve(l.Target); err == nil && l.Rel == "implements" && !contains(plans, t.Ref) {
+		if t, err := c.snap.Resolve(l.Target); err == nil && l.Rel == "implements" && !slices.Contains(plans, t.Ref) {
 			plans = append(plans, t.Ref)
 		}
 	}
@@ -310,7 +302,7 @@ func (c *run) parent(nf *store.NodeFile) {
 
 func (c *run) droppedBlockers(nf *store.NodeFile) {
 	for _, b := range c.graph.Blockers[nf.Ref] {
-		if c.graph.States[b].Status == "dropped" {
+		if c.graph.States[b].Status == event.StatusDropped {
 			c.add(parse.SeverityNote, CodeDroppedBlocker, nf.Path, 0, fmt.Sprintf("%s is blocked by %s, which is dropped, so it no longer holds %s", nf.Ref, b, nf.Ref))
 		}
 	}
@@ -350,7 +342,7 @@ func (c *run) events(nf *store.NodeFile) event.State {
 			c.addDiag(f.Path, d)
 		}
 	}
-	st := event.Fold(c.snap.EventsOf(nf.Ref), event.Options{})
+	st := c.snap.State(nf.Ref)
 	for _, d := range st.Diagnostics {
 		if d.Code != parse.CodeEventSkipped {
 			c.addDiag(nf.Path, d)
@@ -369,10 +361,10 @@ func (c *run) schema(nf *store.NodeFile, st event.State) {
 			c.add(parse.SeverityWarning, CodeMissingRequired, nf.Path, 0, fmt.Sprintf("%s (%s) is missing required field %q", nf.Ref, sc.Kind, f))
 		}
 	}
-	if len(sc.Statuses) > 0 && !contains(sc.Statuses, st.Status) {
+	if len(sc.Statuses) > 0 && !slices.Contains(sc.Statuses, st.Status) {
 		by := ""
 		for _, h := range st.History {
-			if h.Applied && h.Event.Type == "set-status" {
+			if h.Applied && h.Event.Type == parse.EventSetStatus {
 				by = fmt.Sprintf(" set by event %s", h.Event.ID)
 			}
 		}
@@ -381,7 +373,7 @@ func (c *run) schema(nf *store.NodeFile, st event.State) {
 	if nf.ParentRef == "" || len(sc.ParentKinds) == 0 {
 		return
 	}
-	if p, ok := c.snap.Get(nf.ParentRef); ok && !contains(sc.ParentKinds, p.Node.Kind) {
+	if p, ok := c.snap.Get(nf.ParentRef); ok && !slices.Contains(sc.ParentKinds, p.Node.Kind) {
 		c.add(parse.SeverityWarning, CodeDisallowedParent, nf.Path, 0, fmt.Sprintf("%s (%s) has parent %s of kind %q, allowed: %s", nf.Ref, sc.Kind, p.Ref, p.Node.Kind, strings.Join(sc.ParentKinds, ", ")))
 	}
 }
@@ -391,9 +383,9 @@ func hasField(n *parse.Node, name string) bool {
 	case "id":
 		return n.ID != ""
 	case "title":
-		return n.Frontmatter && contains(n.FieldOrder, "title") && n.Title != ""
+		return n.Frontmatter && slices.Contains(n.FieldOrder, "title") && n.Title != ""
 	case "kind":
-		return n.Frontmatter && contains(n.FieldOrder, "kind") && n.Kind != ""
+		return n.Frontmatter && slices.Contains(n.FieldOrder, "kind") && n.Kind != ""
 	case "parent":
 		return n.Parent != ""
 	}
@@ -405,15 +397,6 @@ func hasField(n *parse.Node, name string) bool {
 		return false
 	}
 	return true
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 func reason(err error) string {

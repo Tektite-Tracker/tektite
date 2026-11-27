@@ -1,14 +1,20 @@
 package parse
 
 import (
-	"fmt"
-	"io"
 	"path"
 	"regexp"
 	"strings"
 )
 
-const DefaultKind = "note"
+const (
+	DefaultKind  = "note"
+	KindSpec     = "spec"
+	KindPlan     = "plan"
+	KindTicket   = "ticket"
+	KindGap      = "gap"
+	KindEvidence = "evidence"
+	KindDecision = "decision"
+)
 
 type Node struct {
 	ID          string         `json:"id"`
@@ -89,15 +95,6 @@ func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 		}
 	}
 	return n, diags
-}
-
-func ParseNodeReader(name string, r io.Reader) (*Node, []Diagnostic, error) {
-	src, err := io.ReadAll(r)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read source: %w", err)
-	}
-	n, d := ParseNode(name, src)
-	return n, d, nil
 }
 
 var codeSpan = regexp.MustCompile("`[^`\\n]*`")

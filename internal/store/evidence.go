@@ -1,9 +1,10 @@
 package store
 
 import (
+	"cmp"
 	"fmt"
 	"path"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -77,7 +78,7 @@ func (s *Snapshot) EvidenceFor(g *Graph, ref string) []Evidence {
 		}
 	}
 	for _, nf := range s.Nodes {
-		if nf.Node.Kind != "evidence" {
+		if nf.Node.Kind != parse.KindEvidence {
 			continue
 		}
 		if nf.ParentRef == ref {
@@ -93,16 +94,13 @@ func (s *Snapshot) EvidenceFor(g *Graph, ref string) []Evidence {
 	}
 	for _, e := range s.EventsOf(ref) {
 		if e.Valid && e.Type == parse.EventAttach {
-			if t, err := s.Resolve(strings.TrimSpace(fmt.Sprint(e.Fields["evidence"]))); err == nil {
+			if t, err := s.Resolve(e.String("evidence")); err == nil {
 				add(t)
 			}
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if !out[i].At.Equal(out[j].At) {
-			return out[i].At.After(out[j].At)
-		}
-		return out[i].Node.Ref < out[j].Node.Ref
+	slices.SortStableFunc(out, func(a, b Evidence) int {
+		return cmp.Or(b.At.Compare(a.At), cmp.Compare(a.Node.Ref, b.Node.Ref))
 	})
 	return out
 }

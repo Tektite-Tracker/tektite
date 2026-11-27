@@ -30,7 +30,7 @@ func NewEnv(snap *store.Snapshot) *Env {
 func (e *Env) plan(nf *store.NodeFile) (*store.NodeFile, bool) {
 	ancestors, _ := e.Snap.Tree.Ancestors(nf.Ref)
 	for _, ref := range ancestors {
-		if a, ok := e.Snap.Get(ref); ok && a.Node.Kind == "plan" {
+		if a, ok := e.Snap.Get(ref); ok && a.Node.Kind == parse.KindPlan {
 			return a, true
 		}
 	}
@@ -93,8 +93,8 @@ func (e *Env) evidence(nf *store.NodeFile, g Gate) Result {
 func (e *Env) OpenGaps(nf *store.NodeFile) []string {
 	closed := map[string]bool{}
 	for _, ev := range e.Snap.EventsOf(nf.Ref) {
-		if ev != nil && ev.Valid && ev.Type == "close" {
-			closed[strings.ToLower(strings.TrimSpace(fmt.Sprint(ev.Fields["block"])))] = true
+		if ev != nil && ev.Valid && ev.Type == parse.EventClose {
+			closed[strings.ToLower(ev.String("block"))] = true
 		}
 	}
 	out := []string{}
@@ -110,10 +110,10 @@ func (e *Env) OpenGaps(nf *store.NodeFile) []string {
 	}
 	for _, kid := range e.Snap.Tree.Children[nf.Ref] {
 		child, ok := e.Snap.Get(kid)
-		if !ok || child.Node.Kind != "gap" {
+		if !ok || child.Node.Kind != parse.KindGap {
 			continue
 		}
-		if s := e.Graph.States[kid].Status; s != "done" && s != "dropped" {
+		if s := e.Graph.States[kid].Status; !event.Closed(s) {
 			out = append(out, kid+": "+child.Node.Title)
 		}
 	}

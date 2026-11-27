@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/store"
@@ -17,7 +17,7 @@ import (
 var blobFile = regexp.MustCompile(`^([0-9a-f]{64})(\.[A-Za-z0-9]+)?$`)
 
 func (c *run) evidenceCommit(nf *store.NodeFile) {
-	if nf.Node.Kind != "evidence" {
+	if nf.Node.Kind != parse.KindEvidence {
 		return
 	}
 	if store.EvidenceOfNode(nf).Commit == "" {
@@ -41,7 +41,7 @@ func (c *run) blobs() {
 	for name := range refs {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	for _, name := range names {
 		path := filepath.Join(c.repo.BlobsDir(), name)
 		rel := c.repo.Rel(path)

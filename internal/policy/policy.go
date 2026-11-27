@@ -110,12 +110,12 @@ func Parse(src []byte) (*Policy, *MalformedError) {
 }
 
 func (g Gate) Applies(nf *store.NodeFile) bool {
-	if len(g.Kinds) > 0 && !contains(g.Kinds, nf.Node.Kind) {
+	if len(g.Kinds) > 0 && !containsTrimmed(g.Kinds, nf.Node.Kind) {
 		return false
 	}
 	if len(g.Labels) > 0 {
 		for _, l := range labelsOf(nf) {
-			if contains(g.Labels, l) {
+			if containsTrimmed(g.Labels, l) {
 				return true
 			}
 		}
@@ -138,7 +138,7 @@ func labelsOf(nf *store.NodeFile) []string {
 	return nil
 }
 
-func contains(list []string, s string) bool {
+func containsTrimmed(list []string, s string) bool {
 	for _, x := range list {
 		if strings.TrimSpace(x) == s {
 			return true

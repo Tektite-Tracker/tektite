@@ -1,20 +1,33 @@
 package event
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/parse"
 )
 
 const (
-	StatusOpen   = "open"
-	UnknownActor = "unknown"
+	StatusOpen    = "open"
+	StatusActive  = "active"
+	StatusBlocked = "blocked"
+	StatusReview  = "review"
+	StatusDone    = "done"
+	StatusDropped = "dropped"
+	UnknownActor  = "unknown"
 )
 
-var knownStatuses = map[string]bool{
-	"open": true, "active": true, "blocked": true, "review": true, "done": true, "dropped": true,
+var Lifecycle = []string{StatusOpen, StatusActive, StatusBlocked, StatusReview, StatusDone, StatusDropped}
+
+func Closed(status string) bool {
+	return status == StatusDone || status == StatusDropped
+}
+
+func rejectField(st *State, entry *Entry, code, field, message string) {
+	entry.Applied = false
+	st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{Code: code, Severity: parse.SeverityWarning, Message: message, Field: field})
 }
 
 type Entry struct {
@@ -44,16 +57,16 @@ type Options struct {
 type handler func(st *State, e *parse.Event, entry *Entry)
 
 var handlers = map[string]handler{
-	"set-status": applySetStatus,
-	"note":       func(*State, *parse.Event, *Entry) {},
-	"revision":   applyRevision,
-	"attach":     func(*State, *parse.Event, *Entry) {},
-	"approve":    applyApprove,
-	"claim":      applyClaim,
-	"heartbeat":  applyHeartbeat,
-	"release":    applyRelease,
-	"link":       func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, true) },
-	"unlink":     func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, false) },
+	parse.EventSetStatus: applySetStatus,
+	parse.EventNote:      func(*State, *parse.Event, *Entry) {},
+	parse.EventRevision:  applyRevision,
+	parse.EventAttach:    func(*State, *parse.Event, *Entry) {},
+	parse.EventApprove:   applyApprove,
+	parse.EventClaim:     applyClaim,
+	parse.EventHeartbeat: applyHeartbeat,
+	parse.EventRelease:   applyRelease,
+	parse.EventLink:      func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, true) },
+	parse.EventUnlink:    func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, false) },
 }
 
 func Order(events []*parse.Event) []*parse.Event {
@@ -67,15 +80,8 @@ func Order(events []*parse.Event) []*parse.Event {
 	for _, e := range out {
 		keys[e] = fmt.Sprintf("%#v", *e)
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		a, b := out[i], out[j]
-		if !a.At.Equal(b.At) {
-			return a.At.Before(b.At)
-		}
-		if ai, bi := strings.ToUpper(a.ID), strings.ToUpper(b.ID); ai != bi {
-			return ai < bi
-		}
-		return keys[a] < keys[b]
+	slices.SortStableFunc(out, func(a, b *parse.Event) int {
+		return cmp.Or(a.At.Compare(b.At), cmp.Compare(strings.ToUpper(a.ID), strings.ToUpper(b.ID)), cmp.Compare(keys[a], keys[b]))
 	})
 	return out
 }
@@ -110,12 +116,12 @@ func Fold(events []*parse.Event, opts Options) State {
 		if h, ok := handlers[e.Type]; ok {
 			entry.Applied = true
 			h(&st, e, &entry)
-			if entry.Applied && (e.Type == "claim" || e.Type == "set-status") {
+			if entry.Applied && (e.Type == parse.EventClaim || e.Type == parse.EventSetStatus) {
 				if n, ok := revisionNumber(e.Fields["revision"]); ok {
 					st.BuiltAgainst = &n
 				}
 			}
-			if e.Type == "set-status" {
+			if e.Type == parse.EventSetStatus {
 				if prev != nil && prev.Event.At.Equal(e.At) && prev.Actor != entry.Actor {
 					st.Diagnostics = append(st.Diagnostics, note(parse.CodeConcurrentStatus,
 						fmt.Sprintf("events %q and %q change the status at the same time from different actors, %q wins", prev.Event.ID, e.ID, e.ID)))
@@ -130,15 +136,15 @@ func Fold(events []*parse.Event, opts Options) State {
 }
 
 func applySetStatus(st *State, e *parse.Event, entry *Entry) {
-	status := strings.TrimSpace(fmt.Sprint(e.Fields["status"]))
-	if lower := strings.ToLower(status); !knownStatuses[status] && knownStatuses[lower] {
+	status := e.String("status")
+	if lower := strings.ToLower(status); !KnownStatus(status) && KnownStatus(lower) {
 		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
 			Code:     parse.CodeUnknownStatus,
 			Severity: parse.SeverityWarning,
 			Message:  fmt.Sprintf("event %q sets status %q, which differs in case from the shared status %q", e.ID, status, lower),
 			Field:    "status",
 		})
-	} else if !knownStatuses[status] {
+	} else if !KnownStatus(status) {
 		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
 			Code:     parse.CodeUnknownStatus,
 			Severity: parse.SeverityWarning,

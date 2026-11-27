@@ -1,85 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"sort"
-	"strconv"
-	"strings"
-
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/policy"
-	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/internal/view"
+	"github.com/tektite-tracker/tektite/parse"
 )
-
-type nextItem struct {
-	Ref      string `json:"ref"`
-	ID       string `json:"id"`
-	Kind     string `json:"kind"`
-	Title    string `json:"title"`
-	Parent   string `json:"parent"`
-	Status   string `json:"status"`
-	Priority any    `json:"priority"`
-	Path     string `json:"path"`
-}
-
-var priorityNames = map[string]float64{"critical": 4, "high": 3, "medium": 2, "normal": 2, "low": 1}
-
-func priorityOf(v any) float64 {
-	switch p := v.(type) {
-	case int:
-		return float64(p)
-	case int64:
-		return float64(p)
-	case float64:
-		return p
-	case string:
-		s := strings.ToLower(strings.TrimSpace(p))
-		if n, ok := priorityNames[s]; ok {
-			return n
-		}
-		if n, err := strconv.ParseFloat(s, 64); err == nil {
-			return n
-		}
-	}
-	return 0
-}
-
-func (a *app) eligible(snap *store.Snapshot, kind string) []*store.NodeFile {
-	states := map[string]event.State{}
-	for _, nf := range snap.Nodes {
-		states[nf.Ref] = a.held(snap, nf.Ref)
-	}
-	blocked := snap.BuildGraph().Blockers
-	out := []*store.NodeFile{}
-	for _, nf := range snap.Nodes {
-		st := states[nf.Ref]
-		if (kind != "" && nf.Node.Kind != kind) || st.Status != event.StatusOpen || st.Lease.LiveAt(a.now()) {
-			continue
-		}
-		held := false
-		for _, b := range blocked[nf.Ref] {
-			if bs, ok := states[b]; ok && bs.Status != "done" && bs.Status != "dropped" {
-				held = true
-			}
-		}
-		if !held {
-			out = append(out, nf)
-		}
-	}
-	sort.SliceStable(out, func(i, j int) bool {
-		pi, pj := priorityOf(out[i].Node.Fields["priority"]), priorityOf(out[j].Node.Fields["priority"])
-		if pi != pj {
-			return pi > pj
-		}
-		if out[i].Node.ID != out[j].Node.ID {
-			return out[i].Node.ID < out[j].Node.ID
-		}
-		return out[i].Ref < out[j].Ref
-	})
-	return out
-}
 
 func (a *app) nextCmd() *cobra.Command {
 	var kind, actor, ttl string
@@ -97,15 +25,11 @@ func (a *app) nextCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r, err := a.repo()
+			_, snap, err := a.load()
 			if err != nil {
 				return err
 			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
-			}
-			list := a.eligible(snap, kind)
+			list := view.Eligible(snap, kind, a.now())
 			p, warnings, err := a.loadPolicy()
 			if err != nil {
 				return err
@@ -122,9 +46,7 @@ func (a *app) nextCmd() *cobra.Command {
 				list = open
 			}
 			if !a.json {
-				for _, w := range warnings {
-					a.printf(a.err, "warning: %s\n", w)
-				}
+				a.warn(warnings)
 			}
 			if len(list) == 0 {
 				return fail(exitNotFound, "create a ticket with `tkt new ticket` or release a claim", "nothing is available")
@@ -137,16 +59,9 @@ func (a *app) nextCmd() *cobra.Command {
 					return err
 				}
 			}
-			items := []nextItem{}
+			items := []view.NextItem{}
 			for _, nf := range list {
-				parent := nf.ParentRef
-				if parent == "" {
-					parent = nf.Node.Parent
-				}
-				items = append(items, nextItem{
-					Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: parent,
-					Status: event.StatusOpen, Priority: nf.Node.Fields["priority"], Path: nf.Path,
-				})
+				items = append(items, view.NewNextItem(nf))
 			}
 			if a.json {
 				return a.writeJSON(items)
@@ -157,10 +72,10 @@ func (a *app) nextCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&kind, "kind", "ticket", "only nodes of this kind, empty for any")
+	cmd.Flags().StringVar(&kind, "kind", parse.KindTicket, "only nodes of this kind, empty for any")
 	cmd.Flags().IntVar(&limit, "limit", 1, "how many nodes to return")
 	cmd.Flags().BoolVar(&claim, "claim", false, "claim the first node in the same command")
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the claim")
+	addActorFlag(cmd, &actor)
 	cmd.Flags().StringVar(&ttl, "ttl", event.DefaultTTL.String(), "lease duration with --claim")
 	return cmd
 }

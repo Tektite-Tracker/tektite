@@ -11,6 +11,7 @@ import (
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 type revisionItem struct {
@@ -46,10 +47,10 @@ func (a *app) reviseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			d := &event.Draft{Type: "revision", Body: body}
+			d := &event.Draft{Type: parse.EventRevision, Body: body}
 			number := 0
 			check := func(snap *store.Snapshot, nf *store.NodeFile, _ string) ([]string, error) {
-				number = a.held(snap, nf.Ref).NextRevision()
+				number = snap.State(nf.Ref).NextRevision()
 				d.Fields = []node.Field{{Key: "number", Value: number}}
 				return nil, nil
 			}
@@ -60,15 +61,13 @@ func (a *app) reviseCmd() *cobra.Command {
 			if a.json {
 				return a.writeJSON(revisedResult{appended: res, Number: number})
 			}
-			for _, w := range res.Warnings {
-				a.printf(a.err, "warning: %s\n", w)
-			}
+			a.warn(res.Warnings)
 			a.printf(a.out, "%s revision %d\n", res.Ref, number)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&file, "file", "", "file with the new body, or - for stdin, which is the default")
-	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
+	addActorFlag(cmd, &actor)
 	return cmd
 }
 
@@ -99,14 +98,14 @@ func (a *app) revisionsCmd() *cobra.Command {
 		Short: "List the revisions of a plan",
 		Args:  exactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			_, st, nf, err := a.loadState(args[0])
+			st, nf, err := a.loadState("revisions", args[0])
 			if err != nil {
 				return err
 			}
 			items := []revisionItem{}
 			for _, r := range st.Revisions {
 				items = append(items, revisionItem{
-					Number: r.Number, Event: r.Event, Actor: r.Actor, At: r.At.UTC().Format(timeLayout),
+					Number: r.Number, Event: r.Event, Actor: r.Actor, At: parse.FormatTime(r.At),
 					Bytes: len(r.Body), Current: r.Event == currentRevisionEvent(st), Diverged: st.Diverged(r.Number),
 				})
 			}
@@ -139,13 +138,20 @@ func currentRevisionEvent(st event.State) string {
 	return ""
 }
 
+type diffResult struct {
+	Diff string `json:"diff"`
+	From int    `json:"from"`
+	Ref  string `json:"ref"`
+	To   int    `json:"to"`
+}
+
 func (a *app) diffCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "diff <ref> <rev-a> <rev-b>",
 		Short: "Show a unified diff between two revisions of a plan",
 		Args:  exactArgs(3),
 		RunE: func(_ *cobra.Command, args []string) error {
-			_, st, nf, err := a.loadState(args[0])
+			st, nf, err := a.loadState("diff", args[0])
 			if err != nil {
 				return err
 			}
@@ -163,7 +169,7 @@ func (a *app) diffCmd() *cobra.Command {
 			}
 			text := event.UnifiedDiff(fmt.Sprintf("%s revision %d", nf.Ref, revs[0].Number), fmt.Sprintf("%s revision %d", nf.Ref, revs[1].Number), revs[0].Body, revs[1].Body)
 			if a.json {
-				return a.writeJSON(map[string]any{"ref": nf.Ref, "from": revs[0].Number, "to": revs[1].Number, "diff": text})
+				return a.writeJSON(diffResult{Diff: text, From: revs[0].Number, Ref: nf.Ref, To: revs[1].Number})
 			}
 			a.printf(a.out, "%s", text)
 			return nil
@@ -171,18 +177,14 @@ func (a *app) diffCmd() *cobra.Command {
 	}
 }
 
-func (a *app) loadState(query string) (*store.Snapshot, event.State, *store.NodeFile, error) {
-	r, err := a.repo()
+func (a *app) loadState(verb, query string) (event.State, *store.NodeFile, error) {
+	_, snap, err := a.load()
 	if err != nil {
-		return nil, event.State{}, nil, err
-	}
-	snap, err := r.Load()
-	if err != nil {
-		return nil, event.State{}, nil, fmt.Errorf("load repository: %w", err)
+		return event.State{}, nil, err
 	}
 	nf, err := snap.Resolve(query)
 	if err != nil {
-		return nil, event.State{}, nil, fmt.Errorf("revisions: %w", err)
+		return event.State{}, nil, fmt.Errorf("%s: %w", verb, err)
 	}
-	return snap, a.held(snap, nf.Ref), nf, nil
+	return snap.State(nf.Ref), nf, nil
 }

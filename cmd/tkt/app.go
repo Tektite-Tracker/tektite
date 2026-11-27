@@ -91,6 +91,15 @@ func classify(err error) *cliError {
 }
 
 func run(args []string, e env) int {
+	if e.gitUser == nil {
+		e.gitUser = func() string { return "" }
+	}
+	if e.gitHead == nil {
+		e.gitHead = func() string { return "" }
+	}
+	if e.gitDirty == nil {
+		e.gitDirty = func() bool { return false }
+	}
 	a := &app{env: e}
 	root := a.newRoot()
 	root.SetArgs(args)
@@ -109,6 +118,13 @@ func run(args []string, e env) int {
 	return ce.code
 }
 
+type errorResult struct {
+	Code  int             `json:"code"`
+	Error string          `json:"error"`
+	Gates []policy.Result `json:"gates,omitempty"`
+	Hint  string          `json:"hint"`
+}
+
 func (a *app) printError(ce *cliError, asJSON bool) {
 	line := "tkt: " + ce.msg
 	if ce.hint != "" {
@@ -116,11 +132,7 @@ func (a *app) printError(ce *cliError, asJSON bool) {
 	}
 	a.printf(a.err, "%s\n", line)
 	if asJSON {
-		doc := map[string]any{"error": ce.msg, "code": ce.code, "hint": ce.hint}
-		if ce.gates != nil {
-			doc["gates"] = ce.gates
-		}
-		_ = a.writeJSON(doc)
+		_ = a.writeJSON(errorResult{Code: ce.code, Error: ce.msg, Gates: ce.gates, Hint: ce.hint})
 	}
 }
 
@@ -137,6 +149,12 @@ func (a *app) readFile(name string) ([]byte, error) {
 
 func (a *app) printf(w io.Writer, format string, args ...any) {
 	_, _ = fmt.Fprintf(w, format, args...)
+}
+
+func (a *app) warn(warnings []string) {
+	for _, w := range warnings {
+		a.printf(a.err, "warning: %s\n", w)
+	}
 }
 
 func (a *app) writeJSON(v any) error {
@@ -163,6 +181,18 @@ func (a *app) repo() (*store.Repo, error) {
 	return r, nil
 }
 
+func (a *app) load() (*store.Repo, *store.Snapshot, error) {
+	r, err := a.repo()
+	if err != nil {
+		return nil, nil, err
+	}
+	snap, err := r.Load()
+	if err != nil {
+		return nil, nil, fmt.Errorf("load repository: %w", err)
+	}
+	return r, snap, nil
+}
+
 func (a *app) newRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "tkt",
@@ -184,9 +214,39 @@ func (a *app) newRoot() *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return usage("%s", err)
 	})
-	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd(),
-		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.contextCmd(), a.attachEvidenceCmd(), a.reviseCmd(), a.revisionsCmd(), a.diffCmd(), a.approveCmd(), a.policyCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
+	root.AddCommand(
+		a.initCmd(),
+		a.newCmd(),
+		a.showCmd(),
+		a.lsCmd(),
+		a.checkCmd(),
+		a.fmtCmd(),
+		a.schemaCmd(),
+		a.setStatusCmd(),
+		a.claimCmd(),
+		a.leaseCmd("heartbeat", "Extend your lease on a node", true),
+		a.leaseCmd("release", "Release your lease on a node", false),
+		a.nextCmd(),
+		a.contextCmd(),
+		a.attachEvidenceCmd(),
+		a.reviseCmd(),
+		a.revisionsCmd(),
+		a.diffCmd(),
+		a.approveCmd(),
+		a.policyCmd(),
+		a.noteCmd(),
+		a.linkCmd("link", "Add a link to a node"),
+		a.linkCmd("unlink", "Remove a link from a node"),
+	)
 	return root
+}
+
+func addActorFlag(cmd *cobra.Command, dst *string) {
+	cmd.Flags().StringVar(dst, "actor", "", "actor recorded on the event")
+}
+
+func addRevisionFlag(cmd *cobra.Command, dst *int) {
+	cmd.Flags().IntVar(dst, "revision", 0, "plan revision the work is built against")
 }
 
 func exactArgs(n int) cobra.PositionalArgs {

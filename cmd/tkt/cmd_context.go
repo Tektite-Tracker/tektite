@@ -3,27 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/bundle"
 	"github.com/tektite-tracker/tektite/internal/store"
 )
-
-func gitHead(dir string) func() string {
-	return func() string {
-		c := exec.Command("git", "rev-parse", "HEAD")
-		c.Dir = dir
-		out, err := c.Output()
-		if err != nil {
-			return ""
-		}
-		return strings.TrimSpace(string(out))
-	}
-}
 
 func blobSizer(r *store.Repo) func(string) (int64, bool) {
 	return func(attachment string) (int64, bool) {
@@ -49,13 +35,9 @@ func (a *app) contextCmd() *cobra.Command {
 			if cmd.Flags().Changed("budget") && budget < 1 {
 				return usage("--budget must be at least 1")
 			}
-			r, err := a.repo()
+			r, snap, err := a.load()
 			if err != nil {
 				return err
-			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
 			}
 			nf, err := snap.Resolve(args[0])
 			if err != nil {
@@ -68,11 +50,7 @@ func (a *app) contextCmd() *cobra.Command {
 				}
 				budget = cfg.ContextBudget
 			}
-			head := ""
-			if a.gitHead != nil {
-				head = a.gitHead()
-			}
-			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: head, BlobSize: blobSizer(r)})
+			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: a.gitHead(), BlobSize: blobSizer(r)})
 			if a.json {
 				return a.writeJSON(b)
 			}

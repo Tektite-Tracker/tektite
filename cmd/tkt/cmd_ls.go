@@ -6,19 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tektite-tracker/tektite/internal/event"
+	"github.com/tektite-tracker/tektite/internal/view"
 )
-
-type lsItem struct {
-	Ref    string     `json:"ref"`
-	ID     string     `json:"id"`
-	Kind   string     `json:"kind"`
-	Title  string     `json:"title"`
-	Parent string     `json:"parent"`
-	Status string     `json:"status"`
-	Claim  *claimItem `json:"claim"`
-	Path   string     `json:"path"`
-}
 
 func (a *app) lsCmd() *cobra.Command {
 	var kind, status, under string
@@ -28,41 +17,19 @@ func (a *app) lsCmd() *cobra.Command {
 		Short: "List nodes",
 		Args:  exactArgs(0),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			r, err := a.repo()
+			_, snap, err := a.load()
 			if err != nil {
 				return err
 			}
-			snap, err := r.Load()
-			if err != nil {
-				return fmt.Errorf("load repository: %w", err)
-			}
-			scope := map[string]bool{}
+			filter := view.ListFilter{Kind: kind, Status: status, All: all}
 			if under != "" {
 				root, err := snap.Resolve(under)
 				if err != nil {
 					return fmt.Errorf("--under: %w", err)
 				}
-				for _, v := range snap.Tree.Descendants(root.Ref) {
-					scope[v.Ref] = true
-				}
+				filter.UnderRef = root.Ref
 			}
-			graph := snap.BuildGraph()
-			items := []lsItem{}
-			for _, nf := range snap.Nodes {
-				st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
-				switch {
-				case kind != "" && nf.Node.Kind != kind,
-					status != "" && st.Status != status,
-					under != "" && !scope[nf.Ref],
-					!all && graph.Superseded(nf.Ref):
-					continue
-				}
-				parent := nf.ParentRef
-				if parent == "" {
-					parent = nf.Node.Parent
-				}
-				items = append(items, lsItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: parent, Status: st.Status, Claim: claimOf(st, a.now()), Path: nf.Path})
-			}
+			items := view.List(snap, filter, a.now())
 			if a.json {
 				return a.writeJSON(items)
 			}

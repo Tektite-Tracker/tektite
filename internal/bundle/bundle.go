@@ -1,14 +1,16 @@
 package bundle
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 const (
@@ -134,7 +136,7 @@ func Build(snap *store.Snapshot, nf *store.NodeFile, opts Options) *Bundle {
 			b.Omitted = append(b.Omitted, Omitted{Section: s.Key, Ref: nf.Ref, Title: fmt.Sprintf("%d %s of %s", n, strings.ToLower(s.Title), nf.Ref), Fetch: "tkt show " + nf.Ref})
 		}
 	}
-	sort.SliceStable(b.Omitted, func(i, j int) bool { return sectionIndex(b.Omitted[i].Section) < sectionIndex(b.Omitted[j].Section) })
+	slices.SortStableFunc(b.Omitted, func(x, y Omitted) int { return cmp.Compare(sectionIndex(x.Section), sectionIndex(y.Section)) })
 	b.Tokens = used
 	return b
 }
@@ -190,11 +192,11 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 		hist = hist[len(hist)-historyLimit:]
 	}
 	for _, h := range hist {
-		line := fmt.Sprintf("%s %s %s", h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), h.Actor, h.Event.Type)
-		if h.Event.Type == "set-status" {
+		line := fmt.Sprintf("%s %s %s", parse.FormatTime(h.Event.At), h.Actor, h.Event.Type)
+		if h.Event.Type == parse.EventSetStatus {
 			line += " " + fmt.Sprint(h.Event.Fields["status"])
 		}
-		if h.Event.Type == "note" && h.Event.Body != "" {
+		if h.Event.Type == parse.EventNote && h.Event.Body != "" {
 			line += ": " + clip(strings.Join(strings.Fields(h.Event.Body), " "), historyNoteMax)
 		}
 		out = append(out, candidate{section: "history", group: nf.Ref, entry: sized(Entry{Ref: nf.Ref, Kind: nf.Node.Kind, Title: h.Event.ID, Mode: ModeFull, Text: line})})
@@ -288,7 +290,7 @@ func sized(e Entry) Entry {
 }
 
 func currentBody(snap *store.Snapshot, nf *store.NodeFile) (string, int) {
-	st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
+	st := snap.State(nf.Ref)
 	if st.Revision > 0 {
 		return st.Body, st.Revision
 	}

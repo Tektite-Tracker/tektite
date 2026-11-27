@@ -2,10 +2,12 @@ package event
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 type Draft struct {
@@ -17,7 +19,7 @@ type Draft struct {
 }
 
 func KnownStatus(status string) bool {
-	return knownStatuses[status]
+	return slices.Contains(Lifecycle, status)
 }
 
 func Render(d Draft) ([]byte, error) {
@@ -27,7 +29,7 @@ func Render(d Draft) ([]byte, error) {
 	fields := []node.Field{
 		{Key: "type", Value: d.Type},
 		{Key: "actor", Value: d.Actor},
-		{Key: "at", Value: d.At.UTC().Format(time.RFC3339)},
+		{Key: "at", Value: parse.FormatTime(d.At)},
 	}
 	fields = append(fields, d.Fields...)
 	body := strings.TrimSpace(d.Body)

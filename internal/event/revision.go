@@ -28,13 +28,7 @@ func revisionNumber(v any) (int, bool) {
 func applyRevision(st *State, e *parse.Event, entry *Entry) {
 	n, ok := revisionNumber(e.Fields["number"])
 	if !ok {
-		entry.Applied = false
-		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
-			Code:     parse.CodeInvalidRevision,
-			Severity: parse.SeverityWarning,
-			Message:  fmt.Sprintf("revision event %q has number %v, which is not a positive integer, so it is ignored", e.ID, e.Fields["number"]),
-			Field:    "number",
-		})
+		rejectField(st, entry, parse.CodeInvalidRevision, "number", fmt.Sprintf("revision event %q has number %v, which is not a positive integer, so it is ignored", e.ID, e.Fields["number"]))
 		return
 	}
 	for _, prev := range st.Revisions {

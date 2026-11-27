@@ -1,12 +1,14 @@
 package store
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
+	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/parse"
 )
 
@@ -16,8 +18,6 @@ const (
 	SourceLocal    = "local"
 	templateHeader = "## template"
 )
-
-var lifecycle = []string{"open", "active", "blocked", "review", "done", "dropped"}
 
 type Schema struct {
 	Kind        string         `json:"kind"`
@@ -50,19 +50,19 @@ func builtIns() map[string]*Schema {
 		return &Schema{
 			Kind:        kind,
 			Required:    []string{},
-			Statuses:    append([]string{}, lifecycle...),
+			Statuses:    slices.Clone(event.Lifecycle),
 			ParentKinds: []string{},
 			Template:    template,
 			Source:      SourceBuiltIn,
 		}
 	}
 	return map[string]*Schema{
-		"spec":     mk("spec", ""),
-		"plan":     mk("plan", ""),
-		"ticket":   mk("ticket", "### Context\n\n### Acceptance criteria"),
-		"gap":      mk("gap", ""),
-		"evidence": mk("evidence", ""),
-		"decision": mk("decision", ""),
+		parse.KindSpec:     mk(parse.KindSpec, ""),
+		parse.KindPlan:     mk(parse.KindPlan, ""),
+		parse.KindTicket:   mk(parse.KindTicket, "### Context\n\n### Acceptance criteria"),
+		parse.KindGap:      mk(parse.KindGap, ""),
+		parse.KindEvidence: mk(parse.KindEvidence, ""),
+		parse.KindDecision: mk(parse.KindDecision, ""),
 	}
 }
 
@@ -145,7 +145,7 @@ func (s *Schemas) List() []*Schema {
 	for _, sc := range s.byKind {
 		out = append(out, sc)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Kind < out[j].Kind })
+	slices.SortFunc(out, func(a, b *Schema) int { return cmp.Compare(a.Kind, b.Kind) })
 	return out
 }
 
