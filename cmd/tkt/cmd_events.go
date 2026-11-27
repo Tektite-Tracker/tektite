@@ -104,3 +104,22 @@ func (a *app) linkCmd(typ, short string) *cobra.Command {
 	addActorFlag(cmd, &actor)
 	return cmd
 }
+
+func (a *app) closeGapCmd() *cobra.Command {
+	var actor, evidence string
+	cmd := &cobra.Command{
+		Use:   "close-gap <ref>#<block-id>",
+		Short: "Close a gap block with evidence",
+		Args:  exactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc, err := a.svc()
+			if err != nil {
+				return err
+			}
+			return a.reportEvent(svc.CloseGap(service.CloseGapInput{Ref: args[0], Evidence: evidence, Actor: actor}))
+		},
+	}
+	addActorFlag(cmd, &actor)
+	cmd.Flags().StringVar(&evidence, "evidence", "", "evidence node that proves the gap is closed")
+	return cmd
+}

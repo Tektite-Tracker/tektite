@@ -154,6 +154,18 @@ Feature: Evidence
       Then a close event is appended referencing the evidence
       And the block is shown as closed
 
+    Scenario: Failing evidence cannot close a gap block
+      Given a gap block "01HZ3KB2" and an evidence node with exit code 1
+      When an actor runs `tkt close-gap` with that evidence
+      Then the command exits with code 2
+      And no event is appended
+
+    Scenario: Only an open gap block of the node can be closed
+      Given a node with an already closed gap block and a checklist item that is not a gap
+      When an actor runs `tkt close-gap` on either block or on an unknown block id
+      Then the command exits with code 2
+      And no event is appended
+
     Scenario: A policy can require evidence before done
       Given a policy requiring evidence on tickets before status "done"
       And a ticket with no evidence

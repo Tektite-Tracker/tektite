@@ -78,6 +78,16 @@ func (a *app) printShow(d view.ShowDoc) {
 		}
 		a.printf(a.out, "evidence: %s\n", line)
 	}
+	for _, g := range d.Gaps {
+		state := "open"
+		if g.Closed {
+			state = "closed"
+			if g.Evidence != "" {
+				state += " by " + g.Evidence
+			}
+		}
+		a.printf(a.out, "gap %s: %s (%s)\n", g.Block, g.Text, state)
+	}
 	if d.Body != "" {
 		a.printf(a.out, "\n%s\n", d.Body)
 	}

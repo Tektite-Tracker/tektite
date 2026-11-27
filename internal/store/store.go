@@ -268,6 +268,16 @@ func (s *Snapshot) State(ref string) event.State {
 	return event.Fold(s.EventsOf(ref), event.Options{})
 }
 
+func (s *Snapshot) ClosedBlocks(ref string) map[string]string {
+	closed := map[string]string{}
+	for _, ev := range s.EventsOf(ref) {
+		if ev != nil && ev.Valid && ev.Type == parse.EventClose {
+			closed[strings.ToLower(ev.String("block"))] = ev.String("evidence")
+		}
+	}
+	return closed
+}
+
 func (s *Snapshot) EventsOf(ref string) []*parse.Event {
 	files := s.Events[ref]
 	out := make([]*parse.Event, 0, len(files))

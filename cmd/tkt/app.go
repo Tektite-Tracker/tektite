@@ -313,6 +313,7 @@ func (a *app) newRoot() *cobra.Command {
 		a.approveCmd(),
 		a.policyCmd(),
 		a.noteCmd(),
+		a.closeGapCmd(),
 		a.linkCmd("link", "Add a link to a node"),
 		a.linkCmd("unlink", "Remove a link from a node"),
 	)
