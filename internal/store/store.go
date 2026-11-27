@@ -276,13 +276,13 @@ func (r *Repo) WriteNode(ref string, data []byte) (string, error) {
 		return "", fmt.Errorf("create temporary file: %w", err)
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() { _ = os.Remove(tmpName) }()
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return "", fmt.Errorf("write node %q: %w", ref, err)
 	}
 	if err := tmp.Sync(); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return "", fmt.Errorf("sync node %q: %w", ref, err)
 	}
 	if err := tmp.Close(); err != nil {
