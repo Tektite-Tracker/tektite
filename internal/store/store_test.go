@@ -336,3 +336,33 @@ func TestWriteNode(t *testing.T) {
 		}
 	})
 }
+
+func TestWriteEvent(t *testing.T) {
+	t.Run("A new event file is never overwritten", func(t *testing.T) {
+		root := t.TempDir()
+		write(t, root, ".tektite/nodes/a-3fa.md", nodeSrc("01HZ3K8Q5W2X9N4T7V6B1C0D3F", "ticket", "A", ""))
+		r, err := store.Open(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id := "01HZ3M0A1B2C3D4E5F6G7H8J91"
+		path, err := r.WriteEvent("a-3fa", id, []byte("first"))
+		if err != nil || path != ".tektite/events/a-3fa/"+id+".md" {
+			t.Fatalf("path = %q err = %v", path, err)
+		}
+		if _, err := r.WriteEvent("a-3fa", id, []byte("second")); !errors.Is(err, store.ErrExists) {
+			t.Errorf("err = %v", err)
+		}
+		data, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil || string(data) != "first" {
+			t.Errorf("data = %q err = %v", data, err)
+		}
+		entries, _ := os.ReadDir(filepath.Join(root, ".tektite/events/a-3fa"))
+		if len(entries) != 1 {
+			t.Errorf("leftover files: %v", entries)
+		}
+		if _, err := r.WriteEvent("../x", id, nil); !errors.Is(err, store.ErrBadRef) {
+			t.Errorf("bad ref: %v", err)
+		}
+	})
+}

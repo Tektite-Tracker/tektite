@@ -32,6 +32,7 @@ type env struct {
 	rand        io.Reader
 	getenv      func(string) string
 	interactive bool
+	gitUser     func() string
 }
 
 type app struct {
@@ -162,7 +163,8 @@ func (a *app) newRoot() *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return usage("%s", err)
 	})
-	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd())
+	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd(),
+		a.setStatusCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
 	return root
 }
 
