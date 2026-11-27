@@ -238,6 +238,21 @@ Feature: Command line
       Then the second run changes nothing
       And a file whose frontmatter is malformed is reported as skipped and left untouched
 
+    Scenario: Formatting assigns ids to checklist blocks
+      Given a node body with "- [ ] handle timeouts", a "## Gaps" section with "- [x] missing retry", and a block that already has an id
+      When a user runs `tkt fmt`
+      Then each checklist item without an id gets "<!-- t:ID -->", or "<!-- g:ID -->" when it is a gap
+      And an id is the last 8 characters of a generated ULID
+      And the text of each item and the rest of the body are unchanged
+      And a block that already has an id keeps it
+      And a second `tkt fmt` changes nothing
+
+    Scenario: A dry run shows block ids without writing them
+      Given a node body with a checklist item that has no id
+      When a user runs `tkt fmt --dry-run`
+      Then the change "assign block ids" is listed for the node
+      And the file is not written
+
     Scenario: Formatting keeps the values, styles and comments of fields it does not own
       Given a node with a date "2024-01-05", quoted strings, a block scalar, a list, and a YAML comment
       When a user runs `tkt fmt`

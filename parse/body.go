@@ -176,3 +176,8 @@ func scanWikilinks(masked string, lineAt func(int) int) []Link {
 	}
 	return out
 }
+
+// BodyBlocks returns the task blocks of a markdown body. Block lines count from 1 at the first line of body.
+func BodyBlocks(body []byte) []Block {
+	return parseBody(body, 1).blocks
+}
