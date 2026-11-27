@@ -179,6 +179,12 @@ Feature: Nodes
       Then the number is read as the string "42"
       And the list gives a warning and an empty value
 
+    Scenario: Frontmatter and body can be split without rewriting the body
+      Given a node file with frontmatter and a body
+      When the file is split
+      Then the frontmatter and the body are returned as written, minus any BOM and CRLF line endings
+      And a file without a complete frontmatter block is returned whole as its body
+
     Scenario: Duplicate ids are reported and both nodes stay readable
       Given two files that declare the same id
       When `tkt check` runs
