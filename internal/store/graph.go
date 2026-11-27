@@ -1,7 +1,8 @@
 package store
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/event"
@@ -60,15 +61,12 @@ func (s *Snapshot) BuildGraph() *Graph {
 		}
 	}
 	for _, list := range g.In {
-		sort.SliceStable(list, func(i, j int) bool {
-			if list[i].Ref != list[j].Ref {
-				return list[i].Ref < list[j].Ref
-			}
-			return list[i].Rel < list[j].Rel
+		slices.SortStableFunc(list, func(a, b Backlink) int {
+			return cmp.Or(cmp.Compare(a.Ref, b.Ref), cmp.Compare(a.Rel, b.Rel))
 		})
 	}
 	for _, list := range g.Blockers {
-		sort.Strings(list)
+		slices.Sort(list)
 	}
 	return g
 }

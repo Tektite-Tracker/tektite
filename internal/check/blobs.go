@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/store"
@@ -41,7 +41,7 @@ func (c *run) blobs() {
 	for name := range refs {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	for _, name := range names {
 		path := filepath.Join(c.repo.BlobsDir(), name)
 		rel := c.repo.Rel(path)

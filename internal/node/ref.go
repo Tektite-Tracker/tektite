@@ -3,7 +3,7 @@ package node
 import (
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/parse"
@@ -111,6 +111,6 @@ func Resolve(refs []string, query string) (string, error) {
 	case 1:
 		return matches[0], nil
 	}
-	sort.Strings(matches)
+	slices.Sort(matches)
 	return "", &AmbiguousError{Query: query, Matches: matches}
 }

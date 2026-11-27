@@ -1,10 +1,11 @@
 package store
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/parse"
@@ -145,7 +146,7 @@ func (s *Schemas) List() []*Schema {
 	for _, sc := range s.byKind {
 		out = append(out, sc)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Kind < out[j].Kind })
+	slices.SortFunc(out, func(a, b *Schema) int { return cmp.Compare(a.Kind, b.Kind) })
 	return out
 }
 

@@ -1,8 +1,9 @@
 package event
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/parse"
@@ -67,15 +68,8 @@ func Order(events []*parse.Event) []*parse.Event {
 	for _, e := range out {
 		keys[e] = fmt.Sprintf("%#v", *e)
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		a, b := out[i], out[j]
-		if !a.At.Equal(b.At) {
-			return a.At.Before(b.At)
-		}
-		if ai, bi := strings.ToUpper(a.ID), strings.ToUpper(b.ID); ai != bi {
-			return ai < bi
-		}
-		return keys[a] < keys[b]
+	slices.SortStableFunc(out, func(a, b *parse.Event) int {
+		return cmp.Or(a.At.Compare(b.At), cmp.Compare(strings.ToUpper(a.ID), strings.ToUpper(b.ID)), cmp.Compare(keys[a], keys[b]))
 	})
 	return out
 }

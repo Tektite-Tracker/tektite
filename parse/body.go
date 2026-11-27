@@ -3,7 +3,7 @@ package parse
 import (
 	"bytes"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/yuin/goldmark"
@@ -49,7 +49,8 @@ func parseBody(body []byte, firstLine int) bodyResult {
 	doc := md.Parser().Parse(reader)
 	lines := lineIndex(body)
 	lineAt := func(offset int) int {
-		return firstLine + sort.SearchInts(lines, offset+1) - 1
+		i, _ := slices.BinarySearch(lines, offset+1)
+		return firstLine + i - 1
 	}
 	res := bodyResult{}
 	masked := append([]byte(nil), body...)

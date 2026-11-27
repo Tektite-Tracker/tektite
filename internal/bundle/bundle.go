@@ -1,9 +1,10 @@
 package bundle
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -134,7 +135,7 @@ func Build(snap *store.Snapshot, nf *store.NodeFile, opts Options) *Bundle {
 			b.Omitted = append(b.Omitted, Omitted{Section: s.Key, Ref: nf.Ref, Title: fmt.Sprintf("%d %s of %s", n, strings.ToLower(s.Title), nf.Ref), Fetch: "tkt show " + nf.Ref})
 		}
 	}
-	sort.SliceStable(b.Omitted, func(i, j int) bool { return sectionIndex(b.Omitted[i].Section) < sectionIndex(b.Omitted[j].Section) })
+	slices.SortStableFunc(b.Omitted, func(x, y Omitted) int { return cmp.Compare(sectionIndex(x.Section), sectionIndex(y.Section)) })
 	b.Tokens = used
 	return b
 }

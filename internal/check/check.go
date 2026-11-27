@@ -1,10 +1,10 @@
 package check
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/event"
@@ -139,17 +139,8 @@ func (c *run) addDiag(path string, d parse.Diagnostic) {
 }
 
 func (c *run) report() Report {
-	sort.SliceStable(c.out, func(i, j int) bool {
-		a, b := c.out[i], c.out[j]
-		switch {
-		case a.Path != b.Path:
-			return a.Path < b.Path
-		case a.Line != b.Line:
-			return a.Line < b.Line
-		case a.Code != b.Code:
-			return a.Code < b.Code
-		}
-		return a.Message < b.Message
+	slices.SortStableFunc(c.out, func(a, b Problem) int {
+		return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line), cmp.Compare(a.Code, b.Code), cmp.Compare(a.Message, b.Message))
 	})
 	rep := Report{Problems: c.out}
 	for _, p := range c.out {
@@ -177,7 +168,7 @@ func (c *run) duplicateIDs() {
 	for id := range dups {
 		ids = append(ids, id)
 	}
-	sort.Strings(ids)
+	slices.Sort(ids)
 	for _, id := range ids {
 		paths := make([]string, 0, len(dups[id]))
 		for _, ref := range dups[id] {
@@ -200,7 +191,7 @@ func (c *run) cycles() {
 
 func (c *run) blockCycles() {
 	refs := c.snap.Refs()
-	sort.Strings(refs)
+	slices.Sort(refs)
 	const (
 		visiting = 1
 		finished = 2

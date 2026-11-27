@@ -1,8 +1,9 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -68,15 +69,12 @@ func (a *app) eligible(snap *store.Snapshot, kind string) []*store.NodeFile {
 			out = append(out, nf)
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		pi, pj := priorityOf(out[i].Node.Fields["priority"]), priorityOf(out[j].Node.Fields["priority"])
-		if pi != pj {
-			return pi > pj
-		}
-		if out[i].Node.ID != out[j].Node.ID {
-			return out[i].Node.ID < out[j].Node.ID
-		}
-		return out[i].Ref < out[j].Ref
+	slices.SortStableFunc(out, func(a, b *store.NodeFile) int {
+		return cmp.Or(
+			cmp.Compare(priorityOf(b.Node.Fields["priority"]), priorityOf(a.Node.Fields["priority"])),
+			cmp.Compare(a.Node.ID, b.Node.ID),
+			cmp.Compare(a.Ref, b.Ref),
+		)
 	})
 	return out
 }

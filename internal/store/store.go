@@ -1,12 +1,13 @@
 package store
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/node"
@@ -148,7 +149,7 @@ func (r *Repo) loadNodes() ([]*NodeFile, error) {
 			Diags: diags,
 		})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Ref < out[j].Ref })
+	slices.SortFunc(out, func(a, b *NodeFile) int { return cmp.Compare(a.Ref, b.Ref) })
 	return out, nil
 }
 

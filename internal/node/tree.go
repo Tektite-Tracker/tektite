@@ -1,6 +1,9 @@
 package node
 
-import "sort"
+import (
+	"cmp"
+	"slices"
+)
 
 func Ancestors(parents map[string]string, id string) ([]string, bool) {
 	seen := map[string]bool{id: true}
@@ -20,7 +23,7 @@ func Cycles(parents map[string]string) [][]string {
 	for id := range parents {
 		ids = append(ids, id)
 	}
-	sort.Strings(ids)
+	slices.Sort(ids)
 
 	done := map[string]bool{}
 	cycles := [][]string{}
@@ -39,7 +42,7 @@ func Cycles(parents map[string]string) [][]string {
 			done[p] = true
 		}
 	}
-	sort.Slice(cycles, func(i, j int) bool { return cycles[i][0] < cycles[j][0] })
+	slices.SortFunc(cycles, func(a, b []string) int { return cmp.Compare(a[0], b[0]) })
 	return cycles
 }
 

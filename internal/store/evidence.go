@@ -1,9 +1,10 @@
 package store
 
 import (
+	"cmp"
 	"fmt"
 	"path"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -98,11 +99,8 @@ func (s *Snapshot) EvidenceFor(g *Graph, ref string) []Evidence {
 			}
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if !out[i].At.Equal(out[j].At) {
-			return out[i].At.After(out[j].At)
-		}
-		return out[i].Node.Ref < out[j].Node.Ref
+	slices.SortStableFunc(out, func(a, b Evidence) int {
+		return cmp.Or(b.At.Compare(a.At), cmp.Compare(a.Node.Ref, b.Node.Ref))
 	})
 	return out
 }
