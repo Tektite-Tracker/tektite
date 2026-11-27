@@ -7,7 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -127,8 +128,24 @@ func run(args []string, e env) int {
 	if ce.silent {
 		return ce.code
 	}
-	a.printError(ce, a.json || slices.Contains(args, "--json"))
+	a.printError(ce, a.json || jsonRequested(args))
 	return ce.code
+}
+
+func jsonRequested(args []string) bool {
+	requested := false
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		if arg == "--json" {
+			requested = true
+		} else if v, ok := strings.CutPrefix(arg, "--json="); ok {
+			b, err := strconv.ParseBool(v)
+			requested = err == nil && b
+		}
+	}
+	return requested
 }
 
 type errorResult struct {
@@ -207,6 +224,14 @@ func (a *app) svc() (*service.Service, error) {
 		Getenv: a.getenv,
 		Git:    gitFuncs{user: a.gitUser, head: a.gitHead, dirty: a.gitDirty},
 	}, nil
+}
+
+func (a *app) emit(v any, text func()) error {
+	if a.json {
+		return a.writeJSON(v)
+	}
+	text()
+	return nil
 }
 
 func (a *app) writeJSON(v any) error {

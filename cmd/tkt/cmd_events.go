@@ -24,12 +24,10 @@ func toAppended(res *service.Appended) *appended {
 }
 
 func (a *app) report(res *appended) error {
-	if a.json {
-		return a.writeJSON(res)
-	}
-	a.warn(res.Warnings)
-	a.printf(a.out, "%s %s %s\n", res.Ref, res.Type, res.Event)
-	return nil
+	return a.emit(res, func() {
+		a.warn(res.Warnings)
+		a.printf(a.out, "%s %s %s\n", res.Ref, res.Type, res.Event)
+	})
 }
 
 func (a *app) reportEvent(res *service.Appended, err error) error {

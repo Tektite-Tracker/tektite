@@ -2,7 +2,6 @@ package event
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -18,11 +17,8 @@ type Revision struct {
 }
 
 func revisionNumber(v any) (int, bool) {
-	if v == nil {
-		return 0, false
-	}
-	n, err := strconv.Atoi(strings.TrimSpace(fmt.Sprint(v)))
-	return n, err == nil && n >= 1
+	n, ok := parse.IntOf(v)
+	return n, ok && n >= 1
 }
 
 func applyRevision(st *State, e *parse.Event, entry *Entry) {

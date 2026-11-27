@@ -177,7 +177,7 @@ func stringList(v any) []string {
 	case []any:
 		for _, item := range x {
 			if item != nil {
-				out = append(out, strings.TrimSpace(fmt.Sprint(item)))
+				out = append(out, parse.StringOf(item))
 			}
 		}
 	case string:

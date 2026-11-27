@@ -2,10 +2,8 @@ package store
 
 import (
 	"cmp"
-	"fmt"
 	"path"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -28,11 +26,11 @@ func EvidenceOfNode(nf *NodeFile) Evidence {
 	f := nf.Node.Fields
 	ev := Evidence{Node: nf}
 	if v, ok := f["claim"]; ok && v != nil {
-		ev.Claim = strings.TrimSpace(fmt.Sprint(v))
+		ev.Claim = parse.StringOf(v)
 	}
 	if atts, ok := f["attachments"].([]any); ok {
 		for _, a := range atts {
-			if s := strings.TrimSpace(fmt.Sprint(a)); s != "" {
+			if s := parse.StringOf(a); s != "" {
 				ev.Attachments = append(ev.Attachments, s)
 			}
 		}
@@ -40,7 +38,7 @@ func EvidenceOfNode(nf *NodeFile) Evidence {
 	prov, _ := f["provenance"].(map[string]any)
 	str := func(k string) string {
 		if v, ok := prov[k]; ok && v != nil {
-			return strings.TrimSpace(fmt.Sprint(v))
+			return parse.StringOf(v)
 		}
 		return ""
 	}
@@ -53,7 +51,7 @@ func EvidenceOfNode(nf *NodeFile) Evidence {
 		ev.At, _ = time.Parse(time.RFC3339, at)
 	}
 	if v, ok := prov["exit_code"]; ok && v != nil {
-		if n, err := strconv.Atoi(fmt.Sprint(v)); err == nil {
+		if n, ok := parse.IntOf(v); ok {
 			ev.ExitCode = &n
 		}
 	}

@@ -20,7 +20,7 @@ type Event struct {
 }
 
 func (e *Event) String(key string) string {
-	return strings.TrimSpace(fmt.Sprint(e.Fields[key]))
+	return StringOf(e.Fields[key])
 }
 
 func FormatTime(t time.Time) string {

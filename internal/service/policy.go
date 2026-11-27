@@ -35,13 +35,8 @@ func gateBlocked(verb, ref string, failed []policy.Result, agentOverride bool) e
 		for _, it := range f.Items {
 			fmt.Fprintf(&b, "\n    - %s", it)
 		}
-		switch f.Rule {
-		case policy.RuleApproval:
-			hints = append(hints, "ask a human to run `tkt approve` on the plan")
-		case policy.RuleEvidence:
-			hints = append(hints, "attach passing evidence with `tkt attach-evidence`")
-		case policy.RuleNoGaps:
-			hints = append(hints, "close the open gaps")
+		if h := policy.Hint(f.Rule); h != "" {
+			hints = append(hints, h)
 		}
 	}
 	if agentOverride {
