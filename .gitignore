@@ -1,0 +1,13 @@
+/bin/
+/dist/
+/tkt
+*.test
+*.out
+coverage.*
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.env
+.env.*
+.claude/settings.local.json
