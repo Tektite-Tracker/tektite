@@ -136,7 +136,7 @@ func Fold(events []*parse.Event, opts Options) State {
 }
 
 func applySetStatus(st *State, e *parse.Event, entry *Entry) {
-	status := strings.TrimSpace(fmt.Sprint(e.Fields["status"]))
+	status := e.String("status")
 	if lower := strings.ToLower(status); !KnownStatus(status) && KnownStatus(lower) {
 		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
 			Code:     parse.CodeUnknownStatus,

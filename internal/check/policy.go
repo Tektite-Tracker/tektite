@@ -41,7 +41,7 @@ func (c *run) policy() {
 			var results []policy.Result
 			switch h.Event.Type {
 			case "set-status":
-				if strings.TrimSpace(fmt.Sprint(h.Event.Fields["status"])) != event.StatusDone || (h.Override != "" && event.IsHuman(h.Actor)) {
+				if h.Event.String("status") != event.StatusDone || (h.Override != "" && event.IsHuman(h.Actor)) {
 					continue
 				}
 				results = p.Done(env, nf)

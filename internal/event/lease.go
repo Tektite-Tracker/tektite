@@ -87,7 +87,7 @@ func applyRelease(st *State, e *parse.Event, entry *Entry) {
 func applyLink(st *State, e *parse.Event, add bool) {
 	st.LinkOps = append(st.LinkOps, LinkOp{
 		Add:    add,
-		Rel:    strings.TrimSpace(fmt.Sprint(e.Fields["rel"])),
-		Target: strings.TrimSpace(fmt.Sprint(e.Fields["target"])),
+		Rel:    e.String("rel"),
+		Target: e.String("target"),
 	})
 }

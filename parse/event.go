@@ -20,6 +20,10 @@ type Event struct {
 	Valid      bool           `json:"valid"`
 }
 
+func (e *Event) String(key string) string {
+	return strings.TrimSpace(fmt.Sprint(e.Fields[key]))
+}
+
 func FormatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }

@@ -94,7 +94,7 @@ func (s *Snapshot) EvidenceFor(g *Graph, ref string) []Evidence {
 	}
 	for _, e := range s.EventsOf(ref) {
 		if e.Valid && e.Type == parse.EventAttach {
-			if t, err := s.Resolve(strings.TrimSpace(fmt.Sprint(e.Fields["evidence"]))); err == nil {
+			if t, err := s.Resolve(e.String("evidence")); err == nil {
 				add(t)
 			}
 		}
