@@ -3,6 +3,7 @@ package node_test
 import (
 	"bytes"
 	"errors"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
@@ -25,6 +26,36 @@ func TestID(t *testing.T) {
 		}
 		if _, err := node.NewID(at, bytes.NewReader(nil)); err == nil {
 			t.Error("short entropy should fail")
+		}
+		if _, err := node.NewID(time.UnixMilli(-1), bytes.NewReader(make([]byte, 16))); !errors.Is(err, node.ErrTimeRange) {
+			t.Errorf("negative time: %v", err)
+		}
+		if _, err := node.NewID(time.UnixMilli(1<<48), bytes.NewReader(make([]byte, 16))); !errors.Is(err, node.ErrTimeRange) {
+			t.Errorf("overflowing time: %v", err)
+		}
+	})
+
+	t.Run("Ids created in the same millisecond sort in creation order", func(t *testing.T) {
+		at := time.Date(2026, 11, 27, 10, 0, 0, 0, time.UTC)
+		g := node.NewGenerator(rand.New(rand.NewSource(1)))
+		prev := ""
+		for i := 0; i < 500; i++ {
+			when := at
+			if i%7 == 0 {
+				when = at.Add(-time.Second)
+			}
+			id, err := g.New(when)
+			if err != nil || !parse.IsULID(id) || id <= prev {
+				t.Fatalf("i=%d id=%q prev=%q err=%v", i, id, prev, err)
+			}
+			prev = id
+		}
+		full := node.NewGenerator(bytes.NewReader(bytes.Repeat([]byte{31}, 16)))
+		if _, err := full.New(at); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := full.New(at); !errors.Is(err, node.ErrOverflow) {
+			t.Errorf("overflow: %v", err)
 		}
 	})
 }
@@ -81,7 +112,13 @@ func TestResolve(t *testing.T) {
 		if err != nil || got != "auth-retry-3fa" {
 			t.Errorf("got=%q err=%v", got, err)
 		}
-		if got, _ := node.Resolve(refs, "fa"); got != "auth-retry-3fa" {
+		if got, _ := node.Resolve(refs, "c1"); got != "" {
+			t.Errorf("short query resolved to %q", got)
+		}
+		if _, err := node.Resolve(refs, "fa"); !errors.Is(err, node.ErrTooShort) {
+			t.Errorf("err = %v", err)
+		}
+		if got, _ := node.Resolve(refs, "a-3fa"); got != "auth-retry-3fa" {
 			t.Errorf("suffix got=%q", got)
 		}
 		if _, err := node.Resolve(refs, "zzz"); !errors.Is(err, node.ErrNotFound) {
@@ -92,10 +129,20 @@ func TestResolve(t *testing.T) {
 		}
 	})
 
+	t.Run("A reference with fewer than three hash characters is rejected", func(t *testing.T) {
+		if _, err := node.Resolve(refs, "fa"); !errors.Is(err, node.ErrTooShort) {
+			t.Errorf("err = %v", err)
+		}
+	})
+
 	t.Run("An ambiguous reference is rejected", func(t *testing.T) {
-		_, err := node.Resolve([]string{"b-7fa", "a-3fa", "c-9c1"}, "fa")
+		_, err := node.Resolve([]string{"b-17fa", "a-3fa", "c-9c1"}, "7fa")
 		var amb *node.AmbiguousError
-		if !errors.As(err, &amb) || !reflect.DeepEqual(amb.Matches, []string{"a-3fa", "b-7fa"}) {
+		if err != nil {
+			t.Errorf("unique suffix should resolve: %v", err)
+		}
+		_, err = node.Resolve([]string{"b-17fa", "a-27fa", "c-9c1"}, "7fa")
+		if !errors.As(err, &amb) || !reflect.DeepEqual(amb.Matches, []string{"a-27fa", "b-17fa"}) {
 			t.Errorf("err = %v", err)
 		}
 		_, err = node.Resolve([]string{"a-3fa", "b-3fa"}, "x-3fa")
