@@ -71,7 +71,7 @@ func TestLinks_Typed(t *testing.T) {
 }
 
 func TestLinks_Wikilinks(t *testing.T) {
-	t.Run(`A wikilink is a "mentions" link`, func(t *testing.T) {
+	t.Run("A wikilink is a mentions link", func(t *testing.T) {
 		n, _ := parse.ParseNode("n.md", []byte("see [[auth-retry-3fa]]\n"))
 		if got := relTargets(n.Links); !equal(got, []string{"mentions>auth-retry-3fa"}) {
 			t.Errorf("links = %v", got)

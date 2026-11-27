@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 type showLinks struct {
@@ -42,6 +43,57 @@ func TestCLI_Links(t *testing.T) {
 		got := s.links("ticket-a-3f1")
 		if len(got.Links) != 1 || got.Links[0].Rel != "blocks" || got.Links[0].Ref != "ticket-b-3f3" {
 			t.Errorf("links = %+v", got.Links)
+		}
+	})
+
+	t.Run("A late link is added by event", func(t *testing.T) {
+		s := linkSandbox(t)
+		res := s.tkt("link", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
+		if res.code != 0 {
+			t.Fatalf("exit %d: %s", res.code, res.stderr)
+		}
+		var doc appended
+		decode(t, res.stdout, &doc)
+		event := s.read(doc.Path)
+		for _, want := range []string{"type: link", "rel: blocks", "target: ticket-b-3f3"} {
+			if !strings.Contains(event, want) {
+				t.Errorf("link event lacks %q:\n%s", want, event)
+			}
+		}
+		rels := map[string]string{}
+		for _, l := range s.links("ticket-a-3f1").Links {
+			rels[l.Rel] = l.Ref
+		}
+		if rels["implements"] != "plan-p-3f2" || rels["blocks"] != "ticket-b-3f3" || len(rels) != 2 {
+			t.Errorf("the folded links should be the frontmatter link plus the late one, got %v", rels)
+		}
+	})
+
+	t.Run("Removing a late link is a new event", func(t *testing.T) {
+		s := linkSandbox(t)
+		added := s.tkt("link", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
+		var first appended
+		decode(t, added.stdout, &first)
+		s.now = s.now.Add(time.Minute)
+		res := s.tkt("unlink", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
+		if res.code != 0 {
+			t.Fatalf("exit %d: %s", res.code, res.stderr)
+		}
+		var second appended
+		decode(t, res.stdout, &second)
+		if second.Type != "unlink" || second.Event == first.Event {
+			t.Fatalf("want a new unlink event, got %+v", second)
+		}
+		for _, l := range s.links("ticket-a-3f1").Links {
+			if l.Rel == "blocks" {
+				t.Errorf("the late link should be gone, links = %+v", s.links("ticket-a-3f1").Links)
+			}
+		}
+		if _, err := os.Stat(filepath.Join(s.root, first.Path)); err != nil {
+			t.Errorf("the original link event must stay in the history: %v", err)
+		}
+		if got := eventFiles(t, s, "ticket-a-3f1"); len(got) != 2 {
+			t.Errorf("both events should exist, got %v", got)
 		}
 	})
 
