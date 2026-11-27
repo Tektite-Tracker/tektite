@@ -1,83 +1,13 @@
 package main
 
 import (
-	"cmp"
-	"slices"
-	"strconv"
-	"strings"
-
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/policy"
-	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/internal/view"
 	"github.com/tektite-tracker/tektite/parse"
 )
-
-type nextItem struct {
-	Ref      string `json:"ref"`
-	ID       string `json:"id"`
-	Kind     string `json:"kind"`
-	Title    string `json:"title"`
-	Parent   string `json:"parent"`
-	Status   string `json:"status"`
-	Priority any    `json:"priority"`
-	Path     string `json:"path"`
-}
-
-var priorityNames = map[string]float64{"critical": 4, "high": 3, "medium": 2, "normal": 2, "low": 1}
-
-func priorityOf(v any) float64 {
-	switch p := v.(type) {
-	case int:
-		return float64(p)
-	case int64:
-		return float64(p)
-	case float64:
-		return p
-	case string:
-		s := strings.ToLower(strings.TrimSpace(p))
-		if n, ok := priorityNames[s]; ok {
-			return n
-		}
-		if n, err := strconv.ParseFloat(s, 64); err == nil {
-			return n
-		}
-	}
-	return 0
-}
-
-func (a *app) eligible(snap *store.Snapshot, kind string) []*store.NodeFile {
-	states := map[string]event.State{}
-	for _, nf := range snap.Nodes {
-		states[nf.Ref] = snap.State(nf.Ref)
-	}
-	blocked := snap.BuildGraph().Blockers
-	out := []*store.NodeFile{}
-	for _, nf := range snap.Nodes {
-		st := states[nf.Ref]
-		if (kind != "" && nf.Node.Kind != kind) || st.Status != event.StatusOpen || st.Lease.LiveAt(a.now()) {
-			continue
-		}
-		held := false
-		for _, b := range blocked[nf.Ref] {
-			if bs, ok := states[b]; ok && !event.Closed(bs.Status) {
-				held = true
-			}
-		}
-		if !held {
-			out = append(out, nf)
-		}
-	}
-	slices.SortStableFunc(out, func(a, b *store.NodeFile) int {
-		return cmp.Or(
-			cmp.Compare(priorityOf(b.Node.Fields["priority"]), priorityOf(a.Node.Fields["priority"])),
-			cmp.Compare(a.Node.ID, b.Node.ID),
-			cmp.Compare(a.Ref, b.Ref),
-		)
-	})
-	return out
-}
 
 func (a *app) nextCmd() *cobra.Command {
 	var kind, actor, ttl string
@@ -99,7 +29,7 @@ func (a *app) nextCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			list := a.eligible(snap, kind)
+			list := view.Eligible(snap, kind, a.now())
 			p, warnings, err := a.loadPolicy()
 			if err != nil {
 				return err
@@ -129,12 +59,9 @@ func (a *app) nextCmd() *cobra.Command {
 					return err
 				}
 			}
-			items := []nextItem{}
+			items := []view.NextItem{}
 			for _, nf := range list {
-				items = append(items, nextItem{
-					Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(),
-					Status: event.StatusOpen, Priority: nf.Node.Fields["priority"], Path: nf.Path,
-				})
+				items = append(items, view.NewNextItem(nf))
 			}
 			if a.json {
 				return a.writeJSON(items)

@@ -5,18 +5,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-)
 
-type lsItem struct {
-	Ref    string     `json:"ref"`
-	ID     string     `json:"id"`
-	Kind   string     `json:"kind"`
-	Title  string     `json:"title"`
-	Parent string     `json:"parent"`
-	Status string     `json:"status"`
-	Claim  *claimItem `json:"claim"`
-	Path   string     `json:"path"`
-}
+	"github.com/tektite-tracker/tektite/internal/view"
+)
 
 func (a *app) lsCmd() *cobra.Command {
 	var kind, status, under string
@@ -30,29 +21,15 @@ func (a *app) lsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			scope := map[string]bool{}
+			filter := view.ListFilter{Kind: kind, Status: status, All: all}
 			if under != "" {
 				root, err := snap.Resolve(under)
 				if err != nil {
 					return fmt.Errorf("--under: %w", err)
 				}
-				for _, v := range snap.Tree.Descendants(root.Ref) {
-					scope[v.Ref] = true
-				}
+				filter.UnderRef = root.Ref
 			}
-			graph := snap.BuildGraph()
-			items := []lsItem{}
-			for _, nf := range snap.Nodes {
-				st := snap.State(nf.Ref)
-				switch {
-				case kind != "" && nf.Node.Kind != kind,
-					status != "" && st.Status != status,
-					under != "" && !scope[nf.Ref],
-					!all && graph.Superseded(nf.Ref):
-					continue
-				}
-				items = append(items, lsItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(), Status: st.Status, Claim: claimOf(st, a.now()), Path: nf.Path})
-			}
+			items := view.List(snap, filter, a.now())
 			if a.json {
 				return a.writeJSON(items)
 			}

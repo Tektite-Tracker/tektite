@@ -11,19 +11,6 @@ import (
 	"github.com/tektite-tracker/tektite/parse"
 )
 
-type claimItem struct {
-	Holder    string `json:"holder"`
-	ExpiresAt string `json:"expires_at"`
-	Live      bool   `json:"live"`
-}
-
-func claimOf(st event.State, now time.Time) *claimItem {
-	if st.Lease == nil {
-		return nil
-	}
-	return &claimItem{Holder: st.Lease.Holder, ExpiresAt: parse.FormatTime(st.Lease.Expires), Live: st.Lease.LiveAt(now)}
-}
-
 func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int) (*appended, error) {
 	d := &event.Draft{Type: parse.EventClaim, Fields: []node.Field{{Key: "ttl", Value: ttl.String()}}}
 	if revision > 0 {
