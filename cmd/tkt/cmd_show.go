@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -39,6 +40,7 @@ type showDoc struct {
 	Title       string             `json:"title"`
 	Parent      string             `json:"parent"`
 	Status      string             `json:"status"`
+	Claim       *claimItem         `json:"claim"`
 	Path        string             `json:"path"`
 	Fields      map[string]any     `json:"fields"`
 	Body        string             `json:"body"`
@@ -68,7 +70,7 @@ func (a *app) showCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("show: %w", err)
 			}
-			doc := buildShow(snap, nf)
+			doc := buildShow(snap, nf, a.now())
 			if a.json {
 				return a.writeJSON(doc)
 			}
@@ -78,7 +80,7 @@ func (a *app) showCmd() *cobra.Command {
 	}
 }
 
-func buildShow(snap *store.Snapshot, nf *store.NodeFile) showDoc {
+func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc {
 	st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
 	ancestors, _ := snap.Tree.Ancestors(nf.Ref)
 	children := snap.Tree.Children[nf.Ref]
@@ -87,7 +89,7 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile) showDoc {
 	}
 	doc := showDoc{
 		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentRef,
-		Status: st.Status, Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body,
+		Status: st.Status, Claim: claimOf(st, now), Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body,
 		Ancestors: ancestors, Children: children, Links: []linkItem{}, Notes: []noteItem{}, History: []historyItem{},
 		Diagnostics: append(append([]parse.Diagnostic{}, nf.Diags...), st.Diagnostics...),
 	}
@@ -115,6 +117,13 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile) showDoc {
 func (a *app) printShow(d showDoc) {
 	a.printf(a.out, "%s  %s  %s\n%s\n", d.Ref, d.Kind, d.Status, d.Title)
 	a.printf(a.out, "path: %s\n", d.Path)
+	if d.Claim != nil {
+		state := "expires"
+		if !d.Claim.Live {
+			state = "expired"
+		}
+		a.printf(a.out, "claimed by: %s (%s %s)\n", d.Claim.Holder, state, d.Claim.ExpiresAt)
+	}
 	if d.Parent != "" {
 		a.printf(a.out, "parent: %s\n", d.Parent)
 	}

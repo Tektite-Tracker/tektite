@@ -51,49 +51,62 @@ func gitUserName(dir string) func() string {
 	}
 }
 
-func (a *app) appendEvent(actorFlag, query string, d *event.Draft, check func(snap *store.Snapshot) ([]string, error)) error {
+type precheck func(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error)
+
+func (a *app) writeEvent(actorFlag, query string, d *event.Draft, check precheck) (*appended, error) {
 	r, err := a.repo()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	snap, err := r.Load()
 	if err != nil {
-		return fmt.Errorf("load repository: %w", err)
+		return nil, fmt.Errorf("load repository: %w", err)
 	}
 	nf, err := snap.Resolve(query)
 	if err != nil {
-		return fmt.Errorf("%s: %w", d.Type, err)
+		return nil, fmt.Errorf("%s: %w", d.Type, err)
 	}
-	warnings := []string{}
-	if check != nil {
-		if warnings, err = check(snap); err != nil {
-			return err
-		}
-	}
-	actor, actorWarn := a.resolveActor(actorFlag)
-	warnings = append(warnings, actorWarn...)
+	actor, warnings := a.resolveActor(actorFlag)
 	d.Actor, d.At = actor, a.now()
+	if check != nil {
+		extra, err := check(snap, nf, actor)
+		if err != nil {
+			return nil, err
+		}
+		warnings = append(extra, warnings...)
+	}
 	id, err := node.NewID(d.At, a.rand)
 	if err != nil {
-		return fmt.Errorf("new id: %w", err)
+		return nil, fmt.Errorf("new id: %w", err)
 	}
 	data, err := event.Render(*d)
 	if err != nil {
-		return fmt.Errorf("%s: %w", d.Type, err)
+		return nil, fmt.Errorf("%s: %w", d.Type, err)
 	}
 	path, err := r.WriteEvent(nf.Ref, id, data)
 	if err != nil {
-		return fmt.Errorf("append %s event: %w", d.Type, err)
+		return nil, fmt.Errorf("append %s event: %w", d.Type, err)
 	}
-	res := appended{Ref: nf.Ref, Event: id, Type: d.Type, Actor: actor, At: d.At.UTC().Format("2006-01-02T15:04:05Z"), Path: path, Warnings: warnings}
+	return &appended{Ref: nf.Ref, Event: id, Type: d.Type, Actor: actor, At: d.At.UTC().Format("2006-01-02T15:04:05Z"), Path: path, Warnings: warnings}, nil
+}
+
+func (a *app) report(res *appended) error {
 	if a.json {
 		return a.writeJSON(res)
 	}
-	for _, w := range warnings {
+	for _, w := range res.Warnings {
 		a.printf(a.err, "warning: %s\n", w)
 	}
-	a.printf(a.out, "%s %s %s\n", nf.Ref, d.Type, id)
+	a.printf(a.out, "%s %s %s\n", res.Ref, res.Type, res.Event)
 	return nil
+}
+
+func (a *app) appendEvent(actorFlag, query string, d *event.Draft, check precheck) error {
+	res, err := a.writeEvent(actorFlag, query, d, check)
+	if err != nil {
+		return err
+	}
+	return a.report(res)
 }
 
 func (a *app) setStatusCmd() *cobra.Command {
@@ -111,7 +124,7 @@ func (a *app) setStatusCmd() *cobra.Command {
 			if strings.TrimSpace(override) != "" {
 				fields = append(fields, node.Field{Key: "override", Value: strings.TrimSpace(override)})
 			}
-			check := func(*store.Snapshot) ([]string, error) {
+			check := func(*store.Snapshot, *store.NodeFile, string) ([]string, error) {
 				if event.KnownStatus(status) {
 					return nil, nil
 				}
@@ -162,7 +175,7 @@ func (a *app) linkCmd(typ, short string) *cobra.Command {
 				return usage("rel and target must not be empty")
 			}
 			d := &event.Draft{Type: typ}
-			check := func(snap *store.Snapshot) ([]string, error) {
+			check := func(snap *store.Snapshot, _ *store.NodeFile, _ string) ([]string, error) {
 				warnings := []string{}
 				if t, err := snap.Resolve(target); err == nil {
 					target = t.Ref

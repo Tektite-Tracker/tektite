@@ -26,6 +26,8 @@ type Entry struct {
 
 type State struct {
 	Status      string             `json:"status"`
+	Lease       *Lease             `json:"lease"`
+	LinkOps     []LinkOp           `json:"link_ops"`
 	History     []Entry            `json:"history"`
 	Diagnostics []parse.Diagnostic `json:"diagnostics"`
 }
@@ -39,6 +41,11 @@ type handler func(st *State, e *parse.Event, entry *Entry)
 var handlers = map[string]handler{
 	"set-status": applySetStatus,
 	"note":       func(*State, *parse.Event, *Entry) {},
+	"claim":      applyClaim,
+	"heartbeat":  applyHeartbeat,
+	"release":    applyRelease,
+	"link":       func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, true) },
+	"unlink":     func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, false) },
 }
 
 func Order(events []*parse.Event) []*parse.Event {
@@ -69,7 +76,7 @@ func Fold(events []*parse.Event, opts Options) State {
 	if opts.DefaultActor == "" {
 		opts.DefaultActor = UnknownActor
 	}
-	st := State{Status: StatusOpen, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
+	st := State{Status: StatusOpen, LinkOps: []LinkOp{}, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
 	seen := map[string]bool{}
 	warned := map[string]bool{}
 	var prev *Entry
