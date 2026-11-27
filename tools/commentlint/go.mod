@@ -1,4 +1,4 @@
-module github.com/Tektite-Tracker/tektite/tools/commentlint
+module github.com/tektite-tracker/tektite/tools/commentlint
 
 go 1.24.5
 

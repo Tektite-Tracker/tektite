@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/simplehuman/tektite/parse"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/simplehuman/tektite/parse"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 func TestEvent_ParseEvent(t *testing.T) {

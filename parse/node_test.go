@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/simplehuman/tektite/parse"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 func TestNode_ParseCompleteNode(t *testing.T) {
