@@ -382,7 +382,9 @@ func TestCLI_New(t *testing.T) {
 		if !strings.HasSuffix(s.read(".tektite/nodes/"+ref+".md"), "---\n### Context\n### Acceptance criteria\n") {
 			t.Errorf("node:\n%s", s.read(".tektite/nodes/"+ref+".md"))
 		}
-		os.Remove(filepath.Join(s.root, ".tektite", "schemas", "ticket.md"))
+		if err := os.Remove(filepath.Join(s.root, ".tektite", "schemas", "ticket.md")); err != nil {
+			t.Fatal(err)
+		}
 		builtIn := strings.TrimSpace(s.tkt("new", "ticket", "Built in").stdout)
 		if !strings.Contains(s.read(".tektite/nodes/"+builtIn+".md"), "### Acceptance criteria") {
 			t.Errorf("built-in template missing:\n%s", s.read(".tektite/nodes/"+builtIn+".md"))
