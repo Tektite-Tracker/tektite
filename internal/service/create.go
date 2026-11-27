@@ -26,13 +26,13 @@ type CreateInput struct {
 }
 
 type Created struct {
-	ID              string
-	Kind            string
-	MissingRequired []string
-	Parent          string
-	Path            string
-	Ref             string
-	Title           string
+	ID              string   `json:"id"`
+	Kind            string   `json:"kind"`
+	MissingRequired []string `json:"missing_required"`
+	Parent          string   `json:"parent"`
+	Path            string   `json:"path"`
+	Ref             string   `json:"ref"`
+	Title           string   `json:"title"`
 }
 
 type setField struct {

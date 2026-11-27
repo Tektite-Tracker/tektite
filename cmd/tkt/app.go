@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/policy"
 	"github.com/tektite-tracker/tektite/internal/service"
 	"github.com/tektite-tracker/tektite/internal/store"
@@ -84,25 +83,11 @@ func exitSilently(code int) error {
 
 func classify(err error) *cliError {
 	var ce *cliError
-	var se *service.Error
-	var amb *node.AmbiguousError
-	switch {
-	case errors.As(err, &ce):
+	if errors.As(err, &ce) {
 		return ce
-	case errors.As(err, &se):
-		return &cliError{code: serviceExit[se.Kind], msg: se.Msg, hint: se.Hint, gates: se.Gates}
-	case errors.As(err, &amb):
-		return &cliError{code: exitUsage, msg: err.Error(), hint: "use a longer hash to pick one"}
-	case errors.Is(err, node.ErrNotFound):
-		return &cliError{code: exitNotFound, msg: err.Error(), hint: "run `tkt ls` to list references"}
-	case errors.Is(err, node.ErrTooShort):
-		return &cliError{code: exitUsage, msg: err.Error(), hint: fmt.Sprintf("use at least %d hash characters", node.MinHashLen)}
-	case errors.Is(err, store.ErrNoRepo):
-		return &cliError{code: exitNotFound, msg: err.Error(), hint: "run `tkt init` to create one"}
-	case errors.Is(err, store.ErrExists):
-		return &cliError{code: exitConflict, msg: err.Error(), hint: "retry the command"}
 	}
-	return &cliError{code: exitError, msg: err.Error()}
+	se := service.Classify(err)
+	return &cliError{code: serviceExit[se.Kind], msg: se.Msg, hint: se.Hint, gates: se.Gates}
 }
 
 func run(args []string, e env) int {
@@ -207,11 +192,19 @@ type gitFuncs struct {
 	user  func() string
 	head  func() string
 	dirty func() bool
+	log   func(since string, paths []string) ([]string, error)
 }
 
 func (g gitFuncs) User() string { return g.user() }
 func (g gitFuncs) Head() string { return g.head() }
 func (g gitFuncs) Dirty() bool  { return g.dirty() }
+
+func (g gitFuncs) CommitsSince(since string, paths []string) ([]string, error) {
+	if g.log == nil {
+		return nil, nil
+	}
+	return g.log(since, paths)
+}
 
 func (a *app) svc() (*service.Service, error) {
 	r, err := a.repo()
@@ -223,7 +216,7 @@ func (a *app) svc() (*service.Service, error) {
 		Now:    a.now,
 		Rand:   a.rand,
 		Getenv: a.getenv,
-		Git:    gitFuncs{user: a.gitUser, head: a.gitHead, dirty: a.gitDirty},
+		Git:    gitFuncs{user: a.gitUser, head: a.gitHead, dirty: a.gitDirty, log: a.gitLog},
 	}, nil
 }
 
@@ -315,6 +308,7 @@ func (a *app) newRoot() *cobra.Command {
 		a.approveCmd(),
 		a.policyCmd(),
 		a.noteCmd(),
+		a.mcpCmd(),
 		a.closeGapCmd(),
 		a.linkCmd("link", "Add a link to a node"),
 		a.linkCmd("unlink", "Remove a link from a node"),

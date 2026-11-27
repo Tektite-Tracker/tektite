@@ -47,6 +47,7 @@ type Git interface {
 	User() string
 	Head() string
 	Dirty() bool
+	CommitsSince(since string, paths []string) ([]string, error)
 }
 
 type NoGit struct{}
@@ -54,6 +55,9 @@ type NoGit struct{}
 func (NoGit) User() string { return "" }
 func (NoGit) Head() string { return "" }
 func (NoGit) Dirty() bool  { return false }
+func (NoGit) CommitsSince(string, []string) ([]string, error) {
+	return nil, nil
+}
 
 type Service struct {
 	Repo   *store.Repo
@@ -65,14 +69,14 @@ type Service struct {
 }
 
 type Appended struct {
-	Ref      string
-	Event    string
-	Type     string
-	Actor    string
-	At       string
-	Path     string
-	Fields   []node.Field
-	Warnings []parse.Diagnostic
+	Ref      string             `json:"ref"`
+	Event    string             `json:"event"`
+	Type     string             `json:"type"`
+	Actor    string             `json:"actor"`
+	At       string             `json:"at"`
+	Path     string             `json:"path"`
+	Fields   []node.Field       `json:"-"`
+	Warnings []parse.Diagnostic `json:"warnings"`
 }
 
 type context struct {

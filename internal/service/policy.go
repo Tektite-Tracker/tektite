@@ -86,9 +86,9 @@ func (s *Service) gateDone(c context, override string) ([]parse.Diagnostic, erro
 }
 
 type Explained struct {
-	Ref      string
-	Gates    []policy.Result
-	Warnings []parse.Diagnostic
+	Ref      string             `json:"ref"`
+	Gates    []policy.Result    `json:"gates"`
+	Warnings []parse.Diagnostic `json:"warnings"`
 }
 
 func (s *Service) Explain(ref string) (*Explained, error) {

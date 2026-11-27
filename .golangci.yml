@@ -16,6 +16,7 @@ linters:
     wrapcheck:
       ignore-package-globs:
         - github.com/tektite-tracker/tektite/internal/service
+        - github.com/tektite-tracker/tektite/internal/mcp
     revive:
       rules:
         - name: blank-imports
