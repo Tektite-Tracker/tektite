@@ -33,6 +33,7 @@ type env struct {
 	getenv      func(string) string
 	interactive bool
 	gitUser     func() string
+	gitHead     func() string
 }
 
 type app struct {
@@ -164,7 +165,7 @@ func (a *app) newRoot() *cobra.Command {
 		return usage("%s", err)
 	})
 	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd(),
-		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
+		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.contextCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
 	return root
 }
 
