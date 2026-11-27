@@ -185,6 +185,18 @@ Feature: Command line
       Then the second run changes nothing
       And a file whose frontmatter is malformed is reported as skipped and left untouched
 
+    Scenario: Formatting keeps the values, styles and comments of fields it does not own
+      Given a node with a date "2024-01-05", quoted strings, a block scalar, a list, and a YAML comment
+      When a user runs `tkt fmt`
+      Then only the id, kind, title, and parent keys are added or moved to the top
+      And every other field keeps its text, its quoting style, and its comments
+
+    Scenario: A file whose values would change is skipped and left untouched
+      Given a file whose reformatted frontmatter would parse to different field values or a different body
+      When a user runs `tkt fmt`
+      Then the file is reported as skipped
+      And the file is unchanged
+
     Scenario: Teaching agents the workflow
       When a user runs `tkt init-agent`
       Then a snippet is written for CLAUDE.md or AGENTS.md describing the verbs and exit codes

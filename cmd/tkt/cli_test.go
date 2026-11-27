@@ -599,7 +599,7 @@ func TestCLI_Fmt(t *testing.T) {
 		s.write(".tektite/nodes/messy-3fa.md", noID)
 		s.tkt("fmt")
 		src := s.read(".tektite/nodes/messy-3fa.md")
-		for _, want := range []string{"reviewed_by: jesus\n", "labels:\n  - a\n  - b\n"} {
+		for _, want := range []string{"reviewed_by: jesus\n", "labels: [a, b]\n"} {
 			if !strings.Contains(src, want) {
 				t.Errorf("missing %q in\n%s", want, src)
 			}
@@ -629,6 +629,38 @@ func TestCLI_Fmt(t *testing.T) {
 		plain := s.read(".tektite/nodes/plain-9e1.md")
 		if !strings.Contains(plain, "kind: note\ntitle: Just a heading\n") || !strings.HasSuffix(plain, "---\n# Just a heading\ntext\n") {
 			t.Errorf("plain:\n%s", plain)
+		}
+	})
+
+	t.Run("Formatting keeps the values, styles and comments of fields it does not own", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write(".tektite/nodes/dated-3fa.md", "---\ntitle: Invented\ndate: 2024-01-05\ncreated: 2024-01-05 10:30\n# keep this comment\nquoted: 'single'\nzip: \"007\"\ntags:\n  - alpha\n  - beta\nmulti: |\n  line one\n  line two\nsummary: \"A long invented summary that goes well past eighty characters so that any line folding would be visible here\"\n---\nbody\n")
+		got := s.tkt("fmt")
+		src := s.read(".tektite/nodes/dated-3fa.md")
+		if got.code != 0 || strings.Contains(got.stdout, "skipped") {
+			t.Fatalf("result = %+v", got)
+		}
+		for _, want := range []string{"date: 2024-01-05\n", "created: 2024-01-05 10:30\n", "# keep this comment\n", "quoted: 'single'\n", "zip: \"007\"\n", "tags:\n  - alpha\n  - beta\n", "multi: |\n  line one\n  line two\n", "summary: \"A long invented summary that goes well past eighty characters so that any line folding would be visible here\"\n"} {
+			if !strings.Contains(src, want) {
+				t.Errorf("missing %q in\n%s", want, src)
+			}
+		}
+		if !strings.HasPrefix(src, "---\nid: 01") || !strings.HasSuffix(src, "---\nbody\n") {
+			t.Errorf("node:\n%s", src)
+		}
+		again := s.tkt("fmt")
+		if strings.Contains(again.stdout, "updated") || s.read(".tektite/nodes/dated-3fa.md") != src {
+			t.Errorf("second run changed the file: %+v", again)
+		}
+	})
+
+	t.Run("A file whose values would change is skipped and left untouched", func(t *testing.T) {
+		s := newSandbox(t)
+		const dangling = "---\ntitle: &t\ncopy: *t\n---\nbody\n"
+		s.write(".tektite/nodes/dangling-3fa.md", dangling)
+		got := s.tkt("fmt")
+		if got.code != 0 || !strings.Contains(got.stdout, "skipped .tektite/nodes/dangling-3fa.md") || s.read(".tektite/nodes/dangling-3fa.md") != dangling {
+			t.Errorf("result = %+v", got)
 		}
 	})
 

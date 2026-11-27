@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -92,15 +93,18 @@ func (a *app) formatNode(r *store.Repo, nf *store.NodeFile, gen *node.Generator)
 		changes = append(changes, "assign id")
 	}
 	fields := []node.Field{{Key: "id", Value: id}, {Key: "kind", Value: n.Kind}, {Key: "title", Value: n.Title}, {Key: "parent", Value: n.Parent}}
-	for _, k := range n.FieldOrder {
-		if !coreFields[k] {
-			fields = append(fields, node.Field{Key: k, Value: n.Fields[k]})
-		}
+	rawYAML, body, hadFrontmatter := parse.SplitFrontmatter(src)
+	var out []byte
+	if hadFrontmatter {
+		out, err = node.Reformat(rawYAML, fields, string(body))
+	} else {
+		out, err = node.Render(fields, string(body))
 	}
-	_, body, hadFrontmatter := parse.SplitFrontmatter(src)
-	out, err := node.Render(fields, string(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("fmt %s: %w", nf.Path, err)
+	}
+	if reason := changesValues(n, out); reason != "" {
+		return &fmtItem{Path: nf.Path, Changes: []string{}, Skipped: reason}, nil, nil
 	}
 	if bytes.Equal(out, src) {
 		return nil, nil, nil
@@ -111,4 +115,24 @@ func (a *app) formatNode(r *store.Repo, nf *store.NodeFile, gen *node.Generator)
 		changes = append(changes, "normalise frontmatter")
 	}
 	return &fmtItem{Path: nf.Path, Changes: changes}, out, nil
+}
+
+func changesValues(before *parse.Node, out []byte) string {
+	after, _ := parse.ParseNode("x.md", out)
+	if after.Body != before.Body {
+		return "formatting would change the body"
+	}
+	for k, v := range before.Fields {
+		switch k {
+		case "id", "kind", "title", "parent":
+			continue
+		}
+		if !reflect.DeepEqual(v, after.Fields[k]) {
+			return "formatting would change the value of a field"
+		}
+	}
+	if len(after.Fields) < len(before.Fields) {
+		return "formatting would drop a field"
+	}
+	return ""
 }
