@@ -1,4 +1,4 @@
-module github.com/simplehuman/tektite
+module github.com/tektite-tracker/tektite
 
 go 1.24.5
 

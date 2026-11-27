@@ -2,5 +2,5 @@ version: v2.7.0
 name: custom-gcl
 destination: ./bin
 plugins:
-  - module: github.com/Tektite-Tracker/tektite/tools/commentlint
+  - module: github.com/tektite-tracker/tektite/tools/commentlint
     path: ./tools/commentlint
