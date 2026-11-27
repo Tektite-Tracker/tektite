@@ -17,7 +17,6 @@ var knownStatuses = map[string]bool{
 	"open": true, "active": true, "blocked": true, "review": true, "done": true, "dropped": true,
 }
 
-// Entry is one folded event in a node's history.
 type Entry struct {
 	Event    *parse.Event `json:"event"`
 	Actor    string       `json:"actor"`
@@ -25,14 +24,12 @@ type Entry struct {
 	Override string       `json:"override,omitempty"`
 }
 
-// State is a node's state computed from its events.
 type State struct {
 	Status      string             `json:"status"`
 	History     []Entry            `json:"history"`
 	Diagnostics []parse.Diagnostic `json:"diagnostics"`
 }
 
-// Options tunes a fold. DefaultActor attributes events that declare no actor.
 type Options struct {
 	DefaultActor string
 }
@@ -43,7 +40,6 @@ var handlers = map[string]handler{
 	"set-status": applySetStatus,
 }
 
-// Order sorts events by time, then by ULID, without changing its input.
 func Order(events []*parse.Event) []*parse.Event {
 	out := make([]*parse.Event, 0, len(events))
 	for _, e := range events {
@@ -61,7 +57,6 @@ func Order(events []*parse.Event) []*parse.Event {
 	return out
 }
 
-// Fold computes a node's state from its parsed events.
 func Fold(events []*parse.Event, opts Options) State {
 	if opts.DefaultActor == "" {
 		opts.DefaultActor = UnknownActor
