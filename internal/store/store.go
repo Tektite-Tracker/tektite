@@ -266,21 +266,36 @@ func (r *Repo) WriteNode(ref string, data []byte) (string, error) {
 	if !validRef(ref) {
 		return "", fmt.Errorf("write node %q: %w", ref, ErrBadRef)
 	}
-	return r.publishNew(r.NodesDir(), ref, data)
+	return r.publishNew(r.NodesDir(), ref, extension, data)
 }
 
 func (r *Repo) WriteEvent(ref, id string, data []byte) (string, error) {
 	if !validRef(ref) || !validRef(id) {
 		return "", fmt.Errorf("write event %q/%q: %w", ref, id, ErrBadRef)
 	}
-	return r.publishNew(filepath.Join(r.EventsDir(), ref), id, data)
+	return r.publishNew(filepath.Join(r.EventsDir(), ref), id, extension, data)
 }
 
-func (r *Repo) publishNew(dir, name string, data []byte) (string, error) {
+func (r *Repo) BlobsDir() string {
+	return filepath.Join(r.Dir(), "blobs")
+}
+
+func (r *Repo) WriteBlob(name string, data []byte) (string, bool, error) {
+	if !validRef(name) {
+		return "", false, fmt.Errorf("write blob %q: %w", name, ErrBadRef)
+	}
+	rel, err := r.publishNew(r.BlobsDir(), name, "", data)
+	if errors.Is(err, ErrExists) {
+		return filepath.ToSlash(filepath.Join(DirName, "blobs", name)), false, nil
+	}
+	return rel, err == nil, err
+}
+
+func (r *Repo) publishNew(dir, name, ext string, data []byte) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create %s: %w", r.Rel(dir), err)
 	}
-	final := filepath.Join(dir, name+extension)
+	final := filepath.Join(dir, name+ext)
 	tmp, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
 		return "", fmt.Errorf("create temporary file: %w", err)

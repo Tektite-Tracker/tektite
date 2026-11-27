@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/bundle"
+	"github.com/tektite-tracker/tektite/internal/store"
 )
 
 func gitHead(dir string) func() string {
@@ -19,6 +22,20 @@ func gitHead(dir string) func() string {
 			return ""
 		}
 		return strings.TrimSpace(string(out))
+	}
+}
+
+func blobSizer(r *store.Repo) func(string) (int64, bool) {
+	return func(attachment string) (int64, bool) {
+		name := store.BlobName(attachment)
+		if name == "" {
+			return 0, false
+		}
+		info, err := os.Stat(filepath.Join(r.BlobsDir(), name))
+		if err != nil {
+			return 0, false
+		}
+		return info.Size(), true
 	}
 }
 
@@ -55,7 +72,7 @@ func (a *app) contextCmd() *cobra.Command {
 			if a.gitHead != nil {
 				head = a.gitHead()
 			}
-			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: head})
+			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: head, BlobSize: blobSizer(r)})
 			if a.json {
 				return a.writeJSON(b)
 			}

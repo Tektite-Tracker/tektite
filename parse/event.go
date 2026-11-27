@@ -20,6 +20,9 @@ type Event struct {
 	Valid      bool           `json:"valid"`
 }
 
+// EventAttach is the type of the event that attaches an evidence node to a node.
+const EventAttach = "attach"
+
 var EventRequiredFields = map[string][]string{
 	"set-status": {"status"},
 	"claim":      {"ttl"},
