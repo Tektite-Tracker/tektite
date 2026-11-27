@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tektite-tracker/tektite/internal/view"
+	"github.com/tektite-tracker/tektite/internal/service"
 )
 
 func (a *app) lsCmd() *cobra.Command {
@@ -17,19 +17,14 @@ func (a *app) lsCmd() *cobra.Command {
 		Short: "List nodes",
 		Args:  exactArgs(0),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			_, snap, err := a.load()
+			sv, err := a.svc()
 			if err != nil {
 				return err
 			}
-			filter := view.ListFilter{Kind: kind, Status: status, All: all}
-			if under != "" {
-				root, err := snap.Resolve(under)
-				if err != nil {
-					return fmt.Errorf("--under: %w", err)
-				}
-				filter.UnderRef = root.Ref
+			items, err := sv.List(service.ListInput{Kind: kind, Status: status, Under: under, All: all})
+			if err != nil {
+				return err
 			}
-			items := view.List(snap, filter, a.now())
 			if a.json {
 				return a.writeJSON(items)
 			}
