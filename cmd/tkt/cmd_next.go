@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/event"
+	"github.com/tektite-tracker/tektite/internal/policy"
 	"github.com/tektite-tracker/tektite/internal/store"
 )
 
@@ -105,6 +106,26 @@ func (a *app) nextCmd() *cobra.Command {
 				return fmt.Errorf("load repository: %w", err)
 			}
 			list := a.eligible(snap, kind)
+			p, warnings, err := a.loadPolicy()
+			if err != nil {
+				return err
+			}
+			if p != nil {
+				who, _ := a.resolveActor(actor)
+				env := policy.NewEnv(snap)
+				open := list[:0]
+				for _, nf := range list {
+					if len(policy.Failed(p.Claim(env, nf, who, a.now()))) == 0 {
+						open = append(open, nf)
+					}
+				}
+				list = open
+			}
+			if !a.json {
+				for _, w := range warnings {
+					a.printf(a.err, "warning: %s\n", w)
+				}
+			}
 			if len(list) == 0 {
 				return fail(exitNotFound, "create a ticket with `tkt new ticket` or release a claim", "nothing is available")
 			}

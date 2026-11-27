@@ -25,6 +25,12 @@ Feature: Policy gates
       Then an error names the problem
       And verbs run with no gates and print a warning
 
+    Scenario: Unknown rules and keys make the policy malformed
+      Given a policy file with a gate whose rule is unknown, or a key this version does not know
+      When `tkt check` runs
+      Then an error names the problem
+      And the gates in the file are not enforced
+
   Rule: Approval gates
 
     Scenario: A plan needs human approval before agents claim its tickets
@@ -44,6 +50,28 @@ Feature: Policy gates
       Given a plan with an approve event from "agent:claude-opus/s-4f2a"
       When the gate is checked
       Then the plan is still not approved
+
+    Scenario: A human can claim under an unapproved plan
+      Given a policy "plans require human approval before work"
+      And a plan with no approval event
+      When "human:jesus" runs `tkt claim` on a ticket under that plan
+      Then the claim succeeds
+
+    Scenario: Approving records the current revision
+      Given a plan at revision 2
+      When "human:jesus" runs `tkt approve` on the plan
+      Then an approve event is appended for revision 2
+
+    Scenario: Only a human can approve
+      When an agent runs `tkt approve` on a plan
+      Then no event is appended
+      And the command exits with code 5
+
+    Scenario: Next does not offer a ticket the actor may not claim
+      Given a policy "plans require human approval before work"
+      And a ticket under a plan with no approval event
+      When an agent runs `tkt next`
+      Then the ticket is not returned
 
     Scenario: A new revision invalidates the approval
       Given a plan approved at revision 2
@@ -80,6 +108,12 @@ Feature: Policy gates
       Then no event is appended
       And the command exits with code 5
 
+    Scenario: A gate failure has a JSON shape
+      Given a failing completion gate
+      When an agent runs `tkt set-status auth-retry-3fa done --json`
+      Then stdout is a JSON object with "error", "code" 5, a hint, and a "gates" list
+      And each failing gate has its "name", "rule", "reason", and any "items"
+
   Rule: Gates are scoped by kind and label
 
     Scenario: A gate applies only to listed kinds
@@ -100,6 +134,21 @@ Feature: Policy gates
       When `tkt check` runs
       Then an error names the node, the event, and the gate
 
+    Scenario: check reports an agent claim made before approval
+      Given an agent claim event on a ticket whose plan had no human approval at that time
+      When `tkt check` runs
+      Then an error names the node, the event, and the gate
+
+    Scenario: check ignores an override by an agent
+      Given a done event with an override from an agent while a gate requires evidence
+      When `tkt check` runs
+      Then an error names the node, the event, and the gate
+
     Scenario: A gate can be explained
       When a user runs `tkt policy explain auth-retry-3fa`
       Then the output lists each gate that applies to the node and whether it is met
+
+    Scenario: Explaining a node that no gate applies to
+      Given a policy whose gates are scoped to other kinds
+      When a user runs `tkt policy explain auth-retry-3fa`
+      Then the output says no gate applies

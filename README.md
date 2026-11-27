@@ -27,7 +27,7 @@ Git-like, local-first work tracking for humans and agents. Everything is a markd
 
 - References are a slug from the title plus a short hash (e.g. `auth-retry-3fa`). The hash is the identity, so renames keep working.
 - UI is embedded in the Go binary and served by `tkt ui` on localhost with live updates.
-- Policy gates live in a versioned config file in `.tektite/`, enforced by `tkt check`.
+- Policy gates live in `.tektite/policy.md` (`version: 1`, `gates:` with `name`, `rule`, optional `kinds` and `labels`). Rules are `plan-approval`, `passing-evidence` and `no-open-gaps`. `claim` and `set-status` enforce them with exit 5, `tkt check` reports violations, `tkt policy explain <ref>` shows what applies, and only humans can `tkt approve` or `--override`.
 - v1 is parser, CLI, and agent verbs. The UI comes after the format is proven with real agent use.
 
 - Attachments are stored in the repo, content-addressed under `.tektite/blobs/<hash>`, with a size cap and a warning past it.

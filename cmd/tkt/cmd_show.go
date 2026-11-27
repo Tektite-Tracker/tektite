@@ -13,11 +13,12 @@ import (
 )
 
 type historyItem struct {
-	ID      string `json:"id"`
-	Type    string `json:"type"`
-	Actor   string `json:"actor"`
-	At      string `json:"at"`
-	Applied bool   `json:"applied"`
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Actor    string `json:"actor"`
+	At       string `json:"at"`
+	Applied  bool   `json:"applied"`
+	Override string `json:"override,omitempty"`
 }
 
 type noteItem struct {
@@ -156,7 +157,7 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 			doc.Notes = append(doc.Notes, noteItem{ID: h.Event.ID, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Body: h.Event.Body})
 		}
 		doc.History = append(doc.History, historyItem{
-			ID: h.Event.ID, Type: h.Event.Type, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Applied: h.Applied,
+			ID: h.Event.ID, Type: h.Event.Type, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Applied: h.Applied, Override: h.Override,
 		})
 	}
 	return doc
@@ -222,7 +223,11 @@ func (a *app) printShow(d showDoc) {
 	if len(d.History) > 0 {
 		a.printf(a.out, "\nhistory:\n")
 		for _, h := range d.History {
-			a.printf(a.out, "  %s  %s  %s\n", h.At, h.Actor, h.Type)
+			line := fmt.Sprintf("  %s  %s  %s", h.At, h.Actor, h.Type)
+			if h.Override != "" {
+				line += fmt.Sprintf(" (override: %s)", h.Override)
+			}
+			a.printf(a.out, "%s\n", line)
 		}
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/internal/policy"
 	"github.com/tektite-tracker/tektite/internal/store"
 )
 
@@ -50,6 +51,7 @@ type cliError struct {
 	msg    string
 	hint   string
 	silent bool
+	gates  []policy.Result
 }
 
 func (e *cliError) Error() string {
@@ -114,7 +116,11 @@ func (a *app) printError(ce *cliError, asJSON bool) {
 	}
 	a.printf(a.err, "%s\n", line)
 	if asJSON {
-		_ = a.writeJSON(map[string]any{"error": ce.msg, "code": ce.code, "hint": ce.hint})
+		doc := map[string]any{"error": ce.msg, "code": ce.code, "hint": ce.hint}
+		if ce.gates != nil {
+			doc["gates"] = ce.gates
+		}
+		_ = a.writeJSON(doc)
 	}
 }
 
@@ -179,7 +185,7 @@ func (a *app) newRoot() *cobra.Command {
 		return usage("%s", err)
 	})
 	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd(),
-		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.contextCmd(), a.attachEvidenceCmd(), a.reviseCmd(), a.revisionsCmd(), a.diffCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
+		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.contextCmd(), a.attachEvidenceCmd(), a.reviseCmd(), a.revisionsCmd(), a.diffCmd(), a.approveCmd(), a.policyCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
 	return root
 }
 
