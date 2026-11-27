@@ -2,6 +2,7 @@ package event_test
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
@@ -163,6 +164,27 @@ func TestFold_History(t *testing.T) {
 		}
 		if got := event.Fold([]*parse.Event{e}, event.Options{DefaultActor: "human:jesus"}).History[0].Actor; got != "human:jesus" {
 			t.Errorf("actor = %q", got)
+		}
+	})
+
+	t.Run("Fold output is identical for every input order", func(t *testing.T) {
+		base := []*parse.Event{
+			ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: active"),
+			ev(t, u1, "set-status", "2026-11-27T10:00:00Z", "status: review"),
+			ev(t, u2, "set-status", "2026-11-27T10:00:00Z", "status: parked"),
+			ev(t, u2, "note", "2026-11-27T10:00:00Z"),
+			ev(t, u3, "reaction", "2026-11-27T09:00:00Z", "emoji: x"),
+			ev(t, u4, "set-status", "2026-11-27T11:00:00Z", "status: done"),
+			ev(t, "first-try", "set-status", "2026-11-27T10:00:00Z", "status: blocked"),
+		}
+		want := event.Fold(base, event.Options{})
+		rng := rand.New(rand.NewSource(1))
+		for i := 0; i < 300; i++ {
+			shuffled := append([]*parse.Event(nil), base...)
+			rng.Shuffle(len(shuffled), func(a, b int) { shuffled[a], shuffled[b] = shuffled[b], shuffled[a] })
+			if got := event.Fold(shuffled, event.Options{}); !reflect.DeepEqual(got, want) {
+				t.Fatalf("permutation %d differs:\n%+v\n%+v", i, got, want)
+			}
 		}
 	})
 

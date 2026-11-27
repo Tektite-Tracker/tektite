@@ -47,12 +47,19 @@ func Order(events []*parse.Event) []*parse.Event {
 			out = append(out, e)
 		}
 	}
+	keys := make(map[*parse.Event]string, len(out))
+	for _, e := range out {
+		keys[e] = fmt.Sprintf("%#v", *e)
+	}
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if !a.At.Equal(b.At) {
 			return a.At.Before(b.At)
 		}
-		return strings.ToUpper(a.ID) < strings.ToUpper(b.ID)
+		if ai, bi := strings.ToUpper(a.ID), strings.ToUpper(b.ID); ai != bi {
+			return ai < bi
+		}
+		return keys[a] < keys[b]
 	})
 	return out
 }
