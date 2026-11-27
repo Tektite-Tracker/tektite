@@ -1,6 +1,6 @@
 # tektite
 
-Local-first work tracking for humans and AI agents, stored as markdown files in your git repo. The CLI is `tkt`.
+A local issue and work tracker for humans and AI agents. Tickets, specs and plans are markdown files in your git repo. The CLI is `tkt`.
 
 Specs, plans, tickets, gaps and evidence are plain `.md` files under `.tektite/`. Agents pick up work with `tkt next`, get a prompt-ready briefing with `tkt context`, take an expiring lease with `tkt claim`, and prove they are done with `tkt attach-evidence`. Humans review in git. There is no server, no account and no database.
 
