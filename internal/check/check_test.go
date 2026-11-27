@@ -239,6 +239,17 @@ func TestCheck_Events(t *testing.T) {
 		}
 	})
 
+	t.Run("Concurrent status changes resolve by time then ULID", func(t *testing.T) {
+		f := newFixture(t).node("tk-d3f", idA, "ticket", "", "", "x")
+		f.event("tk-d3f", e1, statusEvent("active"))
+		f.event("tk-d3f", e2, "---\ntype: set-status\nactor: agent:other\nat: 2026-11-27T10:00:00Z\nstatus: review\n---\n")
+		rep := f.run()
+		p := only(t, rep, parse.CodeConcurrentStatus)
+		if p.Severity != parse.SeverityNote || !strings.Contains(p.Message, e2) || rep.HasErrors() {
+			t.Errorf("problem = %+v", p)
+		}
+	})
+
 	t.Run("A malformed event is skipped in the fold", func(t *testing.T) {
 		f := newFixture(t).node("tk-d3f", idA, "ticket", "", "", "x")
 		f.event("tk-d3f", e1, "---\ntype: [unclosed\n---\n")
@@ -310,6 +321,17 @@ func TestCheck_Schemas(t *testing.T) {
 		f.event("gap-d3f", e1, statusEvent("review"))
 		p := only(t, f.run(), check.CodeDisallowedStatus)
 		if !strings.Contains(p.Message, "gap-d3f") || !strings.Contains(p.Message, "review") {
+			t.Errorf("problem = %+v", p)
+		}
+	})
+
+	t.Run("A kind schema can restrict statuses", func(t *testing.T) {
+		f := newFixture(t).write(".tektite/schemas/gap.md", gapStatuses).node("gap-d3f", idA, "gap", "", "", "x")
+		f.event("gap-d3f", e1, statusEvent("done"))
+		f.event("gap-d3f", e2, statusEvent("review"))
+		rep := f.run()
+		p := only(t, rep, check.CodeDisallowedStatus)
+		if !strings.Contains(p.Message, "review") || !strings.Contains(p.Message, e2) || strings.Contains(p.Message, e1) {
 			t.Errorf("problem = %+v", p)
 		}
 	})

@@ -162,7 +162,7 @@ func (a *app) newRoot() *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return usage("%s", err)
 	})
-	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd())
+	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd())
 	return root
 }
 

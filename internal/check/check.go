@@ -199,8 +199,8 @@ func (c *run) node(nf *store.NodeFile) {
 	for _, l := range c.links(nf) {
 		c.link(nf, l)
 	}
-	status := c.events(nf)
-	c.schema(nf, status)
+	st := c.events(nf)
+	c.schema(nf, st)
 }
 
 func (c *run) parent(nf *store.NodeFile) {
@@ -261,7 +261,7 @@ func (c *run) stale(path string, line int, what, query, ref string) {
 	}
 }
 
-func (c *run) events(nf *store.NodeFile) string {
+func (c *run) events(nf *store.NodeFile) event.State {
 	files := c.snap.Events[nf.Ref]
 	for _, f := range files {
 		for _, d := range f.Diags {
@@ -274,10 +274,10 @@ func (c *run) events(nf *store.NodeFile) string {
 			c.addDiag(nf.Path, d)
 		}
 	}
-	return st.Status
+	return st
 }
 
-func (c *run) schema(nf *store.NodeFile, status string) {
+func (c *run) schema(nf *store.NodeFile, st event.State) {
 	sc, ok := c.schemas.For(nf.Node.Kind)
 	if !ok {
 		return
@@ -287,8 +287,14 @@ func (c *run) schema(nf *store.NodeFile, status string) {
 			c.add(parse.SeverityWarning, CodeMissingRequired, nf.Path, 0, fmt.Sprintf("%s (%s) is missing required field %q", nf.Ref, sc.Kind, f))
 		}
 	}
-	if len(sc.Statuses) > 0 && !contains(sc.Statuses, status) {
-		c.add(parse.SeverityWarning, CodeDisallowedStatus, nf.Path, 0, fmt.Sprintf("%s (%s) has status %q, allowed: %s", nf.Ref, sc.Kind, status, strings.Join(sc.Statuses, ", ")))
+	if len(sc.Statuses) > 0 && !contains(sc.Statuses, st.Status) {
+		by := ""
+		for _, h := range st.History {
+			if h.Applied && h.Event.Type == "set-status" {
+				by = fmt.Sprintf(" set by event %s", h.Event.ID)
+			}
+		}
+		c.add(parse.SeverityWarning, CodeDisallowedStatus, nf.Path, 0, fmt.Sprintf("%s (%s) has status %q%s, allowed: %s", nf.Ref, sc.Kind, st.Status, by, strings.Join(sc.Statuses, ", ")))
 	}
 	if nf.ParentRef == "" || len(sc.ParentKinds) == 0 {
 		return

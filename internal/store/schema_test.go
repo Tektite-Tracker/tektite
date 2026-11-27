@@ -83,7 +83,7 @@ func TestSchemas(t *testing.T) {
 		}
 	})
 
-	t.Run("Unknown keys in a schema are preserved", func(t *testing.T) {
+	t.Run("Schema keys the parser does not know are kept in extra", func(t *testing.T) {
 		s := loadSchemas(t, map[string]string{"ticket.md": "---\nkind: ticket\nowner: team-a\n---\n"})
 		sc, _ := s.For("ticket")
 		if sc.Extra["owner"] != "team-a" {

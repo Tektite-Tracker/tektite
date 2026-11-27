@@ -26,6 +26,9 @@ type sandbox struct {
 	root string
 	rng  io.Reader
 	now  time.Time
+
+	interactive bool
+	editor      string
 }
 
 func newSandbox(t *testing.T) *sandbox {
@@ -66,7 +69,13 @@ func (s *sandbox) tktIn(cwd, stdin string, args ...string) result {
 	var out, errw bytes.Buffer
 	code := run(args, env{
 		in: strings.NewReader(stdin), out: &out, err: &errw, cwd: cwd,
-		now: func() time.Time { return s.now }, rand: s.rng, getenv: func(string) string { return "" },
+		now: func() time.Time { return s.now }, rand: s.rng, interactive: s.interactive,
+		getenv: func(k string) string {
+			if k == "EDITOR" {
+				return s.editor
+			}
+			return ""
+		},
 	})
 	return result{code: code, stdout: out.String(), stderr: errw.String()}
 }
@@ -342,6 +351,28 @@ func TestCLI_New(t *testing.T) {
 		if got.code != 0 || !strings.HasSuffix(s.read(".tektite/nodes/"+ref+".md"), "---\ntext from stdin\nsecond line\n") {
 			t.Errorf("result = %+v\n%s", got, s.read(".tektite/nodes/"+ref+".md"))
 		}
+
+		script := filepath.Join(t.TempDir(), "editor.sh")
+		if err := os.WriteFile(script, []byte("#!/bin/sh\n{ cat \"$1\"; printf 'from editor\\n'; } > \"$1.new\" && mv \"$1.new\" \"$1\"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		s.interactive, s.editor = true, script
+		edited := s.tkt("new", "ticket", "Edited")
+		eref := strings.TrimSpace(edited.stdout)
+		if edited.code != 0 || !strings.HasSuffix(s.read(".tektite/nodes/"+eref+".md"), "from editor\n") || !strings.Contains(s.read(".tektite/nodes/"+eref+".md"), "### Context") {
+			t.Errorf("editor result = %+v\n%s", edited, s.read(".tektite/nodes/"+eref+".md"))
+		}
+		explicit := s.tkt("new", "ticket", "Explicit", "--body", "given")
+		xref := strings.TrimSpace(explicit.stdout)
+		if strings.Contains(s.read(".tektite/nodes/"+xref+".md"), "from editor") {
+			t.Error("--body must skip the editor")
+		}
+		s.interactive = false
+		piped := s.tkt("new", "ticket", "Piped")
+		pref := strings.TrimSpace(piped.stdout)
+		if strings.Contains(s.read(".tektite/nodes/"+pref+".md"), "from editor") {
+			t.Error("a non-terminal must not open the editor")
+		}
 	})
 
 	t.Run("The template seeds a new body", func(t *testing.T) {
@@ -351,8 +382,9 @@ func TestCLI_New(t *testing.T) {
 		if !strings.HasSuffix(s.read(".tektite/nodes/"+ref+".md"), "---\n### Context\n### Acceptance criteria\n") {
 			t.Errorf("node:\n%s", s.read(".tektite/nodes/"+ref+".md"))
 		}
-		builtIn := strings.TrimSpace(s.tkt("new", "plan", "A plan").stdout)
-		if !strings.Contains(s.read(".tektite/nodes/"+builtIn+".md"), "### Approach") {
+		os.Remove(filepath.Join(s.root, ".tektite", "schemas", "ticket.md"))
+		builtIn := strings.TrimSpace(s.tkt("new", "ticket", "Built in").stdout)
+		if !strings.Contains(s.read(".tektite/nodes/"+builtIn+".md"), "### Acceptance criteria") {
 			t.Errorf("built-in template missing:\n%s", s.read(".tektite/nodes/"+builtIn+".md"))
 		}
 		custom := strings.TrimSpace(s.tkt("new", "retro", "Friday").stdout)
@@ -474,16 +506,25 @@ func TestCLI_List(t *testing.T) {
 
 	t.Run("Renaming a title does not change identity or the file name", func(t *testing.T) {
 		s := newSandbox(t)
-		s.write(".tektite/nodes/add-retry-on-429-3fa.md", "---\nid: "+idA+"\nkind: ticket\ntitle: Add retry on 429\nparent: \"\"\n---\nbody\n")
-		s.write(".tektite/nodes/add-retry-on-429-3fa.md", "---\nid: "+idA+"\nkind: ticket\ntitle: Add backoff on 429\nparent: \"\"\n---\nbody\n")
-		got := s.tkt("show", "add-retry-on-429-3fa")
-		if !strings.Contains(got.stdout, "Add backoff on 429") || !strings.HasPrefix(got.stdout, "add-retry-on-429-3fa  ") {
+		ref := strings.TrimSpace(s.tkt("new", "ticket", "Add retry on 429").stdout)
+		rel := ".tektite/nodes/" + ref + ".md"
+		before := s.read(rel)
+		s.write(rel, strings.Replace(before, "title: Add retry on 429", "title: Add backoff on 429", 1))
+		got := s.tkt("show", ref)
+		if !strings.Contains(got.stdout, "Add backoff on 429") || !strings.HasPrefix(got.stdout, ref+"  ") {
 			t.Errorf("show = %+v", got)
 		}
-		fm := s.tkt("fmt")
+		if fm := s.tkt("fmt"); fm.code != 0 {
+			t.Errorf("fmt = %+v", fm)
+		}
 		entries, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
-		if fm.code != 0 || len(entries) != 1 || entries[0].Name() != "add-retry-on-429-3fa.md" {
-			t.Errorf("fmt = %+v entries = %v", fm, entries)
+		after := s.read(rel)
+		idOf := func(src string) string { return strings.SplitN(strings.SplitN(src, "id: ", 2)[1], "\n", 2)[0] }
+		if len(entries) != 1 || entries[0].Name() != ref+".md" || idOf(before) != idOf(after) {
+			t.Errorf("entries = %v\n%s", entries, after)
+		}
+		if again := s.tkt("show", ref[len(ref)-3:]); !strings.HasPrefix(again.stdout, ref+"  ") {
+			t.Errorf("hash lookup = %+v", again)
 		}
 	})
 }
@@ -604,6 +645,52 @@ func TestCLI_Fmt(t *testing.T) {
 		s.tkt("fmt")
 		if s.read(".tektite/nodes/messy-3fa.md") == noID {
 			t.Error("fmt must write")
+		}
+	})
+}
+
+func TestCLI_Schema(t *testing.T) {
+	t.Run("The built-in kinds", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write(".tektite/schemas/ticket.md", "---\nkind: ticket\nrequired: [estimate]\n---\n")
+		got := s.tkt("schema", "ls")
+		want := map[string]string{"decision": "built-in", "evidence": "built-in", "gap": "built-in", "plan": "built-in", "spec": "built-in", "ticket": "local"}
+		rows := map[string]string{}
+		for _, line := range strings.Split(strings.TrimSpace(got.stdout), "\n") {
+			f := strings.Fields(line)
+			rows[f[0]] = f[1]
+		}
+		if got.code != 0 || len(rows) != len(want) {
+			t.Fatalf("result = %+v", got)
+		}
+		for k, v := range want {
+			if rows[k] != v {
+				t.Errorf("%s: source %q, want %q", k, rows[k], v)
+			}
+		}
+		var list []map[string]any
+		decode(t, s.tkt("schema", "ls", "--json").stdout, &list)
+		if len(list) != 6 || list[5]["kind"] != "ticket" || list[5]["source"] != "local" {
+			t.Errorf("list = %v", list)
+		}
+	})
+
+	t.Run("Unknown keys in a schema are preserved", func(t *testing.T) {
+		s := newSandbox(t)
+		const schema = "---\nkind:   ticket\nowner: team-a\nrequired: [estimate]\n---\n## Template\n### Context\n"
+		s.write(".tektite/schemas/ticket.md", schema)
+		s.node("tk-d3f", idA, "ticket", "", "", "x")
+		if got := s.tkt("fmt"); got.code != 0 {
+			t.Fatalf("fmt = %+v", got)
+		}
+		if s.read(".tektite/schemas/ticket.md") != schema {
+			t.Errorf("schema changed:\n%s", s.read(".tektite/schemas/ticket.md"))
+		}
+		var list []map[string]any
+		decode(t, s.tkt("schema", "ls", "--json").stdout, &list)
+		extra, _ := list[5]["extra"].(map[string]any)
+		if extra["owner"] != "team-a" {
+			t.Errorf("extra = %v", list[5])
 		}
 	})
 }
