@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -183,7 +184,7 @@ func (a *app) printShow(d showDoc) {
 		a.printf(a.out, "parent: %s\n", d.Parent)
 	}
 	if len(d.Ancestors) > 0 {
-		a.printf(a.out, "under: %s\n", strings.Join(reversed(d.Ancestors), " > "))
+		a.printf(a.out, "under: %s\n", strings.Join(reverseCopy(d.Ancestors), " > "))
 	}
 	if len(d.Children) > 0 {
 		a.printf(a.out, "children: %s\n", strings.Join(d.Children, ", "))
@@ -232,10 +233,8 @@ func (a *app) printShow(d showDoc) {
 	}
 }
 
-func reversed(in []string) []string {
-	out := make([]string, len(in))
-	for i, s := range in {
-		out[len(in)-1-i] = s
-	}
+func reverseCopy(in []string) []string {
+	out := slices.Clone(in)
+	slices.Reverse(out)
 	return out
 }

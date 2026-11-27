@@ -3,6 +3,7 @@ package check
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -288,7 +289,7 @@ func (c *run) olderRevision(nf *store.NodeFile) {
 		plans = append(plans, nf.ParentRef)
 	}
 	for _, l := range c.graph.Out[nf.Ref] {
-		if t, err := c.snap.Resolve(l.Target); err == nil && l.Rel == "implements" && !contains(plans, t.Ref) {
+		if t, err := c.snap.Resolve(l.Target); err == nil && l.Rel == "implements" && !slices.Contains(plans, t.Ref) {
 			plans = append(plans, t.Ref)
 		}
 	}
@@ -369,7 +370,7 @@ func (c *run) schema(nf *store.NodeFile, st event.State) {
 			c.add(parse.SeverityWarning, CodeMissingRequired, nf.Path, 0, fmt.Sprintf("%s (%s) is missing required field %q", nf.Ref, sc.Kind, f))
 		}
 	}
-	if len(sc.Statuses) > 0 && !contains(sc.Statuses, st.Status) {
+	if len(sc.Statuses) > 0 && !slices.Contains(sc.Statuses, st.Status) {
 		by := ""
 		for _, h := range st.History {
 			if h.Applied && h.Event.Type == "set-status" {
@@ -381,7 +382,7 @@ func (c *run) schema(nf *store.NodeFile, st event.State) {
 	if nf.ParentRef == "" || len(sc.ParentKinds) == 0 {
 		return
 	}
-	if p, ok := c.snap.Get(nf.ParentRef); ok && !contains(sc.ParentKinds, p.Node.Kind) {
+	if p, ok := c.snap.Get(nf.ParentRef); ok && !slices.Contains(sc.ParentKinds, p.Node.Kind) {
 		c.add(parse.SeverityWarning, CodeDisallowedParent, nf.Path, 0, fmt.Sprintf("%s (%s) has parent %s of kind %q, allowed: %s", nf.Ref, sc.Kind, p.Ref, p.Node.Kind, strings.Join(sc.ParentKinds, ", ")))
 	}
 }
@@ -391,9 +392,9 @@ func hasField(n *parse.Node, name string) bool {
 	case "id":
 		return n.ID != ""
 	case "title":
-		return n.Frontmatter && contains(n.FieldOrder, "title") && n.Title != ""
+		return n.Frontmatter && slices.Contains(n.FieldOrder, "title") && n.Title != ""
 	case "kind":
-		return n.Frontmatter && contains(n.FieldOrder, "kind") && n.Kind != ""
+		return n.Frontmatter && slices.Contains(n.FieldOrder, "kind") && n.Kind != ""
 	case "parent":
 		return n.Parent != ""
 	}
@@ -405,15 +406,6 @@ func hasField(n *parse.Node, name string) bool {
 		return false
 	}
 	return true
-}
-
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 func reason(err error) string {
