@@ -336,6 +336,16 @@ func (r *Repo) WriteEvent(ref, id string, data []byte) (string, error) {
 	return r.publishNew(filepath.Join(r.EventsDir(), ref), id, extension, data)
 }
 
+func (r *Repo) RemoveBlob(name string) error {
+	if !validRef(name) {
+		return fmt.Errorf("remove blob %q: %w", name, ErrBadRef)
+	}
+	if err := os.Remove(filepath.Join(r.BlobsDir(), name)); err != nil {
+		return fmt.Errorf("remove blob %q: %w", name, err)
+	}
+	return nil
+}
+
 func (r *Repo) BlobsDir() string {
 	return filepath.Join(r.Dir(), "blobs")
 }

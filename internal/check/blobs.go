@@ -29,14 +29,7 @@ func (c *run) blobs() {
 	if c.repo == nil {
 		return
 	}
-	refs := map[string][]string{}
-	for _, nf := range c.snap.Nodes {
-		for _, att := range store.EvidenceOfNode(nf).Attachments {
-			if name := store.BlobName(att); name != "" {
-				refs[name] = append(refs[name], nf.Ref)
-			}
-		}
-	}
+	refs := c.snap.BlobRefs()
 	names := make([]string, 0, len(refs))
 	for name := range refs {
 		names = append(names, name)
