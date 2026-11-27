@@ -14,6 +14,10 @@ Read AGENTS.md for the repo layout, the make targets, the test conventions and t
 - Write each commit as a single Conventional Commit line (`feat:`, `fix:`, `chore:`, `docs:`).
 - Describe the pull request with a one-line summary and a short paragraph on why the change exists.
 
+## Releases
+
+Every merge to `main` can cut a release, and the commit types decide the version: `feat:` bumps the minor, `fix:` bumps the patch, and a `!` after the type or a `BREAKING CHANGE` footer bumps the major (held below 1.0, where it bumps the minor). `docs:`, `chore:`, `test:`, `ci:` and `refactor:` do not release. Pick the type for what users see, not for the size of the diff.
+
 ## License
 
 By contributing you agree that your work is released under the MIT license in LICENSE.
