@@ -1,0 +1,57 @@
+version: 2
+
+project_name: tkt
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/tkt
+    binary: tkt
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "tkt_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Fixes
+      regexp: '^fix'
+      order: 1
+    - title: Other
+      order: 2
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^Merge pull request'
+
+brews:
+  - name: tkt
+    homepage: https://github.com/tektite-tracker/tektite
+    description: Git-like, local-first work tracking for humans and agents
+    license: MIT
+    repository:
+      owner: tektite-tracker
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TOKEN }}"
+    test: |
+      system "#{bin}/tkt", "--version"

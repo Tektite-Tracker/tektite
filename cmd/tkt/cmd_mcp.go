@@ -6,7 +6,7 @@ import (
 	"github.com/tektite-tracker/tektite/internal/mcp"
 )
 
-const version = "dev"
+var version = "dev"
 
 func (a *app) mcpCmd() *cobra.Command {
 	var allowRun bool

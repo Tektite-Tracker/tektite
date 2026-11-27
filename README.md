@@ -2,6 +2,18 @@
 
 Git-like, local-first work tracking for humans and agents. Everything is a markdown file.
 
+## Install
+
+Homebrew:
+
+```sh
+brew install tektite-tracker/tap/tkt
+```
+
+Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/tektite-tracker/tektite/releases), or build from source with `make build`.
+
+Check the install with `tkt --version`.
+
 ## Definition
 
 - A **node** is a markdown file with minimal frontmatter: `id` (ULID), `kind`, `parent`, `title`.
