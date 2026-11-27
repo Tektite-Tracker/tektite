@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/parse"
 )
 
@@ -17,8 +18,6 @@ const (
 	SourceLocal    = "local"
 	templateHeader = "## template"
 )
-
-var lifecycle = []string{"open", "active", "blocked", "review", "done", "dropped"}
 
 type Schema struct {
 	Kind        string         `json:"kind"`
@@ -51,7 +50,7 @@ func builtIns() map[string]*Schema {
 		return &Schema{
 			Kind:        kind,
 			Required:    []string{},
-			Statuses:    append([]string{}, lifecycle...),
+			Statuses:    slices.Clone(event.Lifecycle),
 			ParentKinds: []string{},
 			Template:    template,
 			Source:      SourceBuiltIn,

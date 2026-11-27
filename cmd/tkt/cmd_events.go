@@ -133,7 +133,7 @@ func (a *app) setStatusCmd() *cobra.Command {
 			}
 			check := func(snap *store.Snapshot, nf *store.NodeFile, who string) ([]string, error) {
 				warnings := []string{}
-				if status == "done" {
+				if status == event.StatusDone {
 					w, err := a.gateDone(snap, nf, who, strings.TrimSpace(override))
 					if err != nil {
 						return nil, err

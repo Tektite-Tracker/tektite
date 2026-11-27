@@ -302,7 +302,7 @@ func (c *run) parent(nf *store.NodeFile) {
 
 func (c *run) droppedBlockers(nf *store.NodeFile) {
 	for _, b := range c.graph.Blockers[nf.Ref] {
-		if c.graph.States[b].Status == "dropped" {
+		if c.graph.States[b].Status == event.StatusDropped {
 			c.add(parse.SeverityNote, CodeDroppedBlocker, nf.Path, 0, fmt.Sprintf("%s is blocked by %s, which is dropped, so it no longer holds %s", nf.Ref, b, nf.Ref))
 		}
 	}

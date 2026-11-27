@@ -61,7 +61,7 @@ func (a *app) eligible(snap *store.Snapshot, kind string) []*store.NodeFile {
 		}
 		held := false
 		for _, b := range blocked[nf.Ref] {
-			if bs, ok := states[b]; ok && bs.Status != "done" && bs.Status != "dropped" {
+			if bs, ok := states[b]; ok && !event.Closed(bs.Status) {
 				held = true
 			}
 		}

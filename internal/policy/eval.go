@@ -113,7 +113,7 @@ func (e *Env) OpenGaps(nf *store.NodeFile) []string {
 		if !ok || child.Node.Kind != "gap" {
 			continue
 		}
-		if s := e.Graph.States[kid].Status; s != "done" && s != "dropped" {
+		if s := e.Graph.States[kid].Status; !event.Closed(s) {
 			out = append(out, kid+": "+child.Node.Title)
 		}
 	}

@@ -10,12 +10,19 @@ import (
 )
 
 const (
-	StatusOpen   = "open"
-	UnknownActor = "unknown"
+	StatusOpen    = "open"
+	StatusActive  = "active"
+	StatusBlocked = "blocked"
+	StatusReview  = "review"
+	StatusDone    = "done"
+	StatusDropped = "dropped"
+	UnknownActor  = "unknown"
 )
 
-var knownStatuses = map[string]bool{
-	"open": true, "active": true, "blocked": true, "review": true, "done": true, "dropped": true,
+var Lifecycle = []string{StatusOpen, StatusActive, StatusBlocked, StatusReview, StatusDone, StatusDropped}
+
+func Closed(status string) bool {
+	return status == StatusDone || status == StatusDropped
 }
 
 type Entry struct {
@@ -125,14 +132,14 @@ func Fold(events []*parse.Event, opts Options) State {
 
 func applySetStatus(st *State, e *parse.Event, entry *Entry) {
 	status := strings.TrimSpace(fmt.Sprint(e.Fields["status"]))
-	if lower := strings.ToLower(status); !knownStatuses[status] && knownStatuses[lower] {
+	if lower := strings.ToLower(status); !KnownStatus(status) && KnownStatus(lower) {
 		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
 			Code:     parse.CodeUnknownStatus,
 			Severity: parse.SeverityWarning,
 			Message:  fmt.Sprintf("event %q sets status %q, which differs in case from the shared status %q", e.ID, status, lower),
 			Field:    "status",
 		})
-	} else if !knownStatuses[status] {
+	} else if !KnownStatus(status) {
 		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
 			Code:     parse.CodeUnknownStatus,
 			Severity: parse.SeverityWarning,

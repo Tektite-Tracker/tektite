@@ -2,6 +2,7 @@ package event
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,7 +18,7 @@ type Draft struct {
 }
 
 func KnownStatus(status string) bool {
-	return knownStatuses[status]
+	return slices.Contains(Lifecycle, status)
 }
 
 func Render(d Draft) ([]byte, error) {
