@@ -26,7 +26,10 @@ func normalize(src []byte) []byte {
 }
 
 func splitFrontmatter(src []byte) split {
-	if !bytes.HasPrefix(src, []byte("---\n")) && !bytes.Equal(src, []byte("---")) {
+	if bytes.Equal(src, []byte("---")) {
+		return split{body: src, bodyLine: 1, unterminat: true}
+	}
+	if !bytes.HasPrefix(src, []byte("---\n")) {
 		return split{body: src, bodyLine: 1}
 	}
 	rest := src[4:]

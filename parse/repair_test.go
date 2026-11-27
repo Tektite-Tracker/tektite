@@ -34,6 +34,14 @@ func TestRepair_Frontmatter(t *testing.T) {
 		if !hasCode(d, parse.CodeUnterminatedFrontmtr) || !strings.HasPrefix(n.Body, "---") {
 			t.Errorf("body=%q diags=%v", n.Body, d)
 		}
+		lone, ld := parse.ParseNode("x.md", []byte("---"))
+		if !hasCode(ld, parse.CodeUnterminatedFrontmtr) || lone.Body != "---" {
+			t.Errorf("lone marker: body=%q diags=%v", lone.Body, ld)
+		}
+		ev, ed := parse.ParseEvent("x.md", []byte("---"))
+		if ev.Valid || !hasCode(ed, parse.CodeUnterminatedFrontmtr) {
+			t.Errorf("lone marker event: %v", ed)
+		}
 	})
 
 	t.Run("Duplicate frontmatter keys keep the last value with a warning", func(t *testing.T) {
