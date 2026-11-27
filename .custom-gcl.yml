@@ -1,0 +1,6 @@
+version: v2.1.6
+name: custom-gcl
+destination: ./bin
+plugins:
+  - module: github.com/Tektite-Tracker/tektite/tools/commentlint
+    path: ./tools/commentlint
