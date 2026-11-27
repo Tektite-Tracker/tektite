@@ -56,6 +56,12 @@ Feature: Nodes
       And the file is named after that reference with a .md extension
       And the slug part is fixed at creation and never regenerated
 
+    Scenario: A title with no ASCII letters or digits gets a hash-only reference
+      Given a node titled "日本語" with id "01HZ3K8Q5W2X9N4T7V6B1C0D3F"
+      When the node is created with `tkt new`
+      Then its reference is "d3f" with no slug part
+      And titles are never transliterated
+
     Scenario: The hash is at least three characters and unique at creation
       Given an existing node whose hash is "3fa"
       When a new node would also get the hash "3fa"

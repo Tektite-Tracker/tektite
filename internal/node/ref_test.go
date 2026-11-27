@@ -18,11 +18,29 @@ func TestRef(t *testing.T) {
 		if got := node.Slug("  Ünï — Hello,  World!! "); got != "n-hello-world" {
 			t.Errorf("slug = %q", got)
 		}
-		if node.Slug("???") != "node" {
-			t.Error("empty slug should fall back")
+		if node.Slug("???") != "" {
+			t.Error("a title with no ASCII letters or digits has an empty slug")
 		}
 		if got := node.Slug(strings.Repeat("word ", 20)); len(got) > 40 || strings.HasSuffix(got, "-") {
 			t.Errorf("slug = %q", got)
+		}
+	})
+
+	t.Run("A title with no ASCII letters or digits gets a hash-only reference", func(t *testing.T) {
+		id := "01HZ3K8Q5W2X9N4T7V6B1C0D3F"
+		for _, title := range []string{"日本語", "???", ""} {
+			ref, err := node.NewRef(title, id, nil)
+			if err != nil || ref != "d3f" {
+				t.Errorf("%q: ref=%q err=%v", title, ref, err)
+			}
+		}
+		ref, _ := node.NewRef("日本語", id, []string{"auth-retry-d3f"})
+		if ref != "0d3f" {
+			t.Errorf("lengthened ref = %q", ref)
+		}
+		got, err := node.Resolve([]string{"d3f", "auth-7c1"}, "d3f")
+		if err != nil || got != "d3f" {
+			t.Errorf("resolve = %q err=%v", got, err)
 		}
 	})
 

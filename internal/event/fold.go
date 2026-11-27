@@ -69,7 +69,19 @@ func Fold(events []*parse.Event, opts Options) State {
 		opts.DefaultActor = UnknownActor
 	}
 	st := State{Status: StatusOpen, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
+	seen := map[string]bool{}
+	warned := map[string]bool{}
 	for _, e := range Order(events) {
+		key := strings.ToUpper(e.ID)
+		if seen[key] && !warned[key] {
+			warned[key] = true
+			st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
+				Code:     parse.CodeDuplicateEventID,
+				Severity: parse.SeverityWarning,
+				Message:  fmt.Sprintf("event id %q is used by more than one event, all are kept", e.ID),
+			})
+		}
+		seen[key] = true
 		if !e.Valid {
 			st.Diagnostics = append(st.Diagnostics, note(parse.CodeEventSkipped, fmt.Sprintf("event %q is invalid and skipped", e.ID)))
 			continue
@@ -88,8 +100,15 @@ func Fold(events []*parse.Event, opts Options) State {
 }
 
 func applySetStatus(st *State, e *parse.Event, entry *Entry) {
-	status := fmt.Sprint(e.Fields["status"])
-	if !knownStatuses[status] {
+	status := strings.TrimSpace(fmt.Sprint(e.Fields["status"]))
+	if lower := strings.ToLower(status); !knownStatuses[status] && knownStatuses[lower] {
+		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
+			Code:     parse.CodeUnknownStatus,
+			Severity: parse.SeverityWarning,
+			Message:  fmt.Sprintf("event %q sets status %q, which differs in case from the shared status %q", e.ID, status, lower),
+			Field:    "status",
+		})
+	} else if !knownStatuses[status] {
 		st.Diagnostics = append(st.Diagnostics, parse.Diagnostic{
 			Code:     parse.CodeUnknownStatus,
 			Severity: parse.SeverityWarning,

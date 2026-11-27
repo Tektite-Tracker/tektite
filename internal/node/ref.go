@@ -46,9 +46,6 @@ func Slug(title string) string {
 	if len(s) > maxSlugLen {
 		s = strings.TrimRight(s[:maxSlugLen], "-")
 	}
-	if s == "" {
-		return "node"
-	}
 	return s
 }
 
@@ -71,7 +68,10 @@ func NewRef(title, id string, existing []string) (string, error) {
 	for n := MinHashLen; n <= len(lower); n++ {
 		h := lower[len(lower)-n:]
 		if !collides(h, taken) {
-			return Slug(title) + "-" + h, nil
+			if slug := Slug(title); slug != "" {
+				return slug + "-" + h, nil
+			}
+			return h, nil
 		}
 	}
 	return "", fmt.Errorf("no unique hash for id %q", id)

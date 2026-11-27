@@ -16,7 +16,7 @@ func FuzzSlug(f *testing.F) {
 	f.Add("Ünï — Hello")
 	f.Fuzz(func(t *testing.T, title string) {
 		s := node.Slug(title)
-		if !slugShape.MatchString(s) || len(s) > 40 {
+		if (s != "" && !slugShape.MatchString(s)) || len(s) > 40 {
 			t.Fatalf("bad slug %q for %q", s, title)
 		}
 		if node.Slug(s) != s {
