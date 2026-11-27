@@ -43,6 +43,19 @@ type backlinkItem struct {
 	Line  int    `json:"line"`
 }
 
+type evidenceItem struct {
+	Ref         string   `json:"ref"`
+	Title       string   `json:"title"`
+	Claim       string   `json:"claim"`
+	Actor       string   `json:"actor"`
+	At          string   `json:"at"`
+	Commit      string   `json:"commit"`
+	Dirty       bool     `json:"dirty"`
+	Command     string   `json:"command"`
+	ExitCode    *int     `json:"exit_code"`
+	Attachments []string `json:"attachments"`
+}
+
 type showDoc struct {
 	Ref          string             `json:"ref"`
 	ID           string             `json:"id"`
@@ -60,6 +73,7 @@ type showDoc struct {
 	Children     []string           `json:"children"`
 	Links        []linkItem         `json:"links"`
 	Backlinks    []backlinkItem     `json:"backlinks"`
+	Evidence     []evidenceItem     `json:"evidence"`
 	Notes        []noteItem         `json:"notes"`
 	History      []historyItem      `json:"history"`
 	Diagnostics  []parse.Diagnostic `json:"diagnostics"`
@@ -103,7 +117,7 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 	doc := showDoc{
 		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentRef,
 		Status: st.Status, Claim: claimOf(st, now), Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body, Revision: st.Revision, BuiltAgainst: st.BuiltAgainst,
-		Ancestors: ancestors, Children: children, Links: []linkItem{}, Backlinks: []backlinkItem{}, Notes: []noteItem{}, History: []historyItem{},
+		Ancestors: ancestors, Children: children, Links: []linkItem{}, Backlinks: []backlinkItem{}, Evidence: []evidenceItem{}, Notes: []noteItem{}, History: []historyItem{},
 		Diagnostics: append(append([]parse.Diagnostic{}, nf.Diags...), st.Diagnostics...),
 	}
 	if st.Revision > 0 {
@@ -126,6 +140,16 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 			item.Title = from.Node.Title
 		}
 		doc.Backlinks = append(doc.Backlinks, item)
+	}
+	for _, ev := range snap.EvidenceFor(graph, nf.Ref) {
+		item := evidenceItem{
+			Ref: ev.Node.Ref, Title: ev.Node.Node.Title, Claim: ev.Claim, Actor: ev.Actor, Commit: ev.Commit, Dirty: ev.Dirty,
+			Command: ev.Command, ExitCode: ev.ExitCode, Attachments: append([]string{}, ev.Attachments...),
+		}
+		if !ev.At.IsZero() {
+			item.At = ev.At.UTC().Format("2006-01-02T15:04:05Z")
+		}
+		doc.Evidence = append(doc.Evidence, item)
 	}
 	for _, h := range st.History {
 		if h.Event.Type == "note" && h.Event.Valid {
@@ -172,6 +196,19 @@ func (a *app) printShow(d showDoc) {
 	}
 	for _, b := range d.Backlinks {
 		a.printf(a.out, "%s: %s\n", b.Rel, b.Ref)
+	}
+	for _, ev := range d.Evidence {
+		line := ev.Ref
+		if ev.Claim != "" {
+			line += "  " + ev.Claim
+		}
+		if ev.Commit != "" {
+			line += "  @" + ev.Commit
+		}
+		if ev.ExitCode != nil {
+			line += fmt.Sprintf("  exit %d", *ev.ExitCode)
+		}
+		a.printf(a.out, "evidence: %s\n", line)
 	}
 	if d.Body != "" {
 		a.printf(a.out, "\n%s\n", d.Body)

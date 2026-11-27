@@ -46,6 +46,7 @@ var handlers = map[string]handler{
 	"set-status": applySetStatus,
 	"note":       func(*State, *parse.Event, *Entry) {},
 	"revision":   applyRevision,
+	"attach":     func(*State, *parse.Event, *Entry) {},
 	"claim":      applyClaim,
 	"heartbeat":  applyHeartbeat,
 	"release":    applyRelease,

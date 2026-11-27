@@ -76,6 +76,7 @@ Feature: Evidence
 
     Scenario: Large files are warned about
       Given an attachment of 12 MB and a size cap of 5 MB
+      And the cap is the "blob_cap_mb" value in .tektite/config, 5 when unset
       When a user runs `tkt attach-evidence` with that file
       Then the command prints a warning about repository growth
       And the command exits with code 2 unless `--allow-large` is passed

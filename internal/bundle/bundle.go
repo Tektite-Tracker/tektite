@@ -68,8 +68,9 @@ var Sections = []Section{
 }
 
 type Options struct {
-	Budget int
-	Head   string
+	Budget   int
+	Head     string
+	BlobSize func(attachment string) (int64, bool)
 }
 
 type candidate struct {
@@ -212,40 +213,18 @@ func nodeCandidate(section string, snap *store.Snapshot, nf *store.NodeFile, rel
 }
 
 func evidenceCandidates(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts Options, seen map[string]bool) []candidate {
-	type ev struct {
-		nf *store.NodeFile
-		at string
-	}
-	var found []ev
-	for _, other := range snap.Nodes {
-		if other.Node.Kind != "evidence" || seen[other.Ref] {
-			continue
-		}
-		attached := other.ParentRef == nf.Ref
-		for _, l := range graph.Out[other.Ref] {
-			if t, err := snap.Resolve(l.Target); err == nil && t.Ref == nf.Ref && l.Rel == "evidences" {
-				attached = true
-			}
-		}
-		if attached {
-			prov, _ := other.Node.Fields["provenance"].(map[string]any)
-			found = append(found, ev{other, fmt.Sprint(prov["at"])})
-		}
-	}
-	sort.SliceStable(found, func(i, j int) bool {
-		if found[i].at != found[j].at {
-			return found[i].at > found[j].at
-		}
-		return found[i].nf.Ref < found[j].nf.Ref
-	})
+	found := snap.EvidenceFor(graph, nf.Ref)
 	if len(found) > evidenceLimit {
 		found = found[:evidenceLimit]
 	}
 	var out []candidate
-	for _, f := range found {
-		seen[f.nf.Ref] = true
-		head, stale := evidenceHead(f.nf, opts.Head)
-		full := nodeEntry(snap, f.nf)
+	for _, ev := range found {
+		if seen[ev.Node.Ref] {
+			continue
+		}
+		seen[ev.Node.Ref] = true
+		head, stale := evidenceHead(ev, opts)
+		full := nodeEntry(snap, ev.Node)
 		full.Mode, full.Stale = ModeFull, stale
 		full.Text = head + bodyBlock(full.Text)
 		sum := full
@@ -266,26 +245,34 @@ func bodyBlock(body string) string {
 	return "\n" + body
 }
 
-func evidenceHead(nf *store.NodeFile, head string) (string, bool) {
+func evidenceHead(ev store.Evidence, opts Options) (string, bool) {
 	var b strings.Builder
-	f := nf.Node.Fields
-	if claim, ok := f["claim"]; ok {
-		fmt.Fprintf(&b, "Claim: %v\n", claim)
+	if ev.Claim != "" {
+		fmt.Fprintf(&b, "Claim: %s\n", ev.Claim)
 	}
-	prov, _ := f["provenance"].(map[string]any)
-	commit := ""
-	if c, ok := prov["commit"]; ok {
-		commit = fmt.Sprint(c)
-		fmt.Fprintf(&b, "Commit: %s\n", commit)
+	if ev.Commit != "" {
+		fmt.Fprintf(&b, "Commit: %s\n", ev.Commit)
 	}
-	if atts, ok := f["attachments"].([]any); ok {
-		for _, a := range atts {
-			fmt.Fprintf(&b, "Attachment: %v\n", a)
+	if ev.Command != "" {
+		fmt.Fprintf(&b, "Command: %s\n", ev.Command)
+	}
+	if ev.ExitCode != nil {
+		fmt.Fprintf(&b, "Exit code: %d\n", *ev.ExitCode)
+	}
+	for _, att := range ev.Attachments {
+		if opts.BlobSize == nil {
+			fmt.Fprintf(&b, "Attachment: %s\n", att)
+			continue
+		}
+		if size, ok := opts.BlobSize(att); ok {
+			fmt.Fprintf(&b, "Attachment: %s (%d bytes, content not included)\n", att, size)
+		} else {
+			fmt.Fprintf(&b, "Attachment: %s (missing)\n", att)
 		}
 	}
-	stale := commit != "" && head != "" && !strings.HasPrefix(head, commit) && !strings.HasPrefix(commit, head)
+	stale := ev.Commit != "" && opts.Head != "" && !strings.HasPrefix(opts.Head, ev.Commit) && !strings.HasPrefix(ev.Commit, opts.Head)
 	if stale {
-		fmt.Fprintf(&b, "Possibly stale: recorded at %s, HEAD is %s\n", commit, head)
+		fmt.Fprintf(&b, "Possibly stale: recorded at %s, HEAD is %s\n", ev.Commit, opts.Head)
 	}
 	return b.String(), stale
 }

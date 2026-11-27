@@ -23,6 +23,7 @@ func main() {
 		interactive: interactive(os.Stdin, os.Stdout),
 		gitUser:     gitUserName(cwd),
 		gitHead:     gitHead(cwd),
+		gitDirty:    gitDirty(cwd),
 	}))
 }
 
