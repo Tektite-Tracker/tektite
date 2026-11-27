@@ -14,7 +14,6 @@ const (
 
 var ErrNotFound = errors.New("no node matches the reference")
 
-// AmbiguousError reports a reference that matches more than one node.
 type AmbiguousError struct {
 	Query   string
 	Matches []string
@@ -24,7 +23,6 @@ func (e *AmbiguousError) Error() string {
 	return fmt.Sprintf("reference %q is ambiguous: %s", e.Query, strings.Join(e.Matches, ", "))
 }
 
-// Slug derives the fixed slug part of a reference from a title.
 func Slug(title string) string {
 	var b strings.Builder
 	pendingDash := false
@@ -49,7 +47,6 @@ func Slug(title string) string {
 	return s
 }
 
-// HashOf returns the hash part of a reference or bare hash.
 func HashOf(ref string) string {
 	if i := strings.LastIndexByte(ref, '-'); i >= 0 {
 		return ref[i+1:]
@@ -57,8 +54,6 @@ func HashOf(ref string) string {
 	return ref
 }
 
-// NewRef builds slug-hash for a node, lengthening the hash from the end of
-// its id until no existing reference has an equal hash or a hash ending in it.
 func NewRef(title, id string, existing []string) (string, error) {
 	lower := strings.ToLower(id)
 	if len(lower) < MinHashLen {
@@ -86,9 +81,6 @@ func collides(h string, taken []string) bool {
 	return false
 }
 
-// Resolve finds the node a reference points to. Only the hash part counts, so
-// a stale slug still resolves. An exact hash wins over a suffix match, and
-// several suffix matches are rejected as ambiguous.
 func Resolve(refs []string, query string) (string, error) {
 	q := strings.ToLower(HashOf(strings.TrimSpace(query)))
 	if q == "" {

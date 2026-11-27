@@ -13,7 +13,6 @@ const (
 	randomChars = 16
 )
 
-// NewID returns a ULID for t using entropy from r.
 func NewID(t time.Time, r io.Reader) (string, error) {
 	out := make([]byte, timeChars+randomChars)
 	ms := uint64(t.UnixMilli())
