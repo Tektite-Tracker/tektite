@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -18,15 +17,6 @@ import (
 )
 
 const shortSHA = 7
-
-func gitDirty(dir string) func() bool {
-	return func() bool {
-		c := exec.Command("git", "status", "--porcelain", "--", ".", ":(exclude).tektite")
-		c.Dir = dir
-		out, err := c.Output()
-		return err == nil && strings.TrimSpace(string(out)) != ""
-	}
-}
 
 type attachResult struct {
 	Evidence string   `json:"evidence"`
@@ -119,15 +109,13 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 	warnings = append(warnings, actorWarn...)
 	at := a.now()
 	commit := ""
-	if a.gitHead != nil {
-		if head := a.gitHead(); len(head) >= shortSHA {
-			commit = head[:shortSHA]
-		}
+	if head := a.gitHead(); len(head) >= shortSHA {
+		commit = head[:shortSHA]
 	}
 	prov := map[string]any{"actor": actor, "at": parse.FormatTime(at)}
 	if commit != "" {
 		prov["commit"] = commit
-		if a.gitDirty != nil && a.gitDirty() {
+		if a.gitDirty() {
 			prov["dirty"] = true
 		}
 	} else {

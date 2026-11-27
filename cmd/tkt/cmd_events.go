@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -31,24 +30,10 @@ func (a *app) resolveActor(flag string) (string, []string) {
 	if v := strings.TrimSpace(a.getenv("TKT_ACTOR")); v != "" {
 		return v, nil
 	}
-	if a.gitUser != nil {
-		if v := strings.TrimSpace(a.gitUser()); v != "" {
-			return "human:" + v, nil
-		}
+	if v := strings.TrimSpace(a.gitUser()); v != "" {
+		return "human:" + v, nil
 	}
 	return event.UnknownActor, []string{fmt.Sprintf("%s: no actor given, set --actor or TKT_ACTOR, recorded as %q", parse.CodeMissingActor, event.UnknownActor)}
-}
-
-func gitUserName(dir string) func() string {
-	return func() string {
-		c := exec.Command("git", "config", "user.name")
-		c.Dir = dir
-		out, err := c.Output()
-		if err != nil {
-			return ""
-		}
-		return string(out)
-	}
 }
 
 type precheck func(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error)

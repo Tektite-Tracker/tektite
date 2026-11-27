@@ -91,6 +91,15 @@ func classify(err error) *cliError {
 }
 
 func run(args []string, e env) int {
+	if e.gitUser == nil {
+		e.gitUser = func() string { return "" }
+	}
+	if e.gitHead == nil {
+		e.gitHead = func() string { return "" }
+	}
+	if e.gitDirty == nil {
+		e.gitDirty = func() bool { return false }
+	}
 	a := &app{env: e}
 	root := a.newRoot()
 	root.SetArgs(args)

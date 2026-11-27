@@ -3,27 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/bundle"
 	"github.com/tektite-tracker/tektite/internal/store"
 )
-
-func gitHead(dir string) func() string {
-	return func() string {
-		c := exec.Command("git", "rev-parse", "HEAD")
-		c.Dir = dir
-		out, err := c.Output()
-		if err != nil {
-			return ""
-		}
-		return strings.TrimSpace(string(out))
-	}
-}
 
 func blobSizer(r *store.Repo) func(string) (int64, bool) {
 	return func(attachment string) (int64, bool) {
@@ -64,11 +50,7 @@ func (a *app) contextCmd() *cobra.Command {
 				}
 				budget = cfg.ContextBudget
 			}
-			head := ""
-			if a.gitHead != nil {
-				head = a.gitHead()
-			}
-			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: head, BlobSize: blobSizer(r)})
+			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: a.gitHead(), BlobSize: blobSizer(r)})
 			if a.json {
 				return a.writeJSON(b)
 			}
