@@ -30,7 +30,7 @@ func NewEnv(snap *store.Snapshot) *Env {
 func (e *Env) plan(nf *store.NodeFile) (*store.NodeFile, bool) {
 	ancestors, _ := e.Snap.Tree.Ancestors(nf.Ref)
 	for _, ref := range ancestors {
-		if a, ok := e.Snap.Get(ref); ok && a.Node.Kind == "plan" {
+		if a, ok := e.Snap.Get(ref); ok && a.Node.Kind == parse.KindPlan {
 			return a, true
 		}
 	}
@@ -110,7 +110,7 @@ func (e *Env) OpenGaps(nf *store.NodeFile) []string {
 	}
 	for _, kid := range e.Snap.Tree.Children[nf.Ref] {
 		child, ok := e.Snap.Get(kid)
-		if !ok || child.Node.Kind != "gap" {
+		if !ok || child.Node.Kind != parse.KindGap {
 			continue
 		}
 		if s := e.Graph.States[kid].Status; !event.Closed(s) {

@@ -78,7 +78,7 @@ func (s *Snapshot) EvidenceFor(g *Graph, ref string) []Evidence {
 		}
 	}
 	for _, nf := range s.Nodes {
-		if nf.Node.Kind != "evidence" {
+		if nf.Node.Kind != parse.KindEvidence {
 			continue
 		}
 		if nf.ParentRef == ref {

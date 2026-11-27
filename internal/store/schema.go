@@ -57,12 +57,12 @@ func builtIns() map[string]*Schema {
 		}
 	}
 	return map[string]*Schema{
-		"spec":     mk("spec", ""),
-		"plan":     mk("plan", ""),
-		"ticket":   mk("ticket", "### Context\n\n### Acceptance criteria"),
-		"gap":      mk("gap", ""),
-		"evidence": mk("evidence", ""),
-		"decision": mk("decision", ""),
+		parse.KindSpec:     mk(parse.KindSpec, ""),
+		parse.KindPlan:     mk(parse.KindPlan, ""),
+		parse.KindTicket:   mk(parse.KindTicket, "### Context\n\n### Acceptance criteria"),
+		parse.KindGap:      mk(parse.KindGap, ""),
+		parse.KindEvidence: mk(parse.KindEvidence, ""),
+		parse.KindDecision: mk(parse.KindDecision, ""),
 	}
 }
 

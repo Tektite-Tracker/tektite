@@ -155,7 +155,7 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 	}
 	fields := []node.Field{
 		{Key: "id", Value: id},
-		{Key: "kind", Value: "evidence"},
+		{Key: "kind", Value: parse.KindEvidence},
 		{Key: "title", Value: claim},
 		{Key: "parent", Value: target.Ref},
 		{Key: "evidences", Value: []string{target.Ref}},

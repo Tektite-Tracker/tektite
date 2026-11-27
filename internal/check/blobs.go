@@ -17,7 +17,7 @@ import (
 var blobFile = regexp.MustCompile(`^([0-9a-f]{64})(\.[A-Za-z0-9]+)?$`)
 
 func (c *run) evidenceCommit(nf *store.NodeFile) {
-	if nf.Node.Kind != "evidence" {
+	if nf.Node.Kind != parse.KindEvidence {
 		return
 	}
 	if store.EvidenceOfNode(nf).Commit == "" {

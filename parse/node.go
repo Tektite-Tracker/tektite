@@ -8,7 +8,15 @@ import (
 	"strings"
 )
 
-const DefaultKind = "note"
+const (
+	DefaultKind  = "note"
+	KindSpec     = "spec"
+	KindPlan     = "plan"
+	KindTicket   = "ticket"
+	KindGap      = "gap"
+	KindEvidence = "evidence"
+	KindDecision = "decision"
+)
 
 type Node struct {
 	ID          string         `json:"id"`

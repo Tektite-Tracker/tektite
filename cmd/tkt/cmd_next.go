@@ -12,6 +12,7 @@ import (
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/policy"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 type nextItem struct {
@@ -155,7 +156,7 @@ func (a *app) nextCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&kind, "kind", "ticket", "only nodes of this kind, empty for any")
+	cmd.Flags().StringVar(&kind, "kind", parse.KindTicket, "only nodes of this kind, empty for any")
 	cmd.Flags().IntVar(&limit, "limit", 1, "how many nodes to return")
 	cmd.Flags().BoolVar(&claim, "claim", false, "claim the first node in the same command")
 	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the claim")
