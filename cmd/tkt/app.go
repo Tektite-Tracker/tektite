@@ -41,6 +41,7 @@ type env struct {
 	gitUser     func() string
 	gitHead     func() string
 	gitDirty    func() bool
+	gitLog      func(since string, paths []string) ([]string, error)
 }
 
 type app struct {
@@ -298,6 +299,7 @@ func (a *app) newRoot() *cobra.Command {
 		a.lsCmd(),
 		a.checkCmd(),
 		a.fmtCmd(),
+		a.gcCmd(),
 		a.schemaCmd(),
 		a.setStatusCmd(),
 		a.claimCmd(),

@@ -9,7 +9,8 @@ import (
 )
 
 func (a *app) checkCmd() *cobra.Command {
-	return &cobra.Command{
+	var stale bool
+	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Report problems in the repository",
 		Args:  exactArgs(0),
@@ -18,7 +19,7 @@ func (a *app) checkCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rep, err := check.Run(r)
+			rep, err := check.RunWith(r, check.Options{Stale: stale, Log: a.gitLog})
 			if err != nil {
 				return fmt.Errorf("check: %w", err)
 			}
@@ -31,6 +32,8 @@ func (a *app) checkCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&stale, "stale", false, "report evidence that later commits may have outdated")
+	return cmd
 }
 
 func (a *app) printReport(rep check.Report) {

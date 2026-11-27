@@ -33,6 +33,7 @@ type sandbox struct {
 	git         string
 	head        string
 	dirty       bool
+	commits     func(since string, paths []string) []string
 }
 
 func newSandbox(t *testing.T) *sandbox {
@@ -83,6 +84,12 @@ func (s *sandbox) tktIn(cwd, stdin string, args ...string) result {
 		gitUser:  func() string { return s.git },
 		gitHead:  func() string { return s.head },
 		gitDirty: func() bool { return s.dirty },
+		gitLog: func(since string, paths []string) ([]string, error) {
+			if s.commits == nil {
+				return nil, nil
+			}
+			return s.commits(since, paths), nil
+		},
 	})
 	return result{code: code, stdout: out.String(), stderr: errw.String()}
 }

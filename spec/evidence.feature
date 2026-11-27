@@ -87,6 +87,18 @@ Feature: Evidence
       Then the blob is listed as unreferenced
       And only `tkt gc --blobs` may remove it
 
+    Scenario: Unreferenced blobs are removed by gc
+      Given a blob that a node references and a blob that no node references
+      When a user runs `tkt gc --blobs`
+      Then the unreferenced blob is removed
+      And the referenced blob is kept
+      And `tkt gc --blobs --dry-run` lists the blobs without removing them
+
+    Scenario: Gc needs a target
+      When a user runs `tkt gc`
+      Then the command exits with code 2
+      And nothing is removed
+
   Rule: Text evidence can be inline
 
     Scenario: A command output is stored as an inline fenced block
@@ -132,6 +144,10 @@ Feature: Evidence
       And files related to the claim changed in later commits
       When a user runs `tkt check --stale`
       Then the evidence is reported as possibly stale with the commits that came after
+      And the related files are the "files" listed in the evidence, or any file outside .tektite when it lists none
+      And evidence whose related files did not change is not reported
+      And evidence with no recorded commit is not reported
+      And `tkt check` without `--stale` does not look at git history
 
     Scenario: Evidence can be re-run
       Given evidence with a recorded command

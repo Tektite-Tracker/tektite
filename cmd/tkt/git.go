@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -23,6 +24,23 @@ func gitDirty(dir string) func() bool {
 		c.Dir = dir
 		out, err := c.Output()
 		return err == nil && strings.TrimSpace(string(out)) != ""
+	}
+}
+
+func gitCommitsSince(dir string) func(string, []string) ([]string, error) {
+	return func(since string, paths []string) ([]string, error) {
+		args := []string{"log", "--format=%h", since + "..HEAD", "--"}
+		if len(paths) == 0 {
+			paths = []string{"."}
+		}
+		args = append(append(args, paths...), ":(exclude).tektite")
+		c := exec.Command("git", args...)
+		c.Dir = dir
+		out, err := c.Output()
+		if err != nil {
+			return nil, fmt.Errorf("git log: %w", err)
+		}
+		return strings.Fields(string(out)), nil
 	}
 }
 

@@ -28,6 +28,7 @@ const (
 	CodeBlockCycle       = "TKT-W112"
 	CodeEvidenceNoCommit = "TKT-W113"
 	CodeMissingBlob      = "TKT-W114"
+	CodeEvidenceStale    = "TKT-W115"
 	CodeBlobTampered     = "TKT-E103"
 	CodeUnreferencedBlob = "TKT-N103"
 	CodeStaleSlug        = "TKT-N101"
@@ -50,6 +51,7 @@ var hints = map[string]string{
 	CodeDuplicateID:                "give one of the nodes a new id",
 	CodeEvidenceNoCommit:           "re-attach the evidence from a git checkout so it records a commit",
 	CodeMissingBlob:                "restore the blob file or attach the evidence again",
+	CodeEvidenceStale:              "run `tkt rerun` on the evidence or attach new evidence",
 	CodeBlobTampered:               "restore the original blob, blobs must never change",
 	CodeUnreferencedBlob:           "remove it with `tkt gc --blobs` if it is no longer needed",
 	CodePolicyMalformed:            "fix the frontmatter of .tektite/policy.md, see the policy spec for the keys",
@@ -91,15 +93,27 @@ func (r Report) HasErrors() bool {
 	return r.Errors > 0
 }
 
+type CommitLog func(since string, paths []string) ([]string, error)
+
+type Options struct {
+	Stale bool
+	Log   CommitLog
+}
+
 type run struct {
 	snap    *store.Snapshot
 	schemas *store.Schemas
 	out     []Problem
 	graph   *store.Graph
 	repo    *store.Repo
+	opts    Options
 }
 
 func Run(r *store.Repo) (Report, error) {
+	return RunWith(r, Options{})
+}
+
+func RunWith(r *store.Repo, opts Options) (Report, error) {
 	snap, err := r.Load()
 	if err != nil {
 		return Report{}, fmt.Errorf("load repository: %w", err)
@@ -108,15 +122,15 @@ func Run(r *store.Repo) (Report, error) {
 	if err != nil {
 		return Report{}, fmt.Errorf("load schemas: %w", err)
 	}
-	return analyze(snap, schemas, r), nil
+	return analyze(snap, schemas, r, opts), nil
 }
 
 func Analyze(snap *store.Snapshot, schemas *store.Schemas) Report {
-	return analyze(snap, schemas, nil)
+	return analyze(snap, schemas, nil, Options{})
 }
 
-func analyze(snap *store.Snapshot, schemas *store.Schemas, repo *store.Repo) Report {
-	c := &run{snap: snap, schemas: schemas, out: []Problem{}, graph: snap.BuildGraph(), repo: repo}
+func analyze(snap *store.Snapshot, schemas *store.Schemas, repo *store.Repo, opts Options) Report {
+	c := &run{snap: snap, schemas: schemas, out: []Problem{}, graph: snap.BuildGraph(), repo: repo, opts: opts}
 	c.schemaProblems()
 	c.duplicateIDs()
 	c.cycles()
@@ -126,6 +140,7 @@ func analyze(snap *store.Snapshot, schemas *store.Schemas, repo *store.Repo) Rep
 	}
 	c.orphans()
 	c.blobs()
+	c.staleEvidence()
 	c.policy()
 	return c.report()
 }

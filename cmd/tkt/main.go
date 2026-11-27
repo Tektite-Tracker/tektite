@@ -24,6 +24,7 @@ func main() {
 		gitUser:     gitUserName(cwd),
 		gitHead:     gitHead(cwd),
 		gitDirty:    gitDirty(cwd),
+		gitLog:      gitCommitsSince(cwd),
 	}))
 }
 

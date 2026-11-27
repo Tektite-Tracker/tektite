@@ -102,3 +102,15 @@ func (s *Snapshot) EvidenceFor(g *Graph, ref string) []Evidence {
 	})
 	return out
 }
+
+func (s *Snapshot) BlobRefs() map[string][]string {
+	refs := map[string][]string{}
+	for _, nf := range s.Nodes {
+		for _, att := range EvidenceOfNode(nf).Attachments {
+			if name := BlobName(att); name != "" {
+				refs[name] = append(refs[name], nf.Ref)
+			}
+		}
+	}
+	return refs
+}
