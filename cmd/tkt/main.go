@@ -21,6 +21,7 @@ func main() {
 		rand:        rand.Reader,
 		getenv:      os.Getenv,
 		interactive: interactive(os.Stdin, os.Stdout),
+		gitUser:     gitUserName(cwd),
 	}))
 }
 

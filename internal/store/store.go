@@ -266,11 +266,21 @@ func (r *Repo) WriteNode(ref string, data []byte) (string, error) {
 	if !validRef(ref) {
 		return "", fmt.Errorf("write node %q: %w", ref, ErrBadRef)
 	}
-	dir := r.NodesDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("create nodes directory: %w", err)
+	return r.publishNew(r.NodesDir(), ref, data)
+}
+
+func (r *Repo) WriteEvent(ref, id string, data []byte) (string, error) {
+	if !validRef(ref) || !validRef(id) {
+		return "", fmt.Errorf("write event %q/%q: %w", ref, id, ErrBadRef)
 	}
-	final := filepath.Join(dir, ref+extension)
+	return r.publishNew(filepath.Join(r.EventsDir(), ref), id, data)
+}
+
+func (r *Repo) publishNew(dir, name string, data []byte) (string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("create %s: %w", r.Rel(dir), err)
+	}
+	final := filepath.Join(dir, name+extension)
 	tmp, err := os.CreateTemp(dir, ".tmp-*")
 	if err != nil {
 		return "", fmt.Errorf("create temporary file: %w", err)
@@ -279,23 +289,23 @@ func (r *Repo) WriteNode(ref string, data []byte) (string, error) {
 	defer func() { _ = os.Remove(tmpName) }()
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
-		return "", fmt.Errorf("write node %q: %w", ref, err)
+		return "", fmt.Errorf("write %q: %w", name, err)
 	}
 	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
-		return "", fmt.Errorf("sync node %q: %w", ref, err)
+		return "", fmt.Errorf("sync %q: %w", name, err)
 	}
 	if err := tmp.Close(); err != nil {
-		return "", fmt.Errorf("close node %q: %w", ref, err)
+		return "", fmt.Errorf("close %q: %w", name, err)
 	}
 	if err := os.Chmod(tmpName, 0o644); err != nil {
-		return "", fmt.Errorf("set mode for node %q: %w", ref, err)
+		return "", fmt.Errorf("set mode for %q: %w", name, err)
 	}
 	if err := os.Link(tmpName, final); err != nil {
 		if errors.Is(err, fs.ErrExist) {
-			return "", fmt.Errorf("write node %q: %w", ref, ErrExists)
+			return "", fmt.Errorf("write %q: %w", name, ErrExists)
 		}
-		return "", fmt.Errorf("publish node %q: %w", ref, err)
+		return "", fmt.Errorf("publish %q: %w", name, err)
 	}
 	return r.Rel(final), nil
 }

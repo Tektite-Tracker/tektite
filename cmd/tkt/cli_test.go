@@ -29,6 +29,8 @@ type sandbox struct {
 
 	interactive bool
 	editor      string
+	env         map[string]string
+	git         string
 }
 
 func newSandbox(t *testing.T) *sandbox {
@@ -74,8 +76,9 @@ func (s *sandbox) tktIn(cwd, stdin string, args ...string) result {
 			if k == "EDITOR" {
 				return s.editor
 			}
-			return ""
+			return s.env[k]
 		},
+		gitUser: func() string { return s.git },
 	})
 	return result{code: code, stdout: out.String(), stderr: errw.String()}
 }

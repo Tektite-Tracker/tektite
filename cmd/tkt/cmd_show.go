@@ -19,6 +19,13 @@ type historyItem struct {
 	Applied bool   `json:"applied"`
 }
 
+type noteItem struct {
+	ID    string `json:"id"`
+	Actor string `json:"actor"`
+	At    string `json:"at"`
+	Body  string `json:"body"`
+}
+
 type linkItem struct {
 	Target string `json:"target"`
 	Ref    string `json:"ref,omitempty"`
@@ -38,6 +45,7 @@ type showDoc struct {
 	Ancestors   []string           `json:"ancestors"`
 	Children    []string           `json:"children"`
 	Links       []linkItem         `json:"links"`
+	Notes       []noteItem         `json:"notes"`
 	History     []historyItem      `json:"history"`
 	Diagnostics []parse.Diagnostic `json:"diagnostics"`
 }
@@ -80,7 +88,7 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile) showDoc {
 	doc := showDoc{
 		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentRef,
 		Status: st.Status, Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body,
-		Ancestors: ancestors, Children: children, Links: []linkItem{}, History: []historyItem{},
+		Ancestors: ancestors, Children: children, Links: []linkItem{}, Notes: []noteItem{}, History: []historyItem{},
 		Diagnostics: append(append([]parse.Diagnostic{}, nf.Diags...), st.Diagnostics...),
 	}
 	if doc.Parent == "" {
@@ -94,6 +102,9 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile) showDoc {
 		doc.Links = append(doc.Links, item)
 	}
 	for _, h := range st.History {
+		if h.Event.Type == "note" && h.Event.Valid {
+			doc.Notes = append(doc.Notes, noteItem{ID: h.Event.ID, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Body: h.Event.Body})
+		}
 		doc.History = append(doc.History, historyItem{
 			ID: h.Event.ID, Type: h.Event.Type, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Applied: h.Applied,
 		})
@@ -122,6 +133,12 @@ func (a *app) printShow(d showDoc) {
 	}
 	if d.Body != "" {
 		a.printf(a.out, "\n%s\n", d.Body)
+	}
+	if len(d.Notes) > 0 {
+		a.printf(a.out, "\nnotes:\n")
+		for _, n := range d.Notes {
+			a.printf(a.out, "  %s  %s  %s\n", n.At, n.Actor, strings.ReplaceAll(n.Body, "\n", "\n    "))
+		}
 	}
 	if len(d.History) > 0 {
 		a.printf(a.out, "\nhistory:\n")

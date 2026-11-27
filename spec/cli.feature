@@ -82,11 +82,17 @@ Feature: Command line
       When a verb appends an event
       Then the actor is "human:jesus"
 
+    Scenario: The actor flag wins
+      Given TKT_ACTOR is "agent:a"
+      When a user runs a verb with `--actor agent:b`
+      Then the event's actor is "agent:b"
+
     Scenario: No actor available
-      Given neither TKT_ACTOR nor git user.name is set
+      Given neither --actor, TKT_ACTOR nor git user.name is set
       When a verb appends an event
-      Then the command exits with code 2
-      And the output explains how to set an actor
+      Then the event is written with the actor "unknown"
+      And a TKT-W006 warning explains how to set an actor
+      And the command exits with code 0
 
   Rule: Creating and reading nodes
 
@@ -121,6 +127,22 @@ Feature: Command line
     Scenario: Searching text
       When a user runs `tkt search "429"`
       Then nodes whose title or body contain "429" are listed with a snippet
+
+  Rule: Verbs append events
+
+    Scenario: Setting a status
+      When a user runs `tkt set-status auth-retry-3fa review --json`
+      Then a set-status event is appended and its details are printed as JSON
+      And `tkt show` and `tkt ls` show the status "review"
+
+    Scenario: A verb on a node that does not exist
+      When a user runs `tkt note ghost-000 "hello"`
+      Then the command exits with code 3
+      And no event is written
+
+    Scenario: A link verb stores the full reference of the target
+      When a user runs `tkt link auth-retry-3fa implements 9de`
+      Then the event's target is the full reference "retry-plan-9de"
 
   Rule: Agents pick up work
 

@@ -276,6 +276,18 @@ Feature: Events
       When `tkt check` runs
       Then a warning says the evidence cannot be tied to a code version
 
+  Rule: Writers create event files atomically
+
+    Scenario: A new event file is never overwritten
+      Given an event file with the same ULID already exists
+      When a writer creates an event with that ULID
+      Then the write fails with a conflict
+      And the existing file is unchanged
+
+    Scenario: A written event parses back
+      When a writer creates a set-status event with an override
+      Then the file under .tektite/events/<node-ref>/<ulid>.md parses as a valid event with those fields
+
   Rule: Event application is tolerant
 
     Scenario: An event for a missing node is kept and reported
