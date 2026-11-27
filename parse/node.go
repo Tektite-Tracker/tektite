@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -20,8 +21,6 @@ type Node struct {
 	Blocks      []Block        `json:"blocks"`
 	Links       []Link         `json:"links"`
 }
-
-var coreFields = map[string]bool{"id": true, "kind": true, "title": true, "parent": true}
 
 func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 	src = normalize(src)
@@ -86,7 +85,7 @@ func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 func ParseNodeReader(name string, r io.Reader) (*Node, []Diagnostic, error) {
 	src, err := io.ReadAll(r)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("read source: %w", err)
 	}
 	n, d := ParseNode(name, src)
 	return n, d, nil

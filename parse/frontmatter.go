@@ -81,7 +81,7 @@ func parseFrontmatter(raw []byte) (frontmatter, int, error) {
 		key := root.Content[i].Value
 		var value any
 		if err := root.Content[i+1].Decode(&value); err != nil {
-			return fm, root.Content[i+1].Line + 1, err
+			return fm, root.Content[i+1].Line + 1, fmt.Errorf("decode field %q: %w", key, err)
 		}
 		if _, dup := fm.fields[key]; !dup {
 			fm.keys = append(fm.keys, key)

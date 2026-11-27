@@ -112,7 +112,7 @@ func ParseEvent(name string, src []byte) (*Event, []Diagnostic) {
 func ParseEventReader(name string, r io.Reader) (*Event, []Diagnostic, error) {
 	src, err := io.ReadAll(r)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("read source: %w", err)
 	}
 	e, d := ParseEvent(name, src)
 	return e, d, nil
