@@ -1,80 +1,104 @@
 # tektite
 
-Git-like, local-first work tracking for humans and agents. Everything is a markdown file.
+Local-first work tracking for humans and AI agents, stored as markdown files in your git repo. The CLI is `tkt`.
+
+Specs, plans, tickets, gaps and evidence are plain `.md` files under `.tektite/`. Agents pick up work with `tkt next`, get a prompt-ready briefing with `tkt context`, take an expiring lease with `tkt claim`, and prove they are done with `tkt attach-evidence`. Humans review in git. There is no server, no account and no database.
+
+Use it when you want a coding agent (Claude Code, Codex, Cursor or similar) to work from a durable plan, not a chat history: the plan, the open gaps and the proof of each claim stay in the repo, versioned with the code.
 
 ## Install
-
-Homebrew:
 
 ```sh
 brew install tektite-tracker/tap/tkt
 ```
 
-Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/tektite-tracker/tektite/releases), or build from source with `make build`.
+Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/tektite-tracker/tektite/releases), or build from source with `make build` (Go 1.24+). Check it with `tkt --version`.
 
-Check the install with `tkt --version`.
+## Quickstart
 
-## Definition
+```sh
+tkt init
+tkt new spec "Retry failed uploads"
+tkt new ticket "Add backoff to the uploader" --parent retry-failed-uploads-3fa
+tkt next --claim --actor agent:claude/session-1
+tkt context add-backoff-to-the-uploader-9c1
+tkt attach-evidence add-backoff-to-the-uploader-9c1 --run "go test ./..." --claim "backoff tests pass"
+tkt set-status add-backoff-to-the-uploader-9c1 done --actor agent:claude/session-1
+tkt check
+```
 
-- A **node** is a markdown file with minimal frontmatter: `id` (ULID), `kind`, `parent`, `title`.
-- `kind` is open: spec, plan, ticket, gap, evidence, and so on. Nodes nest to any depth through `parent`.
-- Typed **links** connect nodes beyond the tree: implements, blocks, evidences, supersedes, derived-from.
-- Volatile state (status, claims, comments, new links) lives in append-only **event** files next to the node. A parser folds them into current state.
-- **Attachments** are content-addressed files with provenance (command, commit, author or model).
-- Sync is plain git. Merges stay clean because writers add files instead of editing shared ones.
+References are a slug plus a short hash. The hash is the identity, so a renamed title still resolves. `tkt new` prints the reference to use. Add `--json` to any command for machine-readable output.
 
-## Surfaces
+## For agents
 
-- CLI with `--json`, plus an MCP server, for agents: `next`, `context`, `claim`, `note`, `attach-evidence`, `spawn`, `set-status`.
-- Local web UI for humans: tree, board, node page, evidence viewer, review inbox.
-- A lenient parser: any markdown file is a valid node.
+Run these in order:
 
-## Decisions
+1. `tkt next --claim --actor agent:<model>/<session>` returns the best unblocked ticket and takes a 30 minute lease on it.
+2. `tkt context <ref>` returns the node, its ancestor specs, open gaps, recent evidence and links, trimmed to a token budget (`--budget N`).
+3. Do the work. `tkt heartbeat <ref>` extends the lease, `tkt note <ref> "text"` records progress, and `tkt new gap` records something left open.
+4. `tkt attach-evidence <ref> --run "<command>"` runs a command and stores its output, exit code and commit as evidence. `tkt close-gap <ref>#<block> --evidence <ref>` closes a gap with it.
+5. `tkt set-status <ref> done`. If a policy gate is not met the command exits 5 and says what is missing. An agent cannot override a gate.
 
-- Name: tektite. CLI binary: `tkt`.
-- Language: Go.
-- Plans are versioned as revisions.
-- Commits are manual by default, with an opt-in auto-commit flag.
-- Files live in the code repo under `.tektite/`.
+Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 conflict (someone else holds the lease), 5 policy violation.
 
-- References are a slug from the title plus a short hash (e.g. `auth-retry-3fa`). The hash is the identity, so renames keep working.
-- UI is embedded in the Go binary and served by `tkt ui` on localhost with live updates.
-- Policy gates live in `.tektite/policy.md` (`version: 1`, `gates:` with `name`, `rule`, optional `kinds` and `labels`). Rules are `plan-approval`, `passing-evidence` and `no-open-gaps`. `claim` and `set-status` enforce them with exit 5, `tkt check` reports violations, `tkt policy explain <ref>` shows what applies, and only humans can `tkt approve` or `--override`.
-- v1 is parser, CLI, and agent verbs. The UI comes after the format is proven with real agent use.
+### MCP server
 
-- Attachments are stored in the repo, content-addressed under `.tektite/blobs/<hash>`, with a size cap and a warning past it.
-- Links are typed frontmatter fields plus inline `[[slug-hash]]` wikilinks.
-- Actors are declared strings (`human:jesus`, `agent:claude-opus/<session>`), unsigned. Trust comes from git.
-- `kind` is an open string. Built-ins (spec, plan, ticket, gap, evidence, decision) ship with default rules, and teams can add schemas in `.tektite/`.
+`tkt mcp` serves the same verbs over the Model Context Protocol on stdio. Add it to your agent's MCP config:
 
-- Shared lifecycle states: open, active, blocked, review, done, dropped. Kind schemas may restrict them.
-- `tkt context --budget N` always includes the node, then fills by priority: ancestor specs, open gaps, recent evidence, links. Bodies shrink to summaries when over budget.
-- One-way import (Jira, Linear, GitHub Issues) may come later. No outbound sync.
-- Layout: `.tektite/nodes/<slug-hash>.md` with events in `.tektite/events/<slug-hash>/<ulid>.md`. Parent lives in frontmatter, so moves never rename files.
+```json
+{
+  "mcpServers": {
+    "tektite": { "command": "tkt", "args": ["mcp"] }
+  }
+}
+```
 
-- Events are markdown files with frontmatter (`type`, `actor`, `at`, plus fields) and an optional free-text body.
-- Claims are expiring leases (default 30 min TTL) renewed by heartbeat events. Once expired, anyone may claim.
-- Plan revisions are `revision` events holding full snapshots of the plan body.
-- Evidence provenance: actor, time, commit SHA, command, exit code, and the claim it is meant to prove.
+Tools: `tkt_show`, `tkt_ls`, `tkt_next`, `tkt_context`, `tkt_check`, `tkt_policy_explain`, `tkt_new`, `tkt_set_status`, `tkt_note`, `tkt_link`, `tkt_unlink`, `tkt_approve`, `tkt_revise`, `tkt_close_gap`, `tkt_claim`, `tkt_heartbeat`, `tkt_release`, `tkt_attach_evidence`, `tkt_rerun`. Running commands to record evidence is off unless you start the server with `--allow-run`.
 
-- Node frontmatter requires only `id`, `kind`, `title`, `parent`. Everything else (`links`, `labels`, `priority`, `estimate`) is optional.
-- The parser repairs silently and reports in `tkt check`: missing ids are assigned by `tkt fmt`, unknown kinds are accepted, broken links are warnings and never block reads.
-- CLI prints human text by default and JSON with `--json`. Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 conflict, 5 policy violation.
-- Milestone 1: parser, `check`, `new`, `show`, `ls`, validated on real notes before agent verbs.
+## Commands
 
-- The spec is written as Gherkin `.feature` files under `spec/`. They are a non-executable reference, not wired to a test runner.
-- Go layout: `cmd/tkt` plus `internal/{node,event,store,check}` and a public `parse` package so the UI and other tools can reuse the parser.
-- Fixtures: a small set of real notes plus hand-written synthetic cases, copied into `testdata/`.
-- Dependencies: cobra for the CLI, `yaml.v3` for frontmatter, goldmark for body parsing (block IDs, wikilinks).
+| Area | Commands |
+| --- | --- |
+| Set up | `init`, `new`, `fmt`, `schema` |
+| Find work | `next`, `ls`, `show`, `context` |
+| Work | `claim`, `heartbeat`, `release`, `set-status`, `note`, `link`, `unlink` |
+| Prove | `attach-evidence`, `rerun`, `close-gap` |
+| Plans | `revise`, `revisions`, `diff`, `approve` |
+| Rules | `policy explain`, `check`, `check --stale` |
+| Housekeeping | `gc`, `completion`, `mcp` |
 
-- File names are fixed at creation. A title change never renames a file. References resolve by hash suffix, so a stale slug still works.
-- The event types are a closed list: set-status, claim, heartbeat, release, note, link, unlink, revision, attach, close, approve. An override is a field on set-status.
-- Kind schemas live in `.tektite/schemas/<kind>.md` (`required`, `statuses`, `parent_kinds`, template body). They warn in `tkt check` and seed `tkt new`, and never block reads.
+Run `tkt <command> --help` for flags.
 
-## Spec
+## How it works
 
-Reference Gherkin lives in `spec/`: `node`, `events`, `links`, `evidence`, `context`, `policy`, `schema`, `store`, `check`, `cli`.
+- A **node** is a markdown file with frontmatter: `id` (ULID), `kind`, `title`, `parent`. `kind` is open (spec, plan, ticket, gap, evidence, decision, or your own). Nodes nest to any depth.
+- Volatile state (status, claims, notes, links, approvals) lives in append-only **event** files next to the node, folded into current state when read. Two people or agents writing at once add files and never edit the same one, so git merges stay clean.
+- **Evidence** is content-addressed under `.tektite/blobs/` with provenance: actor, time, commit, command and exit code.
+- **Policy gates** in `.tektite/policy.md` block `claim` and `set-status done` until a plan is approved, evidence passes or gaps are closed. Only humans can `tkt approve` or pass `--override`.
+- The parser is lenient. Any markdown file is a valid node, and `tkt check` reports problems without blocking reads.
+- Actors are declared strings such as `human:jesus` or `agent:claude-opus/session-1`. Set one with `--actor` or `TKT_ACTOR`.
 
-## Open questions for the AMA
+Layout:
 
-- Review the invented defaults from the earlier spec round and confirm or change them.
+```
+.tektite/
+  nodes/<slug-hash>.md
+  events/<slug-hash>/<ulid>.md
+  blobs/<hash>
+  policy.md
+  schemas/<kind>.md
+```
+
+## Library
+
+The `parse` package turns bytes into nodes, events and diagnostics with no I/O, so other tools can reuse it: `github.com/tektite-tracker/tektite/parse`.
+
+## Docs
+
+- [`spec/`](spec/): Gherkin feature files, the source of truth for behaviour.
+- [`docs/design.md`](docs/design.md): design decisions and why.
+- [`AGENTS.md`](AGENTS.md): how to change this repo.
+
+## Status
+
+The parser, CLI, agent verbs, evidence, plan revisions, policy gates and MCP server are built. The local web UI is not.
