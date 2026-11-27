@@ -93,7 +93,7 @@ func (e *Env) evidence(nf *store.NodeFile, g Gate) Result {
 func (e *Env) OpenGaps(nf *store.NodeFile) []string {
 	closed := map[string]bool{}
 	for _, ev := range e.Snap.EventsOf(nf.Ref) {
-		if ev != nil && ev.Valid && ev.Type == "close" {
+		if ev != nil && ev.Valid && ev.Type == parse.EventClose {
 			closed[strings.ToLower(strings.TrimSpace(fmt.Sprint(ev.Fields["block"])))] = true
 		}
 	}

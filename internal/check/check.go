@@ -364,7 +364,7 @@ func (c *run) schema(nf *store.NodeFile, st event.State) {
 	if len(sc.Statuses) > 0 && !slices.Contains(sc.Statuses, st.Status) {
 		by := ""
 		for _, h := range st.History {
-			if h.Applied && h.Event.Type == "set-status" {
+			if h.Applied && h.Event.Type == parse.EventSetStatus {
 				by = fmt.Sprintf(" set by event %s", h.Event.ID)
 			}
 		}

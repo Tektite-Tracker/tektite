@@ -10,6 +10,7 @@ import (
 
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 const (
@@ -192,10 +193,10 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 	}
 	for _, h := range hist {
 		line := fmt.Sprintf("%s %s %s", h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), h.Actor, h.Event.Type)
-		if h.Event.Type == "set-status" {
+		if h.Event.Type == parse.EventSetStatus {
 			line += " " + fmt.Sprint(h.Event.Fields["status"])
 		}
-		if h.Event.Type == "note" && h.Event.Body != "" {
+		if h.Event.Type == parse.EventNote && h.Event.Body != "" {
 			line += ": " + clip(strings.Join(strings.Fields(h.Event.Body), " "), historyNoteMax)
 		}
 		out = append(out, candidate{section: "history", group: nf.Ref, entry: sized(Entry{Ref: nf.Ref, Kind: nf.Node.Kind, Title: h.Event.ID, Mode: ModeFull, Text: line})})

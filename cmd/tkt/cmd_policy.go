@@ -12,6 +12,7 @@ import (
 	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/policy"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 func (a *app) loadPolicy() (*policy.Policy, []string, error) {
@@ -105,7 +106,7 @@ func (a *app) approveCmd() *cobra.Command {
 			if err := checkRevisionFlag(cmd, revision); err != nil {
 				return err
 			}
-			d := &event.Draft{Type: "approve"}
+			d := &event.Draft{Type: parse.EventApprove}
 			check := func(snap *store.Snapshot, nf *store.NodeFile, who string) ([]string, error) {
 				if !event.IsHuman(who) {
 					return nil, &cliError{code: exitPolicy, hint: "run it as a human, for example with --actor human:name", msg: fmt.Sprintf("approve on %s is blocked: only a human can approve, got %q", nf.Ref, who)}

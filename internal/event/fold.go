@@ -52,16 +52,16 @@ type Options struct {
 type handler func(st *State, e *parse.Event, entry *Entry)
 
 var handlers = map[string]handler{
-	"set-status": applySetStatus,
-	"note":       func(*State, *parse.Event, *Entry) {},
-	"revision":   applyRevision,
-	"attach":     func(*State, *parse.Event, *Entry) {},
-	"approve":    applyApprove,
-	"claim":      applyClaim,
-	"heartbeat":  applyHeartbeat,
-	"release":    applyRelease,
-	"link":       func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, true) },
-	"unlink":     func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, false) },
+	parse.EventSetStatus: applySetStatus,
+	parse.EventNote:      func(*State, *parse.Event, *Entry) {},
+	parse.EventRevision:  applyRevision,
+	parse.EventAttach:    func(*State, *parse.Event, *Entry) {},
+	parse.EventApprove:   applyApprove,
+	parse.EventClaim:     applyClaim,
+	parse.EventHeartbeat: applyHeartbeat,
+	parse.EventRelease:   applyRelease,
+	parse.EventLink:      func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, true) },
+	parse.EventUnlink:    func(st *State, e *parse.Event, _ *Entry) { applyLink(st, e, false) },
 }
 
 func Order(events []*parse.Event) []*parse.Event {
@@ -111,12 +111,12 @@ func Fold(events []*parse.Event, opts Options) State {
 		if h, ok := handlers[e.Type]; ok {
 			entry.Applied = true
 			h(&st, e, &entry)
-			if entry.Applied && (e.Type == "claim" || e.Type == "set-status") {
+			if entry.Applied && (e.Type == parse.EventClaim || e.Type == parse.EventSetStatus) {
 				if n, ok := revisionNumber(e.Fields["revision"]); ok {
 					st.BuiltAgainst = &n
 				}
 			}
-			if e.Type == "set-status" {
+			if e.Type == parse.EventSetStatus {
 				if prev != nil && prev.Event.At.Equal(e.At) && prev.Actor != entry.Actor {
 					st.Diagnostics = append(st.Diagnostics, note(parse.CodeConcurrentStatus,
 						fmt.Sprintf("events %q and %q change the status at the same time from different actors, %q wins", prev.Event.ID, e.ID, e.ID)))

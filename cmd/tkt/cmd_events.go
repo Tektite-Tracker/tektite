@@ -145,7 +145,7 @@ func (a *app) setStatusCmd() *cobra.Command {
 				}
 				return warnings, nil
 			}
-			return a.appendEvent(actor, args[0], &event.Draft{Type: "set-status", Fields: fields}, check)
+			return a.appendEvent(actor, args[0], &event.Draft{Type: parse.EventSetStatus, Fields: fields}, check)
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
@@ -172,7 +172,7 @@ func (a *app) noteCmd() *cobra.Command {
 			if strings.TrimSpace(text) == "" {
 				return usage("note text must not be empty")
 			}
-			return a.appendEvent(actor, args[0], &event.Draft{Type: "note", Body: text}, nil)
+			return a.appendEvent(actor, args[0], &event.Draft{Type: parse.EventNote, Body: text}, nil)
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")

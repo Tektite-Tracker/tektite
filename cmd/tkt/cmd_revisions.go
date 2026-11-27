@@ -11,6 +11,7 @@ import (
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 type revisionItem struct {
@@ -46,7 +47,7 @@ func (a *app) reviseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			d := &event.Draft{Type: "revision", Body: body}
+			d := &event.Draft{Type: parse.EventRevision, Body: body}
 			number := 0
 			check := func(snap *store.Snapshot, nf *store.NodeFile, _ string) ([]string, error) {
 				number = a.held(snap, nf.Ref).NextRevision()

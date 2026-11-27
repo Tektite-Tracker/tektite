@@ -20,21 +20,32 @@ type Event struct {
 	Valid      bool           `json:"valid"`
 }
 
-// EventAttach is the type of the event that attaches an evidence node to a node.
-const EventAttach = "attach"
+const (
+	EventSetStatus = "set-status"
+	EventClaim     = "claim"
+	EventHeartbeat = "heartbeat"
+	EventRelease   = "release"
+	EventNote      = "note"
+	EventLink      = "link"
+	EventUnlink    = "unlink"
+	EventRevision  = "revision"
+	EventAttach    = "attach"
+	EventClose     = "close"
+	EventApprove   = "approve"
+)
 
 var EventRequiredFields = map[string][]string{
-	"set-status": {"status"},
-	"claim":      {"ttl"},
-	"heartbeat":  nil,
-	"release":    nil,
-	"note":       nil,
-	"link":       {"rel", "target"},
-	"unlink":     {"rel", "target"},
-	"revision":   {"number"},
-	"attach":     {"evidence"},
-	"close":      {"block"},
-	"approve":    {"revision"},
+	EventSetStatus: {"status"},
+	EventClaim:     {"ttl"},
+	EventHeartbeat: nil,
+	EventRelease:   nil,
+	EventNote:      nil,
+	EventLink:      {"rel", "target"},
+	EventUnlink:    {"rel", "target"},
+	EventRevision:  {"number"},
+	EventAttach:    {"evidence"},
+	EventClose:     {"block"},
+	EventApprove:   {"revision"},
 }
 
 var eventCore = map[string]bool{"type": true, "actor": true, "at": true}

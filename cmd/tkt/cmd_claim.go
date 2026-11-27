@@ -9,6 +9,7 @@ import (
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/store"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 const timeLayout = "2006-01-02T15:04:05Z"
@@ -31,7 +32,7 @@ func (a *app) held(snap *store.Snapshot, ref string) event.State {
 }
 
 func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int) (*appended, error) {
-	d := &event.Draft{Type: "claim", Fields: []node.Field{{Key: "ttl", Value: ttl.String()}}}
+	d := &event.Draft{Type: parse.EventClaim, Fields: []node.Field{{Key: "ttl", Value: ttl.String()}}}
 	if revision > 0 {
 		d.Fields = append(d.Fields, node.Field{Key: "revision", Value: revision})
 	}

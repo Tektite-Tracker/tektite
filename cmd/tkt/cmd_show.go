@@ -154,7 +154,7 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 		doc.Evidence = append(doc.Evidence, item)
 	}
 	for _, h := range st.History {
-		if h.Event.Type == "note" && h.Event.Valid {
+		if h.Event.Type == parse.EventNote && h.Event.Valid {
 			doc.Notes = append(doc.Notes, noteItem{ID: h.Event.ID, Actor: h.Actor, At: h.Event.At.UTC().Format("2006-01-02T15:04:05Z"), Body: h.Event.Body})
 		}
 		doc.History = append(doc.History, historyItem{
