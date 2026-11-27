@@ -103,28 +103,21 @@ func ParseNodeReader(name string, r io.Reader) (*Node, []Diagnostic, error) {
 var codeSpan = regexp.MustCompile("`[^`\\n]*`")
 
 func frontmatterLinks(fm frontmatter) []Link {
-	var out []Link
-	seen := map[string]bool{}
+	out := append([]Link{}, fm.typed...)
 	for _, v := range fm.strings {
 		masked := codeSpan.ReplaceAllStringFunc(v.text, func(s string) string { return strings.Repeat(" ", len(s)) })
-		for _, m := range wikilink.FindAllStringSubmatchIndex(masked, -1) {
-			target := strings.TrimSpace(masked[m[2]:m[3]])
-			if target == "" || seen[target] {
-				continue
-			}
-			seen[target] = true
-			out = append(out, Link{Target: target, Line: v.line + strings.Count(masked[:m[0]], "\n")})
-		}
+		out = append(out, scanWikilinks(masked, func(off int) int { return v.line + strings.Count(masked[:off], "\n") })...)
 	}
 	return out
 }
 
 func mergeLinks(first, rest []Link) []Link {
-	seen := map[string]bool{}
+	seen := map[Link]bool{}
 	var out []Link
 	for _, l := range append(append([]Link{}, first...), rest...) {
-		if !seen[l.Target] {
-			seen[l.Target] = true
+		key := Link{Rel: l.Rel, Target: l.Target}
+		if !seen[key] {
+			seen[key] = true
 			out = append(out, l)
 		}
 	}

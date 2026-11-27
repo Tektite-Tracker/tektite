@@ -45,63 +45,12 @@ func priorityOf(v any) float64 {
 	return 0
 }
 
-func fieldTargets(v any) []string {
-	switch t := v.(type) {
-	case string:
-		return []string{t}
-	case []any:
-		out := []string{}
-		for _, x := range t {
-			if s, ok := x.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	}
-	return nil
-}
-
-func blockers(snap *store.Snapshot, states map[string]event.State) map[string][]string {
-	out := map[string][]string{}
-	resolve := func(q string) string {
-		if n, err := snap.Resolve(strings.Trim(strings.TrimSpace(q), "[]")); err == nil {
-			return n.Ref
-		}
-		return strings.TrimSpace(q)
-	}
-	for _, nf := range snap.Nodes {
-		set := map[[2]string]bool{}
-		for _, rel := range []string{"blocks", "blocked-by"} {
-			for _, t := range fieldTargets(nf.Node.Fields[rel]) {
-				set[[2]string{rel, resolve(t)}] = true
-			}
-		}
-		for _, op := range states[nf.Ref].LinkOps {
-			key := [2]string{op.Rel, resolve(op.Target)}
-			if op.Add {
-				set[key] = true
-			} else {
-				delete(set, key)
-			}
-		}
-		for key := range set {
-			switch key[0] {
-			case "blocks":
-				out[key[1]] = append(out[key[1]], nf.Ref)
-			case "blocked-by":
-				out[nf.Ref] = append(out[nf.Ref], key[1])
-			}
-		}
-	}
-	return out
-}
-
 func (a *app) eligible(snap *store.Snapshot, kind string) []*store.NodeFile {
 	states := map[string]event.State{}
 	for _, nf := range snap.Nodes {
 		states[nf.Ref] = a.held(snap, nf.Ref)
 	}
-	blocked := blockers(snap, states)
+	blocked := snap.BuildGraph().Blockers
 	out := []*store.NodeFile{}
 	for _, nf := range snap.Nodes {
 		st := states[nf.Ref]

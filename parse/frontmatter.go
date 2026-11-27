@@ -63,11 +63,32 @@ type frontmatter struct {
 	fields  map[string]any
 	dups    []string
 	strings []fmString
+	typed   []Link
 }
 
 type fmString struct {
 	text string
 	line int
+}
+
+func collectTyped(rel string, n *yaml.Node, out *[]Link) {
+	switch n.Kind {
+	case yaml.ScalarNode:
+		if n.Tag != "!!str" {
+			return
+		}
+		t := strings.TrimSpace(n.Value)
+		if inner, ok := strings.CutPrefix(t, "[["); ok {
+			t = strings.TrimSpace(strings.TrimSuffix(inner, "]]"))
+		}
+		if t != "" {
+			*out = append(*out, Link{Rel: rel, Target: t, Line: n.Line + 1})
+		}
+	case yaml.SequenceNode:
+		for _, c := range n.Content {
+			collectTyped(rel, c, out)
+		}
+	}
 }
 
 func collectStrings(n *yaml.Node, out *[]fmString) {
@@ -121,7 +142,11 @@ func parseFrontmatter(raw []byte) (frontmatter, int, error) {
 			fm.keys = append(fm.keys, key)
 		}
 		fm.fields[key] = value
-		collectStrings(root.Content[i+1], &fm.strings)
+		if frontmatterRel(key) {
+			collectTyped(strings.ToLower(key), root.Content[i+1], &fm.typed)
+		} else {
+			collectStrings(root.Content[i+1], &fm.strings)
+		}
 	}
 	return fm, 0, nil
 }

@@ -28,9 +28,19 @@ type noteItem struct {
 }
 
 type linkItem struct {
-	Target string `json:"target"`
-	Ref    string `json:"ref,omitempty"`
-	Line   int    `json:"line"`
+	Rel     string `json:"rel"`
+	Target  string `json:"target"`
+	Ref     string `json:"ref,omitempty"`
+	Line    int    `json:"line"`
+	Display string `json:"display,omitempty"`
+	Block   string `json:"block,omitempty"`
+}
+
+type backlinkItem struct {
+	Rel   string `json:"rel"`
+	Ref   string `json:"ref"`
+	Title string `json:"title"`
+	Line  int    `json:"line"`
 }
 
 type showDoc struct {
@@ -47,6 +57,7 @@ type showDoc struct {
 	Ancestors   []string           `json:"ancestors"`
 	Children    []string           `json:"children"`
 	Links       []linkItem         `json:"links"`
+	Backlinks   []backlinkItem     `json:"backlinks"`
 	Notes       []noteItem         `json:"notes"`
 	History     []historyItem      `json:"history"`
 	Diagnostics []parse.Diagnostic `json:"diagnostics"`
@@ -90,18 +101,26 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 	doc := showDoc{
 		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentRef,
 		Status: st.Status, Claim: claimOf(st, now), Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body,
-		Ancestors: ancestors, Children: children, Links: []linkItem{}, Notes: []noteItem{}, History: []historyItem{},
+		Ancestors: ancestors, Children: children, Links: []linkItem{}, Backlinks: []backlinkItem{}, Notes: []noteItem{}, History: []historyItem{},
 		Diagnostics: append(append([]parse.Diagnostic{}, nf.Diags...), st.Diagnostics...),
 	}
 	if doc.Parent == "" {
 		doc.Parent = nf.Node.Parent
 	}
-	for _, l := range nf.Node.Links {
-		item := linkItem{Target: l.Target, Line: l.Line}
+	graph := snap.BuildGraph()
+	for _, l := range graph.Out[nf.Ref] {
+		item := linkItem{Rel: l.Rel, Target: l.Target, Line: l.Line, Display: l.Display, Block: l.Block}
 		if t, err := snap.Resolve(l.Target); err == nil {
 			item.Ref = t.Ref
 		}
 		doc.Links = append(doc.Links, item)
+	}
+	for _, b := range graph.In[nf.Ref] {
+		item := backlinkItem{Rel: b.Rel, Ref: b.Ref, Line: b.Line}
+		if from, ok := snap.Get(b.Ref); ok {
+			item.Title = from.Node.Title
+		}
+		doc.Backlinks = append(doc.Backlinks, item)
 	}
 	for _, h := range st.History {
 		if h.Event.Type == "note" && h.Event.Valid {
@@ -138,7 +157,10 @@ func (a *app) printShow(d showDoc) {
 		if target == "" {
 			target = l.Target + " (unresolved)"
 		}
-		a.printf(a.out, "mentions: %s\n", target)
+		a.printf(a.out, "%s: %s\n", l.Rel, target)
+	}
+	for _, b := range d.Backlinks {
+		a.printf(a.out, "%s: %s\n", b.Rel, b.Ref)
 	}
 	if d.Body != "" {
 		a.printf(a.out, "\n%s\n", d.Body)

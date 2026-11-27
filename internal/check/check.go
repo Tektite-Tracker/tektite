@@ -25,9 +25,8 @@ const (
 	CodeDisallowedStatus = "TKT-W109"
 	CodeDisallowedParent = "TKT-W111"
 	CodeStaleSlug        = "TKT-N101"
+	CodeDroppedBlocker   = "TKT-N102"
 )
-
-var typedLinks = []string{"implements", "blocks", "evidences", "supersedes", "derived-from"}
 
 var hints = map[string]string{
 	parse.CodeStatusInFrontmatter:  "remove status from the frontmatter and set it with a set-status event",
@@ -42,6 +41,7 @@ var hints = map[string]string{
 	parse.CodeUnknownStatus:        "use one of open, active, blocked, review, done, dropped",
 	parse.CodeDuplicateEventID:     "rename one of the event files",
 	CodeDuplicateID:                "give one of the nodes a new id",
+	CodeDroppedBlocker:             "remove the blocks link or reopen the blocker",
 	CodeBrokenLink:                 "fix the reference or remove the link",
 	CodeSelfLink:                   "remove the link to the node itself",
 	CodeBrokenParent:               "point parent at an existing node or clear it",
@@ -76,16 +76,11 @@ func (r Report) HasErrors() bool {
 	return r.Errors > 0
 }
 
-type link struct {
-	rel    string
-	target string
-	line   int
-}
-
 type run struct {
 	snap    *store.Snapshot
 	schemas *store.Schemas
 	out     []Problem
+	graph   *store.Graph
 }
 
 func Run(r *store.Repo) (Report, error) {
@@ -101,7 +96,7 @@ func Run(r *store.Repo) (Report, error) {
 }
 
 func Analyze(snap *store.Snapshot, schemas *store.Schemas) Report {
-	c := &run{snap: snap, schemas: schemas, out: []Problem{}}
+	c := &run{snap: snap, schemas: schemas, out: []Problem{}, graph: snap.BuildGraph()}
 	c.schemaProblems()
 	c.duplicateIDs()
 	c.cycles()
@@ -196,9 +191,10 @@ func (c *run) node(nf *store.NodeFile) {
 		c.addDiag(nf.Path, d)
 	}
 	c.parent(nf)
-	for _, l := range c.links(nf) {
+	for _, l := range c.graph.Out[nf.Ref] {
 		c.link(nf, l)
 	}
+	c.droppedBlockers(nf)
 	st := c.events(nf)
 	c.schema(nf, st)
 }
@@ -212,47 +208,33 @@ func (c *run) parent(nf *store.NodeFile) {
 	}
 }
 
-func (c *run) links(nf *store.NodeFile) []link {
-	out := []link{}
-	for _, l := range nf.Node.Links {
-		out = append(out, link{rel: "mentions", target: l.Target, line: l.Line})
-	}
-	for _, rel := range typedLinks {
-		v, ok := nf.Node.Fields[rel]
-		if !ok {
-			continue
-		}
-		for _, t := range targets(v) {
-			out = append(out, link{rel: rel, target: t})
+func (c *run) droppedBlockers(nf *store.NodeFile) {
+	for _, b := range c.graph.Blockers[nf.Ref] {
+		if c.graph.States[b].Status == "dropped" {
+			c.add(parse.SeverityNote, CodeDroppedBlocker, nf.Path, 0, fmt.Sprintf("%s is blocked by %s, which is dropped, so it no longer holds %s", nf.Ref, b, nf.Ref))
 		}
 	}
-	for _, e := range c.snap.EventsOf(nf.Ref) {
-		if e.Valid && e.Type == "link" {
-			out = append(out, link{rel: fmt.Sprint(e.Fields["rel"]), target: strings.TrimSpace(fmt.Sprint(e.Fields["target"]))})
-		}
-	}
-	return out
 }
 
-func (c *run) link(nf *store.NodeFile, l link) {
-	target, err := c.snap.Resolve(l.target)
+func (c *run) link(nf *store.NodeFile, l parse.Link) {
+	target, err := c.snap.Resolve(l.Target)
 	switch {
 	case err == nil:
 	case errors.Is(err, node.ErrNotFound):
-		c.add(parse.SeverityWarning, CodeBrokenLink, nf.Path, l.line, fmt.Sprintf("%s has a %s link to %q that matches no node", nf.Ref, l.rel, l.target))
+		c.add(parse.SeverityWarning, CodeBrokenLink, nf.Path, l.Line, fmt.Sprintf("%s has a %s link to %q that matches no node", nf.Ref, l.Rel, l.Target))
 		return
 	case errors.Is(err, node.ErrTooShort):
-		c.add(parse.SeverityWarning, CodeShortRef, nf.Path, l.line, fmt.Sprintf("%s has a %s link to %q with a hash shorter than %d characters", nf.Ref, l.rel, l.target, node.MinHashLen))
+		c.add(parse.SeverityWarning, CodeShortRef, nf.Path, l.Line, fmt.Sprintf("%s has a %s link to %q with a hash shorter than %d characters", nf.Ref, l.Rel, l.Target, node.MinHashLen))
 		return
 	default:
-		c.add(parse.SeverityWarning, CodeAmbiguousRef, nf.Path, l.line, fmt.Sprintf("%s has a %s link to %q: %s", nf.Ref, l.rel, l.target, reason(err)))
+		c.add(parse.SeverityWarning, CodeAmbiguousRef, nf.Path, l.Line, fmt.Sprintf("%s has a %s link to %q: %s", nf.Ref, l.Rel, l.Target, reason(err)))
 		return
 	}
 	if target.Ref == nf.Ref {
-		c.add(parse.SeverityWarning, CodeSelfLink, nf.Path, l.line, fmt.Sprintf("%s has a %s link to itself", nf.Ref, l.rel))
+		c.add(parse.SeverityWarning, CodeSelfLink, nf.Path, l.Line, fmt.Sprintf("%s has a %s link to itself", nf.Ref, l.Rel))
 		return
 	}
-	c.stale(nf.Path, l.line, l.rel+" link", l.target, target.Ref)
+	c.stale(nf.Path, l.Line, l.Rel+" link", l.Target, target.Ref)
 }
 
 func (c *run) stale(path string, line int, what, query, ref string) {
@@ -323,23 +305,6 @@ func hasField(n *parse.Node, name string) bool {
 		return false
 	}
 	return true
-}
-
-func targets(v any) []string {
-	out := []string{}
-	switch x := v.(type) {
-	case []any:
-		for _, item := range x {
-			if s := strings.TrimSpace(fmt.Sprint(item)); item != nil && s != "" {
-				out = append(out, s)
-			}
-		}
-	case string:
-		if s := strings.TrimSpace(x); s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
 }
 
 func contains(list []string, s string) bool {
