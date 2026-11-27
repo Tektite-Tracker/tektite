@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"time"
 
@@ -116,6 +118,17 @@ func (a *app) printError(ce *cliError, asJSON bool) {
 	}
 }
 
+func (a *app) readFile(name string) ([]byte, error) {
+	if !filepath.IsAbs(name) {
+		name = filepath.Join(a.cwd, name)
+	}
+	data, err := os.ReadFile(name)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	return data, nil
+}
+
 func (a *app) printf(w io.Writer, format string, args ...any) {
 	_, _ = fmt.Fprintf(w, format, args...)
 }
@@ -166,7 +179,7 @@ func (a *app) newRoot() *cobra.Command {
 		return usage("%s", err)
 	})
 	root.AddCommand(a.initCmd(), a.newCmd(), a.showCmd(), a.lsCmd(), a.checkCmd(), a.fmtCmd(), a.schemaCmd(),
-		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.contextCmd(), a.attachEvidenceCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
+		a.setStatusCmd(), a.claimCmd(), a.leaseCmd("heartbeat", "Extend your lease on a node", true), a.leaseCmd("release", "Release your lease on a node", false), a.nextCmd(), a.contextCmd(), a.attachEvidenceCmd(), a.reviseCmd(), a.revisionsCmd(), a.diffCmd(), a.noteCmd(), a.linkCmd("link", "Add a link to a node"), a.linkCmd("unlink", "Remove a link from a node"))
 	return root
 }
 

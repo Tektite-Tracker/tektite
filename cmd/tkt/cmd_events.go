@@ -111,11 +111,15 @@ func (a *app) appendEvent(actorFlag, query string, d *event.Draft, check prechec
 
 func (a *app) setStatusCmd() *cobra.Command {
 	var actor, override string
+	var revision int
 	cmd := &cobra.Command{
 		Use:   "set-status <ref> <status>",
 		Short: "Set the status of a node",
 		Args:  exactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkRevisionFlag(cmd, revision); err != nil {
+				return err
+			}
 			status := strings.TrimSpace(args[1])
 			if status == "" {
 				return usage("status must not be empty")
@@ -123,6 +127,9 @@ func (a *app) setStatusCmd() *cobra.Command {
 			fields := []node.Field{{Key: "status", Value: status}}
 			if strings.TrimSpace(override) != "" {
 				fields = append(fields, node.Field{Key: "override", Value: strings.TrimSpace(override)})
+			}
+			if revision > 0 {
+				fields = append(fields, node.Field{Key: "revision", Value: revision})
 			}
 			check := func(*store.Snapshot, *store.NodeFile, string) ([]string, error) {
 				if event.KnownStatus(status) {
@@ -135,6 +142,7 @@ func (a *app) setStatusCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&actor, "actor", "", "actor recorded on the event")
 	cmd.Flags().StringVar(&override, "override", "", "reason for overriding a rule")
+	cmd.Flags().IntVar(&revision, "revision", 0, "plan revision the work is built against")
 	return cmd
 }
 

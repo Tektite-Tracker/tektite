@@ -288,17 +288,11 @@ func sized(e Entry) Entry {
 }
 
 func currentBody(snap *store.Snapshot, nf *store.NodeFile) (string, int) {
-	body, best := nf.Node.Body, 0
-	for _, e := range event.Order(snap.EventsOf(nf.Ref)) {
-		if e.Type != "revision" || !e.Valid {
-			continue
-		}
-		n, err := strconv.Atoi(strings.TrimSpace(fmt.Sprint(e.Fields["number"])))
-		if err == nil && n >= best {
-			best, body = n, e.Body
-		}
+	st := event.Fold(snap.EventsOf(nf.Ref), event.Options{})
+	if st.Revision > 0 {
+		return st.Body, st.Revision
 	}
-	return body, best
+	return nf.Node.Body, 0
 }
 
 func summaryOf(nf *store.NodeFile) string {

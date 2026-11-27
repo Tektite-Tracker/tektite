@@ -25,11 +25,15 @@ type Entry struct {
 }
 
 type State struct {
-	Status      string             `json:"status"`
-	Lease       *Lease             `json:"lease"`
-	LinkOps     []LinkOp           `json:"link_ops"`
-	History     []Entry            `json:"history"`
-	Diagnostics []parse.Diagnostic `json:"diagnostics"`
+	Status       string             `json:"status"`
+	Lease        *Lease             `json:"lease"`
+	LinkOps      []LinkOp           `json:"link_ops"`
+	Revisions    []Revision         `json:"revisions"`
+	Revision     int                `json:"revision"`
+	Body         string             `json:"body"`
+	BuiltAgainst *int               `json:"built_against"`
+	History      []Entry            `json:"history"`
+	Diagnostics  []parse.Diagnostic `json:"diagnostics"`
 }
 
 type Options struct {
@@ -41,6 +45,7 @@ type handler func(st *State, e *parse.Event, entry *Entry)
 var handlers = map[string]handler{
 	"set-status": applySetStatus,
 	"note":       func(*State, *parse.Event, *Entry) {},
+	"revision":   applyRevision,
 	"attach":     func(*State, *parse.Event, *Entry) {},
 	"claim":      applyClaim,
 	"heartbeat":  applyHeartbeat,
@@ -77,7 +82,7 @@ func Fold(events []*parse.Event, opts Options) State {
 	if opts.DefaultActor == "" {
 		opts.DefaultActor = UnknownActor
 	}
-	st := State{Status: StatusOpen, LinkOps: []LinkOp{}, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
+	st := State{Status: StatusOpen, LinkOps: []LinkOp{}, Revisions: []Revision{}, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
 	seen := map[string]bool{}
 	warned := map[string]bool{}
 	var prev *Entry
@@ -103,6 +108,11 @@ func Fold(events []*parse.Event, opts Options) State {
 		if h, ok := handlers[e.Type]; ok {
 			entry.Applied = true
 			h(&st, e, &entry)
+			if entry.Applied && (e.Type == "claim" || e.Type == "set-status") {
+				if n, ok := revisionNumber(e.Fields["revision"]); ok {
+					st.BuiltAgainst = &n
+				}
+			}
 			if e.Type == "set-status" {
 				if prev != nil && prev.Event.At.Equal(e.At) && prev.Actor != entry.Actor {
 					st.Diagnostics = append(st.Diagnostics, note(parse.CodeConcurrentStatus,

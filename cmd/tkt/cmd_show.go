@@ -57,24 +57,26 @@ type evidenceItem struct {
 }
 
 type showDoc struct {
-	Ref         string             `json:"ref"`
-	ID          string             `json:"id"`
-	Kind        string             `json:"kind"`
-	Title       string             `json:"title"`
-	Parent      string             `json:"parent"`
-	Status      string             `json:"status"`
-	Claim       *claimItem         `json:"claim"`
-	Path        string             `json:"path"`
-	Fields      map[string]any     `json:"fields"`
-	Body        string             `json:"body"`
-	Ancestors   []string           `json:"ancestors"`
-	Children    []string           `json:"children"`
-	Links       []linkItem         `json:"links"`
-	Backlinks   []backlinkItem     `json:"backlinks"`
-	Evidence    []evidenceItem     `json:"evidence"`
-	Notes       []noteItem         `json:"notes"`
-	History     []historyItem      `json:"history"`
-	Diagnostics []parse.Diagnostic `json:"diagnostics"`
+	Ref          string             `json:"ref"`
+	ID           string             `json:"id"`
+	Kind         string             `json:"kind"`
+	Title        string             `json:"title"`
+	Parent       string             `json:"parent"`
+	Status       string             `json:"status"`
+	Claim        *claimItem         `json:"claim"`
+	Revision     int                `json:"revision"`
+	BuiltAgainst *int               `json:"built_against"`
+	Path         string             `json:"path"`
+	Fields       map[string]any     `json:"fields"`
+	Body         string             `json:"body"`
+	Ancestors    []string           `json:"ancestors"`
+	Children     []string           `json:"children"`
+	Links        []linkItem         `json:"links"`
+	Backlinks    []backlinkItem     `json:"backlinks"`
+	Evidence     []evidenceItem     `json:"evidence"`
+	Notes        []noteItem         `json:"notes"`
+	History      []historyItem      `json:"history"`
+	Diagnostics  []parse.Diagnostic `json:"diagnostics"`
 }
 
 func (a *app) showCmd() *cobra.Command {
@@ -114,9 +116,12 @@ func buildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) showDoc 
 	}
 	doc := showDoc{
 		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentRef,
-		Status: st.Status, Claim: claimOf(st, now), Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body,
+		Status: st.Status, Claim: claimOf(st, now), Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body, Revision: st.Revision, BuiltAgainst: st.BuiltAgainst,
 		Ancestors: ancestors, Children: children, Links: []linkItem{}, Backlinks: []backlinkItem{}, Evidence: []evidenceItem{}, Notes: []noteItem{}, History: []historyItem{},
 		Diagnostics: append(append([]parse.Diagnostic{}, nf.Diags...), st.Diagnostics...),
+	}
+	if st.Revision > 0 {
+		doc.Body = st.Body
 	}
 	if doc.Parent == "" {
 		doc.Parent = nf.Node.Parent
@@ -166,6 +171,12 @@ func (a *app) printShow(d showDoc) {
 			state = "expired"
 		}
 		a.printf(a.out, "claimed by: %s (%s %s)\n", d.Claim.Holder, state, d.Claim.ExpiresAt)
+	}
+	if d.Revision > 0 {
+		a.printf(a.out, "revision: %d\n", d.Revision)
+	}
+	if d.BuiltAgainst != nil {
+		a.printf(a.out, "built against revision: %d\n", *d.BuiltAgainst)
 	}
 	if d.Parent != "" {
 		a.printf(a.out, "parent: %s\n", d.Parent)

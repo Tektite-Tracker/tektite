@@ -20,6 +20,8 @@ const (
 	CodeUnknownStatus        = "TKT-W009"
 	CodeDuplicateEventID     = "TKT-W010"
 	CodeInvalidTTL           = "TKT-W011"
+	CodeInvalidRevision      = "TKT-W012"
+	CodePlanDiverged         = "TKT-W013"
 	CodeMalformedFrontmatter = "TKT-E001"
 	CodeUnterminatedFrontmtr = "TKT-E002"
 	CodeMissingEventType     = "TKT-E003"

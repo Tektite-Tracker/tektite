@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -95,7 +94,7 @@ func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, 
 	if file == "-" {
 		data, err = io.ReadAll(a.in)
 	} else {
-		data, err = os.ReadFile(file)
+		data, err = a.readFile(file)
 		ext = strings.ToLower(filepath.Ext(file))
 	}
 	if err != nil {

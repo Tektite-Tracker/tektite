@@ -112,7 +112,7 @@ func (a *app) nextCmd() *cobra.Command {
 				list = list[:limit]
 			}
 			if claim {
-				if _, err := a.claimNode(actor, list[0].Ref, d); err != nil {
+				if _, err := a.claimNode(actor, list[0].Ref, d, 0); err != nil {
 					return err
 				}
 			}
