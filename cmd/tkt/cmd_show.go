@@ -16,15 +16,14 @@ func (a *app) showCmd() *cobra.Command {
 		Short: "Show a node with its state",
 		Args:  exactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			_, snap, err := a.load()
+			sv, err := a.svc()
 			if err != nil {
 				return err
 			}
-			nf, err := snap.Resolve(args[0])
+			doc, err := sv.Show(args[0])
 			if err != nil {
-				return fmt.Errorf("show: %w", err)
+				return err
 			}
-			doc := view.BuildShow(snap, nf, a.now())
 			return a.emit(doc, func() { a.printShow(doc) })
 		},
 	}
