@@ -72,6 +72,16 @@ Feature: Nodes
       When a user runs `tkt show 3fa`
       Then the node "auth-retry-3fa" is shown
 
+    Scenario: A reference with fewer than three hash characters is rejected
+      Given nodes "auth-retry-3fa" and "auth-hardening-7c1"
+      When a user runs `tkt show fa`
+      Then the command fails because the hash is too short
+
+    Scenario: Ids created in the same millisecond sort in creation order
+      Given two nodes created in the same millisecond
+      When their ids are compared
+      Then the later node has the greater id
+
     Scenario: An ambiguous reference is rejected
       Given two nodes whose references end in the same hash prefix
       When a user runs `tkt show` with that prefix
@@ -138,6 +148,31 @@ Feature: Nodes
       Then the whole file is treated as body
       And `tkt check` reports the YAML error with a line number
 
+    Scenario: Malformed frontmatter takes its title from a heading or the file name
+      Given a node whose frontmatter is not valid YAML and whose title line is "title: [unclosed"
+      When the node is parsed
+      Then its title is the first markdown heading after the frontmatter
+      And without a heading its title is the file name without extension
+      And no text inside the broken YAML is ever used as the title
+
+    Scenario: An unterminated frontmatter block is reported
+      Given a node that opens with "---" but has no closing "---" line
+      When the node is parsed
+      Then the whole file is treated as body
+      And `tkt check` reports that the frontmatter is not closed
+
+    Scenario: Duplicate frontmatter keys keep the last value with a warning
+      Given a node whose frontmatter declares "title" twice
+      When the node is parsed
+      Then the last value wins and the key keeps its first position
+      And `tkt check` reports a warning naming the repeated key
+
+    Scenario: A non-string value in a core field is coerced or reported
+      Given a node whose "id" is the number 42 and whose "title" is a list
+      When the node is parsed
+      Then the number is read as the string "42"
+      And the list gives a warning and an empty value
+
     Scenario: Duplicate ids are reported and both nodes stay readable
       Given two files that declare the same id
       When `tkt check` runs
@@ -181,6 +216,32 @@ Feature: Nodes
       When `tkt check` runs
       Then a warning names the node and the unresolved reference
       And reads of the node still succeed
+
+    Scenario: The g marker is the only gap marker
+      Given a node body containing "- [ ] <!-- g:01HZ3KB2 --> missing retry" and "- [ ] <!-- t:01HZ3KB3 --> plain task"
+      When the node is parsed
+      Then only the block with the "g" marker is a gap
+
+    Scenario: A Gaps section ends at the next heading of the same or higher level
+      Given a "## Gaps" section followed by "### Detail", then "## Notes"
+      When the node is parsed
+      Then checklist items under "## Gaps" and "### Detail" are gaps
+      And checklist items under "## Notes" are not
+
+    Scenario: Only checklist items are blocks
+      Given a node body with a plain bullet "- not a task" and a checklist item "- [ ] a task"
+      When the node is parsed
+      Then only the checklist item is a block
+
+    Scenario: The title falls back to the first heading of any level
+      Given a markdown file with no title whose first heading is "### Deep heading"
+      When the node is parsed
+      Then its title is "Deep heading"
+
+    Scenario: Wikilink aliases and anchors resolve to the target, and code is ignored
+      Given a node body containing "[[a|label]]", "[[a#part]]", a repeated "[[a]]", and "[[b]]" in a code span
+      When the node is parsed
+      Then the node has exactly one link, to "a"
 
   Rule: Volatile state is not stored in the node file
 

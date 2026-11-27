@@ -41,6 +41,7 @@ func ParseNode(name string, src []byte) (*Node, []Diagnostic) {
 			break
 		}
 		n.Frontmatter = true
+		duplicateKeyDiags(fm, &diags)
 		n.Fields, n.FieldOrder = fm.fields, fm.keys
 		n.ID = stringField(fm, "id", &diags)
 		n.Kind = stringField(fm, "kind", &diags)

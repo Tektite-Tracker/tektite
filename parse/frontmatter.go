@@ -26,7 +26,10 @@ func normalize(src []byte) []byte {
 }
 
 func splitFrontmatter(src []byte) split {
-	if !bytes.HasPrefix(src, []byte("---\n")) && !bytes.Equal(src, []byte("---")) {
+	if bytes.Equal(src, []byte("---")) {
+		return split{body: src, bodyLine: 1, unterminat: true}
+	}
+	if !bytes.HasPrefix(src, []byte("---\n")) {
 		return split{body: src, bodyLine: 1}
 	}
 	rest := src[4:]
@@ -57,6 +60,7 @@ func splitFrontmatter(src []byte) split {
 type frontmatter struct {
 	keys   []string
 	fields map[string]any
+	dups   []string
 }
 
 var yamlLine = regexp.MustCompile(`line (\d+)`)
@@ -83,7 +87,9 @@ func parseFrontmatter(raw []byte) (frontmatter, int, error) {
 		if err := root.Content[i+1].Decode(&value); err != nil {
 			return fm, root.Content[i+1].Line + 1, fmt.Errorf("decode field %q: %w", key, err)
 		}
-		if _, dup := fm.fields[key]; !dup {
+		if _, dup := fm.fields[key]; dup {
+			fm.dups = append(fm.dups, key)
+		} else {
 			fm.keys = append(fm.keys, key)
 		}
 		fm.fields[key] = value
@@ -113,4 +119,10 @@ func stringField(fm frontmatter, name string, diags *[]Diagnostic) string {
 	}
 	*diags = append(*diags, diag(CodeUnexpectedFieldType, fmt.Sprintf("field %q must be a string", name), 0, name))
 	return ""
+}
+
+func duplicateKeyDiags(fm frontmatter, diags *[]Diagnostic) {
+	for _, k := range fm.dups {
+		*diags = append(*diags, diag(CodeDuplicateKey, fmt.Sprintf("frontmatter key %q is repeated, the last value wins", k), 0, k))
+	}
 }

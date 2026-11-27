@@ -15,6 +15,8 @@ const (
 	CodeMissingTitle         = "TKT-W004"
 	CodeUnexpectedFieldType  = "TKT-W005"
 	CodeMissingActor         = "TKT-W006"
+	CodeDuplicateKey         = "TKT-W007"
+	CodeEventNameNotULID     = "TKT-W008"
 	CodeMalformedFrontmatter = "TKT-E001"
 	CodeUnterminatedFrontmtr = "TKT-E002"
 	CodeMissingEventType     = "TKT-E003"

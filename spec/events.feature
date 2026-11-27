@@ -66,6 +66,24 @@ Feature: Events
       And its field "status" is "active"
       And its body is "Starting on the retry logic."
 
+    Scenario: An event file whose name is not a ULID is a warning
+      Given the file .tektite/events/auth-retry-3fa/first-try.md is a valid event
+      When the event is parsed
+      Then a warning says the file name is not a ULID
+      And the event stays valid
+      And in the fold it is ordered by "at", then by file name
+
+    Scenario: The event time is a YAML timestamp or an RFC 3339 string
+      Given an event whose "at" is an unquoted timestamp, and one whose "at" is the text "yesterday"
+      When the events are parsed
+      Then the first has that time
+      And the second is invalid with a time error
+
+    Scenario: An empty required field counts as missing
+      Given a link event whose "target" is empty
+      When the event is parsed
+      Then the event is invalid and the error names "target"
+
     Scenario: Events are ordered by time, then ULID
       Given two events where the first has an earlier "at", and two events with equal "at" and different ULIDs
       When the events are folded
@@ -82,7 +100,8 @@ Feature: Events
       Given an event with no actor
       When `tkt check` runs
       Then a warning says the actor is missing
-      And the event is attributed to "unknown" when folded
+      And the parser leaves the actor empty and the event stays valid
+      And callers repair the actor from the environment, else attribute it to "unknown"
 
     Scenario: Unknown event types are kept and ignored by the fold
       Given an event of type "reaction"
