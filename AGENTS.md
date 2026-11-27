@@ -7,6 +7,7 @@ Guide for anyone, human or agent, changing this repo. See README.md for what tek
 - `parse/`: public package. Pure functions from bytes to nodes, events and diagnostics. No I/O.
 - `internal/node`, `internal/event`, `internal/store`, `internal/check`: node model, event folding, on-disk store, policy checks. I/O belongs here, never in `parse`.
 - `internal/view`: read models (`show`, `ls`, `next`) shared by the CLI and later by the MCP server and UI. `cmd/tkt` only parses flags and prints; put logic a second front end would need in `internal/`.
+- `internal/service`: the write side (`set-status`, `claim`, `approve`, `revise`, `attach-evidence`, `new`, `link`, `note`). Typed inputs and results, structured `parse.Diagnostic` warnings, `*service.Error` with a kind that the CLI maps to an exit code. Shared by the CLI and the MCP server.
 - `cmd/tkt`: the CLI entry point.
 - `spec/`: Gherkin feature files, the source of truth for behaviour.
 - `testdata/`: golden fixtures.

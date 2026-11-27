@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tektite-tracker/tektite/internal/event"
-	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/internal/service"
 	"github.com/tektite-tracker/tektite/internal/store"
 	"github.com/tektite-tracker/tektite/parse"
 )
@@ -47,22 +47,19 @@ func (a *app) reviseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			d := &event.Draft{Type: parse.EventRevision, Body: body}
-			number := 0
-			check := func(snap *store.Snapshot, nf *store.NodeFile, _ string) ([]string, error) {
-				number = snap.State(nf.Ref).NextRevision()
-				d.Fields = []node.Field{{Key: "number", Value: number}}
-				return nil, nil
+			svc, err := a.svc()
+			if err != nil {
+				return err
 			}
-			res, err := a.writeEvent(actor, args[0], d, check)
+			res, err := svc.Revise(service.ReviseInput{Ref: args[0], Body: body, Actor: actor})
 			if err != nil {
 				return err
 			}
 			if a.json {
-				return a.writeJSON(revisedResult{appended: res, Number: number})
+				return a.writeJSON(revisedResult{appended: toAppended(res.Appended), Number: res.Number})
 			}
-			a.warn(res.Warnings)
-			a.printf(a.out, "%s revision %d\n", res.Ref, number)
+			a.warn(warningTexts(res.Warnings))
+			a.printf(a.out, "%s revision %d\n", res.Ref, res.Number)
 			return nil
 		},
 	}

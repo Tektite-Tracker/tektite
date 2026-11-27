@@ -5,19 +5,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
-	"github.com/tektite-tracker/tektite/internal/node"
-	"github.com/tektite-tracker/tektite/internal/store"
-)
-
-var (
-	fieldKey   = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
-	coreFields = map[string]bool{"id": true, "kind": true, "title": true, "parent": true}
+	"github.com/tektite-tracker/tektite/internal/service"
 )
 
 func (a *app) newCmd() *cobra.Command {
@@ -37,103 +29,33 @@ func (a *app) newCmd() *cobra.Command {
 	return cmd
 }
 
-type setField struct {
-	key   string
-	value any
-}
-
-func parseSets(sets []string) ([]setField, error) {
-	out := []setField{}
-	for _, s := range sets {
-		key, raw, ok := strings.Cut(s, "=")
-		key = strings.TrimSpace(key)
-		if !ok || !fieldKey.MatchString(key) {
-			return nil, usage("--set expects key=value, got %q", s)
-		}
-		if coreFields[key] {
-			return nil, usage("--set cannot change %q", key)
-		}
-		var v any
-		if err := yaml.Unmarshal([]byte(raw), &v); err != nil || v == nil {
-			v = raw
-		}
-		out = append(out, setField{key: key, value: v})
-	}
-	return out, nil
-}
-
 func (a *app) create(kind, title, parent, body string, bodySet bool, sets []string) error {
-	kind, title = strings.TrimSpace(kind), strings.TrimSpace(title)
-	if kind == "" || title == "" {
-		return usage("kind and title must not be empty")
-	}
-	extra, err := parseSets(sets)
-	if err != nil {
-		return err
-	}
-	r, snap, err := a.load()
-	if err != nil {
-		return err
-	}
-	schemas, err := r.LoadSchemas()
-	if err != nil {
-		return fmt.Errorf("load schemas: %w", err)
-	}
-	parentRef := ""
-	if strings.TrimSpace(parent) != "" {
-		p, err := snap.Resolve(parent)
-		if err != nil {
-			return fmt.Errorf("parent: %w", err)
-		}
-		parentRef = p.Ref
-	}
-	schema, hasSchema := schemas.For(kind)
-	text := ""
+	in := service.CreateInput{Kind: kind, Title: title, Parent: parent, Sets: sets}
 	switch {
 	case bodySet && body == "-":
 		data, err := io.ReadAll(a.in)
 		if err != nil {
 			return fmt.Errorf("read body from stdin: %w", err)
 		}
-		text = string(data)
+		text := string(data)
+		in.Body = &text
 	case bodySet:
-		text = body
-	case hasSchema:
-		text = schema.Template
+		in.Body = &body
+	case a.interactive && a.getenv("EDITOR") != "":
+		in.Edit = a.edit
 	}
-	if !bodySet && a.interactive && a.getenv("EDITOR") != "" {
-		if text, err = a.edit(text); err != nil {
-			return err
-		}
-	}
-
-	fields := []node.Field{}
-	present := map[string]bool{}
-	for _, f := range extra {
-		fields = append(fields, node.Field{Key: f.key, Value: f.value})
-		present[f.key] = true
-	}
-	text = strings.TrimSpace(text)
-	if text != "" {
-		text += "\n"
-	}
-	created, err := r.CreateNode(snap, a.now(), a.rand, store.NewNode{Kind: kind, Title: title, Parent: parentRef, Extra: fields, Body: text})
+	svc, err := a.svc()
 	if err != nil {
-		return fmt.Errorf("new %s: %w", kind, err)
+		return err
 	}
-
-	missing := []string{}
-	if hasSchema {
-		for _, f := range schema.Required {
-			if !present[f] && !coreFields[f] {
-				missing = append(missing, f)
-			}
-		}
+	created, err := svc.Create(in)
+	if err != nil {
+		return err
 	}
-	for _, f := range missing {
-		a.printf(a.err, "note: field %q is required by the %s schema, set it with --set %s=<value>\n", f, kind, f)
+	for _, f := range created.MissingRequired {
+		a.printf(a.err, "note: field %q is required by the %s schema, set it with --set %s=<value>\n", f, created.Kind, f)
 	}
-	return a.printCreated(created.Ref, created.ID, kind, title, parentRef, created.Path, missing)
+	return a.printCreated(created)
 }
 
 type createdResult struct {
@@ -146,11 +68,11 @@ type createdResult struct {
 	Title           string   `json:"title"`
 }
 
-func (a *app) printCreated(ref, id, kind, title, parent, path string, missing []string) error {
+func (a *app) printCreated(c *service.Created) error {
 	if a.json {
-		return a.writeJSON(createdResult{ID: id, Kind: kind, MissingRequired: missing, Parent: parent, Path: path, Ref: ref, Title: title})
+		return a.writeJSON(createdResult{ID: c.ID, Kind: c.Kind, MissingRequired: c.MissingRequired, Parent: c.Parent, Path: c.Path, Ref: c.Ref, Title: c.Title})
 	}
-	a.printf(a.out, "%s\n", ref)
+	a.printf(a.out, "%s\n", c.Ref)
 	return nil
 }
 

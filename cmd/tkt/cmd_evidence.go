@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -10,14 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tektite-tracker/tektite/internal/check"
-	"github.com/tektite-tracker/tektite/internal/event"
-	"github.com/tektite-tracker/tektite/internal/node"
-	"github.com/tektite-tracker/tektite/internal/store"
-	"github.com/tektite-tracker/tektite/parse"
+	"github.com/tektite-tracker/tektite/internal/service"
 )
-
-const shortSHA = 7
 
 type attachResult struct {
 	Evidence string   `json:"evidence"`
@@ -62,97 +54,31 @@ func (a *app) attachEvidenceCmd() *cobra.Command {
 }
 
 func (a *app) attachEvidence(query, file, claim, command string, exitCode *int, actorFlag string, allowLarge bool) error {
-	r, snap, err := a.load()
-	if err != nil {
-		return err
-	}
-	target, err := snap.Resolve(query)
-	if err != nil {
-		return fmt.Errorf("attach-evidence: %w", err)
-	}
-	cfg, err := r.Config()
-	if err != nil {
-		return fmt.Errorf("attach-evidence: %w", err)
-	}
-
 	var data []byte
+	var err error
 	ext := ".txt"
 	if file == "-" {
 		data, err = io.ReadAll(a.in)
 	} else {
 		data, err = a.readFile(file)
-		ext = strings.ToLower(filepath.Ext(file))
+		ext = filepath.Ext(file)
 	}
 	if err != nil {
 		return fmt.Errorf("read evidence: %w", err)
 	}
-	if len(data) == 0 {
-		return usage("the evidence is empty")
-	}
-	warnings := []string{}
-	if size, limit := int64(len(data)), cfg.BlobCapBytes(); size > limit {
-		msg := fmt.Sprintf("the attachment is %.1f MB, over the %d MB cap, and every blob stays in the repository history", float64(size)/(1<<20), limit>>20)
-		if !allowLarge {
-			return fail(exitUsage, "pass --allow-large to store it anyway, or raise blob_cap_mb in .tektite/config", "warning: %s", msg)
-		}
-		warnings = append(warnings, msg)
-	}
-
-	sum := sha256.Sum256(data)
-	hash := hex.EncodeToString(sum[:])
-	name := hash + ext
-	_, stored, err := r.WriteBlob(name, data)
-	if err != nil {
-		return fmt.Errorf("store blob: %w", err)
-	}
-
-	actor, actorWarn := a.resolveActor(actorFlag)
-	warnings = append(warnings, actorWarn...)
-	at := a.now()
-	commit := ""
-	if head := a.gitHead(); len(head) >= shortSHA {
-		commit = head[:shortSHA]
-	}
-	prov := map[string]any{"actor": actor, "at": parse.FormatTime(at)}
-	if commit != "" {
-		prov["commit"] = commit
-		if a.gitDirty() {
-			prov["dirty"] = true
-		}
-	} else {
-		warnings = append(warnings, check.CodeEvidenceNoCommit+": no git commit is available, so the evidence cannot be tied to a code version")
-	}
-	if command != "" {
-		prov["command"] = command
-	}
-	if exitCode != nil {
-		prov["exit_code"] = *exitCode
-	}
-
-	created, err := r.CreateNode(snap, at, a.rand, store.NewNode{
-		Kind:   parse.KindEvidence,
-		Title:  claim,
-		Parent: target.Ref,
-		Extra: []node.Field{
-			{Key: "evidences", Value: []string{target.Ref}},
-			{Key: "claim", Value: claim},
-			{Key: "attachments", Value: []string{"blobs/" + name}},
-			{Key: "provenance", Value: prov},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("attach-evidence: %w", err)
-	}
-	ref := created.Ref
-	res, err := a.writeEvent(actorFlag, target.Ref, &event.Draft{Type: parse.EventAttach, Fields: []node.Field{{Key: "evidence", Value: ref}}}, nil)
+	svc, err := a.svc()
 	if err != nil {
 		return err
 	}
-	out := attachResult{Evidence: ref, Blob: filepath.ToSlash(filepath.Join(".tektite", "blobs", name)), Hash: hash, Stored: stored, Parent: target.Ref, Event: res.Event, Commit: commit, Warnings: warnings}
+	res, err := svc.AttachEvidence(service.AttachInput{Ref: query, Data: data, Ext: ext, Claim: claim, Command: command, ExitCode: exitCode, Actor: actorFlag, AllowLarge: allowLarge})
+	if err != nil {
+		return err
+	}
+	warnings := warningTexts(res.Warnings)
 	if a.json {
-		return a.writeJSON(out)
+		return a.writeJSON(attachResult{Evidence: res.Evidence, Blob: res.Blob, Hash: res.Hash, Stored: res.Stored, Parent: res.Parent, Event: res.Event, Commit: res.Commit, Warnings: warnings})
 	}
 	a.warn(warnings)
-	a.printf(a.out, "%s\n", ref)
+	a.printf(a.out, "%s\n", res.Evidence)
 	return nil
 }
