@@ -1,29 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/spf13/cobra"
-
-	"github.com/tektite-tracker/tektite/internal/bundle"
-	"github.com/tektite-tracker/tektite/internal/store"
 )
-
-func blobSizer(r *store.Repo) func(string) (int64, bool) {
-	return func(attachment string) (int64, bool) {
-		name := store.BlobName(attachment)
-		if name == "" {
-			return 0, false
-		}
-		info, err := os.Stat(filepath.Join(r.BlobsDir(), name))
-		if err != nil {
-			return 0, false
-		}
-		return info.Size(), true
-	}
-}
 
 func (a *app) contextCmd() *cobra.Command {
 	var budget int
@@ -35,22 +14,14 @@ func (a *app) contextCmd() *cobra.Command {
 			if cmd.Flags().Changed("budget") && budget < 1 {
 				return usage("--budget must be at least 1")
 			}
-			r, snap, err := a.load()
+			s, err := a.svc()
 			if err != nil {
 				return err
 			}
-			nf, err := snap.Resolve(args[0])
+			b, err := s.Context(args[0], budget)
 			if err != nil {
-				return fmt.Errorf("context: %w", err)
+				return err
 			}
-			if !cmd.Flags().Changed("budget") {
-				cfg, err := r.Config()
-				if err != nil {
-					return fmt.Errorf("context: %w", err)
-				}
-				budget = cfg.ContextBudget
-			}
-			b := bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: a.gitHead(), BlobSize: blobSizer(r)})
 			return a.emit(b, func() { a.printf(a.out, "%s", b.Markdown()) })
 		},
 	}
