@@ -96,10 +96,15 @@ Feature: Evidence
       And its exit code is recorded in the provenance
 
     Scenario: Long output is stored as a blob and summarised
-      Given command output larger than the inline limit
+      Given command output larger than the inline limit of 4096 bytes
       When the evidence is created
       Then the full output is stored as a blob
-      And the body holds the last lines and a link to the blob
+      And the body holds the last 20 lines and the path of the blob
+
+    Scenario: Run cannot be combined with a file or a command
+      When an actor runs `tkt attach-evidence auth-retry-3fa --run "go test ./..." --file out.txt`
+      Then the command exits with code 2
+      And no evidence node is created
 
     Scenario: Secrets are not captured from the environment
       When evidence is created from a command
@@ -133,6 +138,13 @@ Feature: Evidence
       When a user runs `tkt rerun retry-banner-shot-5de`
       Then the command is executed again
       And a new evidence node is created that supersedes the old one
+      And the new node has the same claim and parent as the old one
+
+    Scenario: Evidence without a command cannot be re-run
+      Given evidence with no recorded command
+      When a user runs `tkt rerun` on it
+      Then the command exits with code 2
+      And no evidence node is created
 
   Rule: Evidence closes gaps and gates completion
 

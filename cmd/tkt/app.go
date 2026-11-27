@@ -306,6 +306,7 @@ func (a *app) newRoot() *cobra.Command {
 		a.nextCmd(),
 		a.contextCmd(),
 		a.attachEvidenceCmd(),
+		a.rerunCmd(),
 		a.reviseCmd(),
 		a.revisionsCmd(),
 		a.diffCmd(),

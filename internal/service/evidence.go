@@ -25,6 +25,8 @@ type AttachInput struct {
 	ExitCode   *int
 	Actor      string
 	AllowLarge bool
+	Run        string
+	Supersedes string
 }
 
 type Attached struct {
@@ -53,14 +55,15 @@ func (s *Service) AttachEvidence(in AttachInput) (*Attached, error) {
 	if err != nil {
 		return nil, fmt.Errorf("attach-evidence: %w", err)
 	}
-	if len(in.Data) == 0 {
-		return nil, usageError("the evidence is empty")
+	out, err := s.capture(&in)
+	if err != nil {
+		return nil, err
 	}
 	warnings, err := s.checkBlobSize(int64(len(in.Data)), in.AllowLarge)
 	if err != nil {
 		return nil, err
 	}
-	b, err := s.storeBlob(in.Data, in.Ext)
+	b, body, err := s.storeOutput(in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -74,12 +77,8 @@ func (s *Service) AttachEvidence(in AttachInput) (*Attached, error) {
 		Kind:   parse.KindEvidence,
 		Title:  in.Claim,
 		Parent: target.Ref,
-		Extra: []node.Field{
-			{Key: "evidences", Value: []string{target.Ref}},
-			{Key: "claim", Value: in.Claim},
-			{Key: "attachments", Value: []string{"blobs/" + b.name}},
-			{Key: "provenance", Value: prov},
-		},
+		Extra:  evidenceFields(in, target.Ref, b, prov),
+		Body:   body,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("attach-evidence: %w", err)
@@ -92,7 +91,7 @@ func (s *Service) AttachEvidence(in AttachInput) (*Attached, error) {
 	}
 	return &Attached{
 		Evidence: created.Ref,
-		Blob:     filepath.ToSlash(filepath.Join(".tektite", "blobs", b.name)),
+		Blob:     blobPath(b),
 		Hash:     b.hash,
 		Stored:   b.stored,
 		Parent:   target.Ref,
@@ -116,6 +115,27 @@ func (s *Service) checkBlobSize(size int64, allowLarge bool) ([]parse.Diagnostic
 		return nil, newError(KindUsage, "pass --allow-large to store it anyway, or raise blob_cap_mb in .tektite/config", "warning: %s", msg)
 	}
 	return []parse.Diagnostic{warning("", "%s", msg)}, nil
+}
+
+func blobPath(b blob) string {
+	if b.name == "" {
+		return ""
+	}
+	return filepath.ToSlash(filepath.Join(".tektite", "blobs", b.name))
+}
+
+func evidenceFields(in AttachInput, target string, b blob, prov map[string]any) []node.Field {
+	fields := []node.Field{
+		{Key: "evidences", Value: []string{target}},
+		{Key: "claim", Value: in.Claim},
+	}
+	if in.Supersedes != "" {
+		fields = append(fields, node.Field{Key: "supersedes", Value: []string{in.Supersedes}})
+	}
+	if b.name != "" {
+		fields = append(fields, node.Field{Key: "attachments", Value: []string{"blobs/" + b.name}})
+	}
+	return append(fields, node.Field{Key: "provenance", Value: prov})
 }
 
 func (s *Service) storeBlob(data []byte, ext string) (blob, error) {
