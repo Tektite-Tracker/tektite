@@ -51,6 +51,8 @@ var hints = map[string]string{
 	CodeMissingBlob:                "restore the blob file or attach the evidence again",
 	CodeBlobTampered:               "restore the original blob, blobs must never change",
 	CodeUnreferencedBlob:           "remove it with `tkt gc --blobs` if it is no longer needed",
+	CodePolicyMalformed:            "fix the frontmatter of .tektite/policy.md, see the policy spec for the keys",
+	CodePolicyViolation:            "meet the gate, or have a human record an override with a reason",
 	CodeBlockCycle:                 "remove a blocks link from one node in the cycle",
 	CodeOlderRevision:              "re-check the work against the current plan revision and record it with --revision",
 	CodeDroppedBlocker:             "remove the blocks link or reopen the blocker",
@@ -123,6 +125,7 @@ func analyze(snap *store.Snapshot, schemas *store.Schemas, repo *store.Repo) Rep
 	}
 	c.orphans()
 	c.blobs()
+	c.policy()
 	return c.report()
 }
 

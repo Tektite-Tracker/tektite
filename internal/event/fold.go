@@ -30,6 +30,7 @@ type State struct {
 	LinkOps      []LinkOp           `json:"link_ops"`
 	Revisions    []Revision         `json:"revisions"`
 	Revision     int                `json:"revision"`
+	Approvals    []Approval         `json:"approvals"`
 	Body         string             `json:"body"`
 	BuiltAgainst *int               `json:"built_against"`
 	History      []Entry            `json:"history"`
@@ -47,6 +48,7 @@ var handlers = map[string]handler{
 	"note":       func(*State, *parse.Event, *Entry) {},
 	"revision":   applyRevision,
 	"attach":     func(*State, *parse.Event, *Entry) {},
+	"approve":    applyApprove,
 	"claim":      applyClaim,
 	"heartbeat":  applyHeartbeat,
 	"release":    applyRelease,
@@ -82,7 +84,7 @@ func Fold(events []*parse.Event, opts Options) State {
 	if opts.DefaultActor == "" {
 		opts.DefaultActor = UnknownActor
 	}
-	st := State{Status: StatusOpen, LinkOps: []LinkOp{}, Revisions: []Revision{}, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
+	st := State{Status: StatusOpen, LinkOps: []LinkOp{}, Revisions: []Revision{}, Approvals: []Approval{}, History: []Entry{}, Diagnostics: []parse.Diagnostic{}}
 	seen := map[string]bool{}
 	warned := map[string]bool{}
 	var prev *Entry

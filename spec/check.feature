@@ -1,6 +1,7 @@
 Feature: Check
   `tkt check` aggregates what the parser, the store, and the schemas report into one list of
-  problems. It reads the whole repository, never changes it, and policy gates are not part of it.
+  problems. It reads the whole repository, never changes it, and reports policy gate violations and a
+  malformed policy file as described in policy.feature.
 
   Background:
     Given a repository with a .tektite/ directory

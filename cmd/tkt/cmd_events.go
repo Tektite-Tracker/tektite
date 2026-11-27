@@ -131,11 +131,19 @@ func (a *app) setStatusCmd() *cobra.Command {
 			if revision > 0 {
 				fields = append(fields, node.Field{Key: "revision", Value: revision})
 			}
-			check := func(*store.Snapshot, *store.NodeFile, string) ([]string, error) {
-				if event.KnownStatus(status) {
-					return nil, nil
+			check := func(snap *store.Snapshot, nf *store.NodeFile, who string) ([]string, error) {
+				warnings := []string{}
+				if status == "done" {
+					w, err := a.gateDone(snap, nf, who, strings.TrimSpace(override))
+					if err != nil {
+						return nil, err
+					}
+					warnings = w
 				}
-				return []string{fmt.Sprintf("%s: unknown status %q, expected one of open, active, blocked, review, done, dropped", parse.CodeUnknownStatus, status)}, nil
+				if !event.KnownStatus(status) {
+					warnings = append(warnings, fmt.Sprintf("%s: unknown status %q, expected one of open, active, blocked, review, done, dropped", parse.CodeUnknownStatus, status))
+				}
+				return warnings, nil
 			}
 			return a.appendEvent(actor, args[0], &event.Draft{Type: "set-status", Fields: fields}, check)
 		},

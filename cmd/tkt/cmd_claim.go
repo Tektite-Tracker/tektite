@@ -36,12 +36,16 @@ func (a *app) claimNode(actorFlag, query string, ttl time.Duration, revision int
 		d.Fields = append(d.Fields, node.Field{Key: "revision", Value: revision})
 	}
 	check := func(snap *store.Snapshot, nf *store.NodeFile, actor string) ([]string, error) {
+		warnings, err := a.gateClaim(snap, nf, actor)
+		if err != nil {
+			return nil, err
+		}
 		l := a.held(snap, nf.Ref).Lease
 		if l.LiveAt(a.now()) && l.Holder != actor {
 			return nil, fail(exitConflict, "wait for the lease to expire or pick another node with `tkt next`",
 				"%s is claimed by %s until %s", nf.Ref, l.Holder, l.Expires.UTC().Format(timeLayout))
 		}
-		return nil, nil
+		return warnings, nil
 	}
 	res, err := a.writeEvent(actorFlag, query, d, check)
 	if err != nil {
