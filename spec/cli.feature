@@ -328,13 +328,13 @@ Feature: Command line
       Then a local server starts on localhost
       And pages update live as files change
 
-  Rule: Beads issues can be imported once
+  Rule: Issues can be imported once from another tracker's export
 
     Scenario: Importing beads issues
       Given a .beads/issues.jsonl with a task, a bug and an epic
       When a user runs `tektite import beads`
       Then each issue becomes a node whose title and body come from the issue
-      And the original id is kept in the beads_id field
+      And the tracker is kept in the source field and the original id in the source_id field
       And the source file is not modified
 
     Scenario: Beads statuses map to tektite statuses
@@ -411,3 +411,62 @@ Feature: Command line
       Given no .beads/issues.jsonl exists
       When a user runs `tektite import beads`
       Then the command exits with code 3
+
+    Scenario: Nodes imported before the source field existed are recognised
+      Given a node with a beads_id field and no source field
+      When a user runs `tektite import beads`
+      Then the issue with that id is reported as skipped
+      And no duplicate node is written
+
+  Rule: Status, priority and type mappings are confirmed once
+
+    Scenario: Values are mapped by category, timestamps and names
+      Given an export whose statuses carry a category column, timestamp columns or only a name
+      When the import proposes a mapping
+      Then the category column decides first, the timestamp columns next and name keywords last
+      And a name keyword only refines a value inside the category the evidence gave
+
+    Scenario: Only ambiguous values are asked about
+      Given an export with one status that no evidence or keyword explains
+      When a user runs the import in a terminal
+      Then only that value is asked about
+      And the answer is checked against the allowed targets
+
+    Scenario: Accepting the proposal with --yes
+      Given an export with an ambiguous status that has a best guess
+      When a user runs the import with --yes
+      Then the guess is used without asking
+
+    Scenario: The confirmed mapping is saved and reused
+      Given the import ran once and confirmed a mapping
+      Then the mapping is written to .tektite/import/<source>.yaml
+      And a later run reuses it without asking
+
+    Scenario: A new value in a later export is asked about alone
+      Given a saved mapping and an export with one status it does not cover
+      When a user runs the import
+      Then only the new value is asked about
+      And it is added to the saved mapping
+
+    Scenario: A mapping file can be supplied
+      Given a mapping file
+      When a user runs the import with --map and that file
+      Then the file is used without asking and nothing is saved
+
+    Scenario: A dry run prints the proposed mapping
+      Given an export and no saved mapping
+      When a user runs the import with --dry-run
+      Then the proposed mapping and the nodes that would be created are printed
+      And no mapping, node or event file is written
+
+    Scenario: No terminal and no saved mapping fails
+      Given an export with an ambiguous status and no saved mapping
+      When a user runs the import without a terminal and without --yes
+      Then the command exits with code 2
+      And the message names the unmapped values
+
+    Scenario: Unknown values are never mapped to open
+      Given an export with a status that has no evidence, keyword or guess
+      When a user runs the import with --yes
+      Then the command exits with code 2
+      And no node is written

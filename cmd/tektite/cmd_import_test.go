@@ -16,7 +16,7 @@ const beadsFixture = `{"id":"bd-1","title":"Ship the thing","description":"Top l
 
 type migrateDoc struct {
 	Items []struct {
-		BeadsID string `json:"beads_id"`
+		BeadsID string `json:"source_id"`
 		Ref     string `json:"ref"`
 		Action  string `json:"action"`
 		Status  string `json:"status"`
@@ -96,7 +96,7 @@ func TestCLI_ImportBeads(t *testing.T) {
 			t.Fatalf("got = %+v", got)
 		}
 		bug := s.read(".tektite/nodes/" + s.refOf(doc, "bd-2") + ".md")
-		for _, want := range []string{"kind: ticket", "title: Fix the bug", "beads_id: bd-2", "It breaks", "## Design", "Use a lock", "issue_type: bug"} {
+		for _, want := range []string{"kind: ticket", "title: Fix the bug", "source: beads", "source_id: bd-2", "It breaks", "## Design", "Use a lock", "issue_type: bug"} {
 			if !strings.Contains(bug, want) {
 				t.Errorf("bug missing %q:\n%s", want, bug)
 			}
@@ -303,6 +303,15 @@ func TestCLI_ImportBeads(t *testing.T) {
 		s := newSandbox(t)
 		if got := s.tektite("import", "beads"); got.code != exitNotFound || !strings.Contains(got.stderr, "issues.jsonl") {
 			t.Errorf("got = %+v", got)
+		}
+	})
+
+	t.Run("Nodes imported before the source field existed are recognised", func(t *testing.T) {
+		s := beadsSandbox(t, beadsFixture)
+		s.write(".tektite/nodes/old-one-aaa.md", "---\nid: "+idA+"\nkind: ticket\ntitle: Fix the bug\nparent: \"\"\nbeads_id: bd-2\n---\n")
+		got, doc := s.migrate(t)
+		if got.code != 0 || doc.Skipped != 1 || doc.Created != 4 || s.refOf(doc, "bd-2") != "old-one-aaa" {
+			t.Fatalf("got = %+v, doc = %+v", got, doc)
 		}
 	})
 }
