@@ -32,7 +32,7 @@ const maxImportBytes = 64 << 20
 func readCapped(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read export: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(f, maxImportBytes+1))
