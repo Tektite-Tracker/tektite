@@ -358,6 +358,17 @@ func TestCLI_New(t *testing.T) {
 		}
 	})
 
+	t.Run("A blank EDITOR is a usage error", func(t *testing.T) {
+		s := newSandbox(t)
+		s.interactive, s.editor = true, "   "
+		before, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
+		got := s.tektite("new", "ticket", "Blank editor")
+		after, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
+		if got.code != exitUsage || !strings.Contains(got.stderr, "EDITOR") || len(before) != len(after) {
+			t.Errorf("blank editor = %+v", got)
+		}
+	})
+
 	t.Run("The body can come from stdin or an editor", func(t *testing.T) {
 		s := newSandbox(t)
 		got := s.tektiteIn(s.root, "text from stdin\nsecond line\n", "new", "ticket", "Add retry", "--body", "-")

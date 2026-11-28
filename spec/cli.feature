@@ -106,6 +106,11 @@ Feature: Command line
       Then the text becomes the body
       And without `--body` the user's editor is opened if the terminal is interactive
 
+    Scenario: A blank EDITOR is a usage error
+      When a user runs `tektite new ticket "Add retry"` on an interactive terminal with EDITOR set to only whitespace
+      Then the command exits with code 2 and tells the user to set EDITOR
+      And no node is created
+
     Scenario: A new node stores its parent as a full reference
       When a user runs `tektite new ticket "Add retry" --parent 9de`
       Then the frontmatter parent is the full reference "retry-plan-9de"
