@@ -332,20 +332,20 @@ Feature: Command line
 
     Scenario: Importing beads issues
       Given a .beads/issues.jsonl with a task, a bug and an epic
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then each issue becomes a node whose title and body come from the issue
       And the original id is kept in the beads_id field
       And the source file is not modified
 
     Scenario: Beads statuses map to tektite statuses
       Given beads issues that are open, in_progress, blocked, deferred and closed
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then they are open, active, blocked, blocked and done
       And the deferred issue produces a warning
 
     Scenario: Deleted beads issues are imported as dropped
       Given a beads issue with status tombstone
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then it becomes a node with status dropped
       And no warning is reported for the status
       And a blocks dependency that would make a live ticket blocked by it is not imported
@@ -354,13 +354,13 @@ Feature: Command line
 
     Scenario: Beads bookkeeping fields are not imported
       Given a beads issue with _type, comment_count, dependency_count, dependent_count and updated_at
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then none of those fields is written to the node frontmatter
       And created_by and owner are kept
 
     Scenario: Beads timestamps become the history
       Given a beads issue with created_at, closed_at and a comment with its own created_at
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then the events written at creation are stamped with created_at
       And the done or dropped status event is stamped with closed_at
       And the comment event keeps its own created_at
@@ -369,45 +369,45 @@ Feature: Command line
 
     Scenario: Beads issues without timestamps use the import time
       Given a beads issue with no created_at, closed_at or comment timestamps
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then its events are stamped with the import time
 
     Scenario: Beads priorities and labels are kept
       Given a beads issue with priority 1 and labels
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then the node has priority high and the same labels
 
     Scenario: Beads dependencies become parents and links
       Given beads issues related by parent-child, blocks and discovered-from dependencies
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then the parent-child dependency sets the parent of the child
       And the blocks dependency becomes a blocks link on the blocker
       And the discovered-from dependency becomes a derived-from link
 
     Scenario: Unknown beads fields are kept as frontmatter
       Given a beads issue with a field tektite has no mapping for
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then the field is written to the node frontmatter
 
     Scenario: Beads dependencies that cannot be mapped warn
       Given a beads issue with a related dependency and one on a missing issue
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then a warning diagnostic is reported for each
       And the import still completes
 
     Scenario: A dry run writes nothing
       Given a .beads/issues.jsonl
-      When a user runs `tektite migrate-beads --dry-run`
+      When a user runs `tektite import beads --dry-run`
       Then the nodes that would be created are listed
       And no node or event file is written
 
     Scenario: Importing again changes nothing
       Given the issues were already imported
-      When a user runs `tektite migrate-beads` again
+      When a user runs `tektite import beads` again
       Then every issue is reported as skipped
       And no node or event file is written
 
     Scenario: A missing source file
       Given no .beads/issues.jsonl exists
-      When a user runs `tektite migrate-beads`
+      When a user runs `tektite import beads`
       Then the command exits with code 3
