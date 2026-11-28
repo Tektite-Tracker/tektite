@@ -2,15 +2,10 @@ package service
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/tektite-tracker/tektite/internal/node"
-	"github.com/tektite-tracker/tektite/parse"
 )
 
 func isJSONFile(path string) bool {
@@ -23,59 +18,21 @@ func isJSONFile(path string) bool {
 }
 
 func readJiraJSON(path string, res *ImportResult) (*importData, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("import-jira: %w", err)
-	}
-	raw = bytes.TrimPrefix(bytes.TrimSpace(raw), []byte("\xef\xbb\xbf"))
-	var list []any
-	switch raw[0] {
-	case '[':
-		if err := json.Unmarshal(raw, &list); err != nil {
-			return nil, usageError("%s is not valid JSON: %v", filepath.ToSlash(path), err)
-		}
-	default:
-		var doc map[string]any
-		if err := json.Unmarshal(raw, &doc); err != nil {
-			return nil, usageError("%s is not valid JSON: %v", filepath.ToSlash(path), err)
-		}
-		if issues, ok := doc["issues"].([]any); ok {
-			list = issues
-		} else if _, ok := doc["key"]; ok {
-			list = []any{doc}
-		} else {
-			return nil, usageError("not a Jira JSON export, expected an issues list or issue objects with a key and fields")
-		}
-	}
-	data := &importData{}
-	seen := map[string]bool{}
-	for n, e := range list {
-		obj, _ := e.(map[string]any)
-		fields, _ := obj["fields"].(map[string]any)
-		id, title := strings.TrimSpace(str(obj["key"])), strings.TrimSpace(str(fields["summary"]))
-		line := n + 1
-		switch {
-		case id == "" || title == "":
-			res.Warnings = append(res.Warnings, importDiag(parse.CodeImportSkipped, line, "key", "issue %d has no key or summary, skipped", n+1))
-			continue
-		case seen[id]:
-			res.Warnings = append(res.Warnings, importDiag(parse.CodeImportSkipped, line, "key", "issue %q appears more than once, the first one is used", id))
-			continue
-		}
-		seen[id] = true
-		data.issues = append(data.issues, jiraJSONIssue(id, title, line, fields))
-	}
-	return data, nil
-}
-
-func nameOf(v any) string {
-	m, _ := v.(map[string]any)
-	for _, k := range []string{"name", "displayName", "value", "key"} {
-		if s := strings.TrimSpace(str(m[k])); s != "" {
-			return s
-		}
-	}
-	return ""
+	return readJSONIssues(path, res, jsonExport{
+		tracker:   "import-jira",
+		single:    "key",
+		notExport: "not a Jira JSON export, expected an issues list or issue objects with a key and fields",
+		idField:   "key",
+		missing:   "key or summary",
+		idTitle: func(obj map[string]any) (string, string) {
+			fields, _ := obj["fields"].(map[string]any)
+			return str(obj["key"]), str(fields["summary"])
+		},
+		build: func(id, title string, line int, obj map[string]any) *importIssue {
+			fields, _ := obj["fields"].(map[string]any)
+			return jiraJSONIssue(id, title, line, fields)
+		},
+	})
 }
 
 func jiraJSONIssue(id, title string, line int, f map[string]any) *importIssue {
@@ -104,8 +61,8 @@ func jiraJSONIssue(id, title string, line int, f map[string]any) *importIssue {
 	if is.parent == "" {
 		is.parent = strings.TrimSpace(str(f["customfield_10014"]))
 	}
-	is.createdAt = jiraJSONTime(is, str(f["created"]), "created")
-	is.closedAt = jiraJSONTime(is, str(f["resolutiondate"]), "resolutiondate")
+	is.createdAt = jiraJSONTimeFormat.parse(is, str(f["created"]), "created")
+	is.closedAt = jiraJSONTimeFormat.parse(is, str(f["resolutiondate"]), "resolutiondate")
 	if !is.closedAt.IsZero() {
 		if jiraDroppedRes.MatchString(nameOf(f["resolution"])) {
 			is.canceledAt = is.closedAt
@@ -134,7 +91,7 @@ func jiraJSONIssue(id, title string, line int, f map[string]any) *importIssue {
 				continue
 			}
 			ic := importComment{author: nameOf(cm["author"]), text: text}
-			ic.at = jiraJSONTime(is, str(cm["created"]), "comment")
+			ic.at = jiraJSONTimeFormat.parse(is, str(cm["created"]), "comment")
 			is.comments = append(is.comments, ic)
 		}
 	}
@@ -161,20 +118,6 @@ func jiraJSONExtras(f map[string]any) []node.Field {
 		fields = append(fields, node.Field{Key: "reporter", Value: v})
 	}
 	return fields
-}
-
-func jiraJSONTime(is *importIssue, raw, field string) time.Time {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return time.Time{}
-	}
-	for _, layout := range []string{"2006-01-02T15:04:05.000-0700", "2006-01-02T15:04:05-0700", time.RFC3339Nano} {
-		if t, err := time.Parse(layout, raw); err == nil {
-			return t.UTC()
-		}
-	}
-	is.createWarns = append(is.createWarns, importWarn{parse.CodeImportUnmapped, field, fmt.Sprintf("%s %q is not a recognised date, the import time is used", field, raw)})
-	return time.Time{}
 }
 
 func richText(v any) string {
