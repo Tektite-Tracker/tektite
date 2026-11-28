@@ -352,6 +352,26 @@ Feature: Command line
       And a discovered-from dependency on it is kept
       And an unknown status still produces a warning
 
+    Scenario: Beads bookkeeping fields are not imported
+      Given a beads issue with _type, comment_count, dependency_count, dependent_count and updated_at
+      When a user runs `tektite migrate-beads`
+      Then none of those fields is written to the node frontmatter
+      And created_by and owner are kept
+
+    Scenario: Beads timestamps become the history
+      Given a beads issue with created_at, closed_at and a comment with its own created_at
+      When a user runs `tektite migrate-beads`
+      Then the events written at creation are stamped with created_at
+      And the done or dropped status event is stamped with closed_at
+      And the comment event keeps its own created_at
+      And created_at and closed_at are not written to the node frontmatter
+      And running it again changes nothing
+
+    Scenario: Beads issues without timestamps use the import time
+      Given a beads issue with no created_at, closed_at or comment timestamps
+      When a user runs `tektite migrate-beads`
+      Then its events are stamped with the import time
+
     Scenario: Beads priorities and labels are kept
       Given a beads issue with priority 1 and labels
       When a user runs `tektite migrate-beads`

@@ -74,6 +74,20 @@ const beadsTombstoneFixture = `{"id":"bd-1","title":"Live work","status":"open",
 {"id":"bd-5","title":"Mystery","status":"weird"}
 `
 
+const beadsTimedFixture = `{"id":"bd-1","title":"Timed work","status":"closed","created_at":"2025-03-01T10:00:00Z","updated_at":"2025-04-01T00:00:00Z","closed_at":"2025-03-20T15:30:00Z","close_reason":"shipped","_type":"issue","comment_count":1,"dependency_count":1,"dependent_count":0,"created_by":"sam","owner":"sam@example.com","comments":[{"author":"lee","text":"nice","created_at":"2025-03-05T09:00:00Z"}],"dependencies":[{"issue_id":"bd-1","depends_on_id":"bd-2","type":"discovered-from"}]}
+{"id":"bd-2","title":"Gone","status":"tombstone","created_at":"2025-02-01T08:00:00Z","closed_at":"2025-02-02T08:00:00Z"}
+{"id":"bd-3","title":"Untimed","status":"in_progress"}
+`
+
+func (s *sandbox) eventsOf(ref string) string {
+	entries, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "events", ref))
+	var sb strings.Builder
+	for _, e := range entries {
+		sb.WriteString(s.read(".tektite/events/" + ref + "/" + e.Name()))
+	}
+	return sb.String()
+}
+
 func TestCLI_MigrateBeads(t *testing.T) {
 	t.Run("Importing beads issues", func(t *testing.T) {
 		s := beadsSandbox(t, beadsFixture)
@@ -152,6 +166,53 @@ func TestCLI_MigrateBeads(t *testing.T) {
 		again, redo := s.migrate(t)
 		if again.code != 0 || redo.Created != 0 || redo.Skipped != 5 || countFiles(t, filepath.Join(s.root, ".tektite")) != before {
 			t.Errorf("rerun = %+v %+v", again, redo)
+		}
+	})
+
+	t.Run("Beads bookkeeping fields are not imported", func(t *testing.T) {
+		s := beadsSandbox(t, beadsTimedFixture)
+		_, doc := s.migrate(t)
+		src := s.read(".tektite/nodes/" + s.refOf(doc, "bd-1") + ".md")
+		for _, bad := range []string{"_type", "comment_count", "dependency_count", "dependent_count", "updated_at"} {
+			if strings.Contains(src, bad) {
+				t.Errorf("%s was imported:\n%s", bad, src)
+			}
+		}
+		if !strings.Contains(src, "created_by: sam") || !strings.Contains(src, "owner: sam@example.com") {
+			t.Errorf("created_by or owner missing:\n%s", src)
+		}
+	})
+
+	t.Run("Beads timestamps become the history", func(t *testing.T) {
+		s := beadsSandbox(t, beadsTimedFixture)
+		_, doc := s.migrate(t)
+		done, gone := s.refOf(doc, "bd-1"), s.refOf(doc, "bd-2")
+		src := s.read(".tektite/nodes/" + done + ".md")
+		if strings.Contains(src, "created_at") || strings.Contains(src, "closed_at") {
+			t.Errorf("timestamps in frontmatter:\n%s", src)
+		}
+		events := s.eventsOf(done)
+		for _, want := range []string{"2025-03-20T15:30:00Z", "2025-03-05T09:00:00Z", "2025-03-01T10:00:00Z"} {
+			if !strings.Contains(events, want) {
+				t.Errorf("events of %s missing %s:\n%s", done, want, events)
+			}
+		}
+		if dropped := s.eventsOf(gone); !strings.Contains(dropped, "2025-02-02T08:00:00Z") || strings.Contains(dropped, "2025-02-01T08:00:00Z") {
+			t.Errorf("dropped events:\n%s", dropped)
+		}
+		before := countFiles(t, filepath.Join(s.root, ".tektite"))
+		again, redo := s.migrate(t)
+		if again.code != 0 || redo.Created != 0 || redo.Skipped != 3 || countFiles(t, filepath.Join(s.root, ".tektite")) != before {
+			t.Errorf("rerun = %+v %+v", again, redo)
+		}
+	})
+
+	t.Run("Beads issues without timestamps use the import time", func(t *testing.T) {
+		s := beadsSandbox(t, beadsTimedFixture)
+		_, doc := s.migrate(t)
+		events := s.eventsOf(s.refOf(doc, "bd-3"))
+		if !strings.Contains(events, "2026-11-27T12:00:00Z") || strings.Contains(events, "2025-") {
+			t.Errorf("events:\n%s", events)
 		}
 	})
 

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
@@ -39,7 +40,8 @@ var (
 	beadsMapped     = map[string]bool{
 		"id": true, "title": true, "description": true, "design": true, "acceptance_criteria": true,
 		"notes": true, "status": true, "priority": true, "labels": true, "dependencies": true,
-		"comments": true, "assignee": true, "close_reason": true,
+		"comments": true, "assignee": true, "close_reason": true, "created_at": true, "closed_at": true,
+		"_type": true, "comment_count": true, "dependency_count": true, "dependent_count": true, "updated_at": true,
 	}
 	beadsTaken = map[string]bool{"id": true, "kind": true, "title": true, "parent": true, beadsIDField: true, "priority": true, "labels": true, "assignee": true}
 )
@@ -114,7 +116,7 @@ func (s *Service) MigrateBeads(in MigrateBeadsInput) (*MigrateBeadsResult, error
 	if actor == "" {
 		actor = beadsActor
 	}
-	m := &migration{s: s, in: in, res: res, issues: issues, actor: actor, snap: snap, visiting: map[string]bool{}, done: map[string]bool{}}
+	m := &migration{s: s, in: in, res: res, issues: issues, actor: actor, snap: snap, visiting: map[string]bool{}, done: map[string]bool{}, badTimes: map[string]bool{}}
 	for _, id := range order {
 		if err := m.ensure(id); err != nil {
 			return nil, err
@@ -206,6 +208,7 @@ type migration struct {
 	snap     *store.Snapshot
 	visiting map[string]bool
 	done     map[string]bool
+	badTimes map[string]bool
 }
 
 func (m *migration) warn(is *beadsIssue, code, field, format string, args ...any) {
@@ -253,7 +256,7 @@ func (m *migration) ensure(id string) error {
 		return nil
 	}
 	extra, body := m.fields(is)
-	created, err := m.s.Repo.CreateNode(m.snap, m.s.Now(), m.s.Rand, store.NewNode{Kind: kind, Title: is.title, Parent: parentRef, Extra: extra, Body: body})
+	created, err := m.s.Repo.CreateNode(m.snap, m.stamp(is, "created_at", time.Time{}), m.s.Rand, store.NewNode{Kind: kind, Title: is.title, Parent: parentRef, Extra: extra, Body: body})
 	if err != nil {
 		return fmt.Errorf("migrate-beads: %s: %w", id, err)
 	}
@@ -348,15 +351,23 @@ func beadsBody(raw map[string]any) string {
 
 func (m *migration) events(is *beadsIssue, status string) error {
 	if status != event.StatusOpen {
-		if _, err := m.s.appendEvent(eventInput{typ: parse.EventSetStatus, query: is.ref, actor: m.actor, prepare: func(context) (step, error) {
+		source := "created_at"
+		if status == event.StatusDone || status == event.StatusDropped {
+			source = "closed_at"
+		}
+		if _, err := m.s.appendEvent(eventInput{typ: parse.EventSetStatus, query: is.ref, actor: m.actor, at: m.stamp(is, source, time.Time{}), prepare: func(context) (step, error) {
 			return step{fields: []node.Field{{Key: "status", Value: status}}}, nil
 		}}); err != nil {
 			return fmt.Errorf("migrate-beads: %s: %w", is.id, err)
 		}
 	}
-	notes := []string{}
+	type note struct {
+		text string
+		at   time.Time
+	}
+	notes := []note{}
 	if reason := strings.TrimSpace(str(is.raw["close_reason"])); reason != "" {
-		notes = append(notes, "Closed: "+reason)
+		notes = append(notes, note{"Closed: " + reason, m.stamp(is, "closed_at", time.Time{})})
 	}
 	comments, _ := is.raw["comments"].([]any)
 	for _, c := range comments {
@@ -371,10 +382,10 @@ func (m *migration) events(is *beadsIssue, status string) error {
 		if author := strings.TrimSpace(str(cm["author"])); author != "" {
 			text = author + ": " + text
 		}
-		notes = append(notes, text)
+		notes = append(notes, note{text, m.stamp(is, "created_at", m.commentTime(is, cm))})
 	}
-	for _, text := range notes {
-		if _, err := m.s.Note(NoteInput{Ref: is.ref, Text: text, Actor: m.actor}); err != nil {
+	for _, n := range notes {
+		if _, err := m.s.Note(NoteInput{Ref: is.ref, Text: n.text, Actor: m.actor, At: n.at}); err != nil {
 			return fmt.Errorf("migrate-beads: %s: %w", is.id, err)
 		}
 	}
@@ -399,9 +410,10 @@ func (m *migration) link(is *beadsIssue) error {
 		if m.in.DryRun {
 			continue
 		}
-		in := LinkInput{Verb: parse.EventLink, Ref: other.ref, Rel: "blocks", Target: is.ref, Actor: m.actor}
+		at := m.stamp(is, "created_at", time.Time{})
+		in := LinkInput{Verb: parse.EventLink, Ref: other.ref, Rel: "blocks", Target: is.ref, Actor: m.actor, At: at}
 		if d.typ == depDiscovered {
-			in = LinkInput{Verb: parse.EventLink, Ref: is.ref, Rel: "derived-from", Target: other.ref, Actor: m.actor}
+			in = LinkInput{Verb: parse.EventLink, Ref: is.ref, Rel: "derived-from", Target: other.ref, Actor: m.actor, At: at}
 		}
 		if _, err := m.s.Link(in); err != nil {
 			return fmt.Errorf("migrate-beads: %s: %w", is.id, err)
@@ -417,4 +429,36 @@ func importDiag(code string, line int, field, format string, args ...any) parse.
 func str(v any) string {
 	s, _ := v.(string)
 	return s
+}
+
+func (m *migration) stamp(is *beadsIssue, field string, override time.Time) time.Time {
+	if !override.IsZero() {
+		return override
+	}
+	raw := strings.TrimSpace(str(is.raw[field]))
+	if raw == "" {
+		return m.s.Now()
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		if key := is.id + "/" + field; !m.badTimes[key] {
+			m.badTimes[key] = true
+			m.warn(is, parse.CodeImportUnmapped, field, "%s %q is not an RFC 3339 time, the import time is used", field, raw)
+		}
+		return m.s.Now()
+	}
+	return t.UTC()
+}
+
+func (m *migration) commentTime(is *beadsIssue, comment map[string]any) time.Time {
+	raw := strings.TrimSpace(str(comment["created_at"]))
+	if raw == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		m.warn(is, parse.CodeImportUnmapped, "comments", "comment time %q is not an RFC 3339 time, the issue creation time is used", raw)
+		return time.Time{}
+	}
+	return t.UTC()
 }

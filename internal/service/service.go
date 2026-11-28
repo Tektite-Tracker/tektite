@@ -98,6 +98,7 @@ type eventInput struct {
 	actorFlag string
 	actor     string
 	body      string
+	at        time.Time
 	prepare   prepareFunc
 }
 
@@ -146,7 +147,10 @@ func (s *Service) appendEvent(in eventInput) (*Appended, error) {
 	if actor == "" {
 		actor, warnings = s.ResolveActor(in.actorFlag)
 	}
-	at := s.Now()
+	at := in.at
+	if at.IsZero() {
+		at = s.Now()
+	}
 	var st step
 	if in.prepare != nil {
 		if st, err = in.prepare(context{snap: snap, nf: nf, actor: actor}); err != nil {
