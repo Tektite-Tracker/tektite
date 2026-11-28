@@ -121,7 +121,7 @@ func encode(v any) []byte {
 func (s *Server) dispatch(req request) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
-		return s.initialize(req.Params), nil
+		return s.initialize(req.Params)
 	case "ping":
 		return map[string]any{}, nil
 	case "tools/list":
@@ -132,11 +132,15 @@ func (s *Server) dispatch(req request) (any, *rpcError) {
 	return nil, &rpcError{Code: codeMethod, Message: fmt.Sprintf("method %q not found", req.Method)}
 }
 
-func (s *Server) initialize(params json.RawMessage) map[string]any {
+func (s *Server) initialize(params json.RawMessage) (any, *rpcError) {
 	var p struct {
 		ProtocolVersion string `json:"protocolVersion"`
 	}
-	_ = json.Unmarshal(params, &p)
+	if len(params) > 0 {
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &rpcError{Code: codeParams, Message: "invalid params: " + err.Error()}
+		}
+	}
 	version := latestProtocol
 	for _, v := range supportedProtocols {
 		if v == p.ProtocolVersion {
@@ -147,5 +151,5 @@ func (s *Server) initialize(params json.RawMessage) map[string]any {
 		"protocolVersion": version,
 		"capabilities":    map[string]any{"tools": map[string]any{}},
 		"serverInfo":      map[string]any{"name": s.opts.Name, "version": s.opts.Version},
-	}
+	}, nil
 }

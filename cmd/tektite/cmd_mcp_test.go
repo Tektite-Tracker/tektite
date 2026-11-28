@@ -110,6 +110,14 @@ func TestCLI_MCP(t *testing.T) {
 		}
 	})
 
+	t.Run("Malformed initialize params are rejected", func(t *testing.T) {
+		s := eventSandbox(t)
+		replies := s.mcp(nil, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":"nope"}`, `{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":7}}`, `{"jsonrpc":"2.0","id":3,"method":"initialize"}`)
+		if len(replies) != 3 || replies[0].Error == nil || replies[0].Error.Code != -32602 || replies[1].Error == nil || replies[1].Error.Code != -32602 || replies[2].Error != nil {
+			t.Errorf("unexpected replies: %+v", replies)
+		}
+	})
+
 	t.Run("Reading a node through a tool", func(t *testing.T) {
 		s := eventSandbox(t)
 		text, isError := s.callTool(nil, "tektite_show", map[string]any{"ref": "auth-retry-3fa"})
