@@ -19,6 +19,7 @@ func (a *app) importCmd() *cobra.Command {
 	cmd.AddCommand(
 		a.importSourceCmd("beads", "Import a Beads issues.jsonl export into nodes", "path to the beads export (default .beads/issues.jsonl next to .tektite/)"),
 		a.importSourceCmd("linear", "Import a Linear CSV export into nodes", "path to the Linear CSV export"),
+		a.importSourceCmd("jira", "Import a Jira CSV export into nodes", "path to the Jira CSV export"),
 	)
 	return cmd
 }

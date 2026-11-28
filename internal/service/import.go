@@ -296,13 +296,11 @@ func (m *importer) link(is *importIssue) error {
 		if l.rel == relRelates && from > to {
 			from, to = to, from
 		}
-		if l.rel == relRelates {
-			key := from + "\x00" + to
-			if m.seen[key] {
-				continue
-			}
-			m.seen[key] = true
+		key := l.rel + "\x00" + from + "\x00" + to
+		if m.seen[key] {
+			continue
 		}
+		m.seen[key] = true
 		m.res.Links++
 		if m.in.DryRun {
 			continue

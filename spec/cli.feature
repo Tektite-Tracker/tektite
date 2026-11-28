@@ -528,3 +528,54 @@ Feature: Command line
       When a user runs `tektite import linear --from` that file again
       Then every issue is reported as skipped
 
+  Rule: Jira issues can be imported from a CSV export
+
+    Scenario: An export of the wrong shape is refused by jira
+      Given a file that is not a Jira CSV export
+      When a user runs `tektite import jira --from` that file
+      Then the command exits with code 2
+      And the message names the missing column
+
+    Scenario: Importing Jira issues
+      Given a Jira CSV with issues that have a summary, description, labels, priority, assignee and type
+      When a user runs `tektite import jira --from` that file
+      Then each issue becomes a node whose title and body come from the issue
+      And the tracker is kept in the source field and the issue key in the source_id field
+      And labels from repeated Labels columns are all kept
+
+    Scenario: Jira statuses are mapped by status category
+      Given Jira issues with custom status names and a Status Category column
+      When a user runs `tektite import jira --from` that file
+      Then To Do, In Progress and Done categories become open, active and done
+      And a name such as review or won't do refines the status inside its category
+
+    Scenario: Jira epics become plans
+      Given a Jira epic with child issues that name it in Parent or Parent key
+      When a user runs `tektite import jira --from` that file
+      Then the epic becomes a plan and each child gets it as parent
+      And a parent given by issue id is resolved to its key
+
+    Scenario: Jira issue links become typed links
+      Given Jira issues with Outward issue link columns for Blocks, Duplicate and Relates
+      When a user runs `tektite import jira --from` that file
+      Then Blocks becomes a blocks link, Duplicate a supersedes link and Relates a relates-to link
+      And a link type tektite does not know becomes a link of that name
+
+    Scenario: Jira dates are read in the export's format
+      Given Jira dates written as 27/Mar/24 3:12 PM, as 28-03-2024 14:44 or as 04-08-2025 14:44
+      When a user runs `tektite import jira --from` that file
+      Then the first two are read as written and the node is stamped with them
+      And a date that could be day first or month first is read as day first with a warning
+
+    Scenario: Jira resolved times and comments become the history
+      Given a Jira issue with a Resolved time and a comment with its own time
+      When a user runs `tektite import jira --from` that file
+      Then the done or dropped status event is stamped with Resolved
+      And the comment event keeps its own time
+
+    Scenario: Jira columns without a mapping are kept as frontmatter
+      Given a Jira CSV with Sprint, Reporter and Custom field columns
+      When a user runs `tektite import jira --from` that file
+      Then each non-empty one is written to the node frontmatter with a lowercase key
+      And Updated and the sigma estimate columns are not written
+

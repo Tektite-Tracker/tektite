@@ -80,7 +80,7 @@ func linearIssueOf(t *csvTable, row []string, id, title string, line int) *impor
 	for _, o := range splitList(t.get(row, "Duplicate of")) {
 		is.links = append(is.links, importLink{rel: relSupersedes, other: o, inbound: true})
 	}
-	is.extra = leftoverColumns(is, t, row, linearMapped, "linear")
+	is.extra = leftoverColumns(t, row, func(h string) bool { return linearMapped[h] }, "linear")
 	return is
 }
 
@@ -105,7 +105,7 @@ func csvTime(is *importIssue, raw, column string) time.Time {
 	return time.Time{}
 }
 
-func leftoverColumns(is *importIssue, t *csvTable, row []string, mapped map[string]bool, tracker string) []node.Field {
+func leftoverColumns(t *csvTable, row []string, skip func(string) bool, tracker string) []node.Field {
 	type col struct {
 		key    string
 		values []string
@@ -114,7 +114,7 @@ func leftoverColumns(is *importIssue, t *csvTable, row []string, mapped map[stri
 	seen := map[string]int{}
 	for _, h := range t.headers {
 		lower := strings.ToLower(strings.TrimSpace(h))
-		if mapped[lower] {
+		if skip(lower) {
 			continue
 		}
 		key := columnKey(h)
