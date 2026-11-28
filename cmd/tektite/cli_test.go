@@ -769,3 +769,109 @@ func TestCLI_Schema(t *testing.T) {
 		}
 	})
 }
+
+func TestCLI_AgentOnboarding(t *testing.T) {
+	const marker = "<!-- tektite:agent-onboarding -->"
+	fresh := func(t *testing.T) *sandbox {
+		dir := t.TempDir()
+		return &sandbox{t: t, root: dir, rng: rand.New(rand.NewSource(1)), now: time.Now()}
+	}
+
+	t.Run("Init offers an agent onboarding snippet", func(t *testing.T) {
+		s := fresh(t)
+		s.interactive = true
+		s.write("AGENTS.md", "# Mine\nkeep me\n")
+		got := s.tektiteIn(s.root, "y\n", "init")
+		out := s.read("AGENTS.md")
+		if got.code != 0 || !strings.HasPrefix(out, "# Mine\nkeep me\n") || !strings.Contains(out, marker) || !strings.Contains(out, "tektite prime") {
+			t.Fatalf("got = %+v\nfile = %q", got, out)
+		}
+		other := fresh(t)
+		other.interactive = true
+		other.write("AGENTS.md", "x\n")
+		if got := other.tektiteIn(other.root, "n\n", "init"); got.code != 0 || other.read("AGENTS.md") != "x\n" {
+			t.Errorf("declined = %+v", got)
+		}
+	})
+
+	t.Run("The snippet goes to CLAUDE.md when there is no AGENTS.md", func(t *testing.T) {
+		s := fresh(t)
+		s.write("CLAUDE.md", "# Claude\n")
+		got := s.tektite("init", "--agent-snippet")
+		if got.code != 0 || !strings.Contains(s.read("CLAUDE.md"), marker) || !strings.HasPrefix(s.read("CLAUDE.md"), "# Claude\n") {
+			t.Fatalf("got = %+v", got)
+		}
+		if _, err := os.Stat(filepath.Join(s.root, "AGENTS.md")); err == nil {
+			t.Errorf("AGENTS.md should not exist")
+		}
+	})
+
+	t.Run("The snippet creates AGENTS.md when neither file exists", func(t *testing.T) {
+		s := fresh(t)
+		got := s.tektite("init", "--agent-snippet", "--json")
+		var doc struct {
+			AgentSnippet struct {
+				Path    string `json:"path"`
+				Created bool   `json:"created"`
+			} `json:"agent_snippet"`
+		}
+		decode(t, got.stdout, &doc)
+		if got.code != 0 || doc.AgentSnippet.Path != "AGENTS.md" || !doc.AgentSnippet.Created || !strings.Contains(s.read("AGENTS.md"), marker) {
+			t.Fatalf("got = %+v", got)
+		}
+	})
+
+	t.Run("The snippet is added only once", func(t *testing.T) {
+		s := fresh(t)
+		s.tektite("init", "--agent-snippet")
+		first := s.read("AGENTS.md")
+		got := s.tektite("init", "--agent-snippet")
+		if got.code != 0 || s.read("AGENTS.md") != first || strings.Count(first, marker) != 1 {
+			t.Errorf("got = %+v\nfile = %q", got, s.read("AGENTS.md"))
+		}
+		s.write("CLAUDE.md", "# c\n")
+		s.tektite("init", "--agent-snippet")
+		if s.read("CLAUDE.md") != "# c\n" {
+			t.Errorf("CLAUDE.md changed although AGENTS.md has the snippet")
+		}
+	})
+
+	t.Run("The snippet can be skipped", func(t *testing.T) {
+		s := fresh(t)
+		s.interactive = true
+		got := s.tektiteIn(s.root, "y\n", "init", "--no-agent-snippet")
+		if _, err := os.Stat(filepath.Join(s.root, "AGENTS.md")); got.code != 0 || err == nil || strings.Contains(got.stderr, "[y/N]") {
+			t.Errorf("got = %+v err = %v", got, err)
+		}
+		if bad := s.tektite("init", "--agent-snippet", "--no-agent-snippet"); bad.code != exitUsage {
+			t.Errorf("both flags = %+v", bad)
+		}
+	})
+
+	t.Run("Without a terminal init does not touch agent files", func(t *testing.T) {
+		s := fresh(t)
+		s.write("AGENTS.md", "x\n")
+		got := s.tektiteIn(s.root, "y\n", "init")
+		if got.code != 0 || s.read("AGENTS.md") != "x\n" {
+			t.Errorf("got = %+v", got)
+		}
+	})
+
+	t.Run("Priming an agent", func(t *testing.T) {
+		s := fresh(t)
+		got := s.tektite("prime")
+		for _, want := range []string{"tektite next --claim", "tektite context <ref>", "tektite set-status <ref> done", "5 policy violation"} {
+			if got.code != 0 || !strings.Contains(got.stdout, want) {
+				t.Fatalf("missing %q in %+v", want, got)
+			}
+		}
+		var doc struct {
+			Steps     []struct{ N int }    `json:"steps"`
+			ExitCodes []struct{ Code int } `json:"exit_codes"`
+		}
+		decode(t, s.tektite("prime", "--json").stdout, &doc)
+		if len(doc.Steps) != 5 || len(doc.ExitCodes) != 6 {
+			t.Errorf("doc = %+v", doc)
+		}
+	})
+}

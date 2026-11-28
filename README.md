@@ -33,6 +33,8 @@ References are a slug plus a short hash. The hash is the identity, so a renamed 
 
 ## For agents
 
+`tektite init` offers to add a short snippet to AGENTS.md or CLAUDE.md (`--agent-snippet` adds it without asking, `--no-agent-snippet` skips it), and `tektite prime` prints the steps below as prompt-ready text (`--json` for a document).
+
 Run these in order:
 
 1. `tektite next --claim --actor agent:<model>/<session>` returns the best unblocked ticket and takes a 30 minute lease on it.
