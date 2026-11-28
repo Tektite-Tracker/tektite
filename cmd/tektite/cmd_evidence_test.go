@@ -50,7 +50,7 @@ func evidenceSandbox(t *testing.T) *sandbox {
 
 func (s *sandbox) attach(extra ...string) (attachDoc, result) {
 	s.t.Helper()
-	res := s.tkt(append([]string{"attach-evidence", "auth-retry-3fa", "--json"}, extra...)...)
+	res := s.tektite(append([]string{"attach-evidence", "auth-retry-3fa", "--json"}, extra...)...)
 	var doc attachDoc
 	if res.code == 0 {
 		decode(s.t, res.stdout, &doc)
@@ -87,7 +87,7 @@ func TestCLI_Evidence(t *testing.T) {
 		s := evidenceSandbox(t)
 		doc, _ := s.attach("--file", s.file("shot.png", "x"), "--claim", "retry banner shows")
 		var show showEvidence
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &show)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &show)
 		if len(show.Evidence) != 1 || show.Evidence[0].Ref != doc.Evidence || show.Evidence[0].Claim != "retry banner shows" {
 			t.Errorf("evidence = %+v", show.Evidence)
 		}
@@ -98,7 +98,7 @@ func TestCLI_Evidence(t *testing.T) {
 		if !attached {
 			t.Errorf("no attach event in %+v", show.History)
 		}
-		if out := s.tkt("show", "auth-retry-3fa"); !strings.Contains(out.stdout, "evidence: "+doc.Evidence+"  retry banner shows  @3f2a9c1") {
+		if out := s.tektite("show", "auth-retry-3fa"); !strings.Contains(out.stdout, "evidence: "+doc.Evidence+"  retry banner shows  @3f2a9c1") {
 			t.Errorf("show = %s", out.stdout)
 		}
 	})
@@ -121,8 +121,8 @@ func TestCLI_Evidence(t *testing.T) {
 		before, _ := os.Stat(filepath.Join(s.root, doc.Blob))
 		s.write("shot.png", "original")
 		s.attach("--file", path, "--claim", "again")
-		s.tkt("check")
-		s.tkt("context", "auth-retry-3fa")
+		s.tektite("check")
+		s.tektite("context", "auth-retry-3fa")
 		after, _ := os.Stat(filepath.Join(s.root, doc.Blob))
 		if !before.ModTime().Equal(after.ModTime()) || s.read(doc.Blob) != "original" {
 			t.Errorf("blob was rewritten")
@@ -133,7 +133,7 @@ func TestCLI_Evidence(t *testing.T) {
 		s := evidenceSandbox(t)
 		doc, _ := s.attach("--file", s.file("log.txt", "honest log"), "--claim", "a claim")
 		s.write(doc.Blob, "edited log")
-		res := s.tkt("check")
+		res := s.tektite("check")
 		if res.code != exitError || !strings.Contains(res.stdout, "error TKT-E103") || !strings.Contains(res.stdout, sha("honest log")) || !strings.Contains(res.stdout, doc.Evidence) {
 			t.Errorf("check = %+v", res)
 		}
@@ -145,11 +145,11 @@ func TestCLI_Evidence(t *testing.T) {
 		if err := os.Remove(filepath.Join(s.root, doc.Blob)); err != nil {
 			t.Fatal(err)
 		}
-		res := s.tkt("check")
+		res := s.tektite("check")
 		if res.code != 0 || !strings.Contains(res.stdout, "warning TKT-W114") || !strings.Contains(res.stdout, doc.Evidence+".md") || !strings.Contains(res.stdout, doc.Blob) {
 			t.Errorf("check = %+v", res)
 		}
-		if show := s.tkt("show", doc.Evidence); show.code != 0 {
+		if show := s.tektite("show", doc.Evidence); show.code != 0 {
 			t.Errorf("show = %+v", show)
 		}
 	})
@@ -158,7 +158,7 @@ func TestCLI_Evidence(t *testing.T) {
 		s := evidenceSandbox(t)
 		s.write(".tektite/config", "blob_cap_mb: 1\n")
 		path := s.file("big.bin", strings.Repeat("x", 2<<20))
-		res := s.tkt("attach-evidence", "auth-retry-3fa", "--file", path, "--claim", "big one")
+		res := s.tektite("attach-evidence", "auth-retry-3fa", "--file", path, "--claim", "big one")
 		if res.code != exitUsage || !strings.Contains(res.stderr, "warning:") || !strings.Contains(res.stderr, "--allow-large") {
 			t.Fatalf("result = %+v", res)
 		}
@@ -175,7 +175,7 @@ func TestCLI_Evidence(t *testing.T) {
 		s := evidenceSandbox(t)
 		stray := ".tektite/blobs/" + sha("stray") + ".txt"
 		s.write(stray, "stray")
-		res := s.tkt("check")
+		res := s.tektite("check")
 		if res.code != 0 || !strings.Contains(res.stdout, "note TKT-N103") || !strings.Contains(res.stdout, sha("stray")) || s.read(stray) != "stray" {
 			t.Errorf("check = %+v", res)
 		}
@@ -185,7 +185,7 @@ func TestCLI_Evidence(t *testing.T) {
 		s := evidenceSandbox(t)
 		s.attach("--file", s.file("out.txt", "ok"), "--claim", "tests pass", "--command", "go test ./...", "--exit-code", "0")
 		var show showEvidence
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &show)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &show)
 		ev := show.Evidence[0]
 		if ev.Command != "go test ./..." || ev.ExitCode == nil || *ev.ExitCode != 0 || ev.Commit != "3f2a9c1" || ev.Claim != "tests pass" {
 			t.Errorf("evidence = %+v", ev)
@@ -220,7 +220,7 @@ func TestCLI_Evidence(t *testing.T) {
 		if res.code != 0 || len(doc.Warnings) != 1 || !strings.Contains(doc.Warnings[0], "TKT-W113") {
 			t.Errorf("result = %+v doc = %+v", res, doc)
 		}
-		out := s.tkt("check")
+		out := s.tektite("check")
 		if out.code != 0 || !strings.Contains(out.stdout, "warning TKT-W113") || !strings.Contains(out.stdout, doc.Evidence+".md") || !strings.Contains(out.stdout, "code version") {
 			t.Errorf("check = %+v", out)
 		}
@@ -237,7 +237,7 @@ func TestCLI_Evidence(t *testing.T) {
 
 	t.Run("Evidence can be attached from stdin", func(t *testing.T) {
 		s := evidenceSandbox(t)
-		res := s.tktIn(s.root, "go test output\nok\n", "attach-evidence", "auth-retry-3fa", "--file", "-", "--claim", "tests pass", "--command", "go test ./...", "--json")
+		res := s.tektiteIn(s.root, "go test output\nok\n", "attach-evidence", "auth-retry-3fa", "--file", "-", "--claim", "tests pass", "--command", "go test ./...", "--json")
 		var doc attachDoc
 		decode(t, res.stdout, &doc)
 		if res.code != 0 || !strings.HasSuffix(doc.Blob, ".txt") || s.read(doc.Blob) != "go test output\nok\n" {
@@ -247,13 +247,13 @@ func TestCLI_Evidence(t *testing.T) {
 
 	t.Run("Attaching needs a claim and a file", func(t *testing.T) {
 		s := evidenceSandbox(t)
-		if res := s.tkt("attach-evidence", "auth-retry-3fa", "--file", s.file("a.txt", "a")); res.code != exitUsage {
+		if res := s.tektite("attach-evidence", "auth-retry-3fa", "--file", s.file("a.txt", "a")); res.code != exitUsage {
 			t.Errorf("no claim = %+v", res)
 		}
-		if res := s.tkt("attach-evidence", "auth-retry-3fa", "--claim", "x"); res.code != exitUsage {
+		if res := s.tektite("attach-evidence", "auth-retry-3fa", "--claim", "x"); res.code != exitUsage {
 			t.Errorf("no file = %+v", res)
 		}
-		if res := s.tkt("attach-evidence", "ghost-000", "--file", s.file("a.txt", "a"), "--claim", "x"); res.code != exitNotFound {
+		if res := s.tektite("attach-evidence", "ghost-000", "--file", s.file("a.txt", "a"), "--claim", "x"); res.code != exitNotFound {
 			t.Errorf("unknown node = %+v", res)
 		}
 	})
@@ -263,7 +263,7 @@ func TestCLI_Evidence(t *testing.T) {
 		s.node("by-parent-5de", idB, "evidence", "auth-retry-3fa", "claim: via parent\n", "x")
 		s.node("by-link-5df", idC, "evidence", "", "evidences: [auth-retry-3fa#01HZ3KB2]\nclaim: via link\n", "x")
 		var show showEvidence
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &show)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &show)
 		got := []string{}
 		for _, e := range show.Evidence {
 			got = append(got, e.Ref)
@@ -272,7 +272,7 @@ func TestCLI_Evidence(t *testing.T) {
 			t.Errorf("evidence = %v", got)
 		}
 		var links showLinks
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &links)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &links)
 		found := false
 		for _, b := range links.Backlinks {
 			found = found || (b.Rel == "evidenced-by" && b.Ref == "by-link-5df")

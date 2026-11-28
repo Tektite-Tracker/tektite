@@ -28,7 +28,7 @@ Feature: Links
       Given a link of type "inspired-by"
       When the node is parsed
       Then the link is kept
-      And `tkt check` reports no error
+      And `tektite check` reports no error
 
     Scenario: Link targets accept any unambiguous reference
       Given a link to "3fa" and a node "auth-retry-3fa"
@@ -83,7 +83,7 @@ Feature: Links
     Scenario: Wikilinks by file name, title or alias are not resolved
       Given a node "auth-retry-3fa" with title "Auth Retry" and alias "shortname"
       And links to "[[Auth Retry]]", "[[auth-retry]]", "[[shortname]]", and "[[auth-retry.md]]"
-      When `tkt check` runs
+      When `tektite check` runs
       Then each of those links is reported as matching no node
       And "[[auth-retry-3fa]]" resolves
 
@@ -110,50 +110,50 @@ Feature: Links
 
   Rule: Blocking affects what is workable
 
-    Scenario: A blocked node is not offered by `tkt next`
+    Scenario: A blocked node is not offered by `tektite next`
       Given ticket A is blocked-by ticket B, and B is not done
-      When an agent runs `tkt next`
+      When an agent runs `tektite next`
       Then A is not returned
 
     Scenario: Finishing the blocker releases the node
       Given ticket A is blocked-by ticket B
       When B's status becomes "done"
-      Then A is eligible for `tkt next` again
+      Then A is eligible for `tektite next` again
 
     Scenario: A dropped blocker does not hold the node forever
       Given ticket A is blocked-by ticket B, and B is "dropped"
-      When `tkt next` runs
+      When `tektite next` runs
       Then A is eligible
-      And `tkt check` notes the dropped blocker
+      And `tektite check` notes the dropped blocker
 
     Scenario: Cyclic blocking is reported
       Given A blocks B and B blocks A
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the cycle
-      And neither node is returned by `tkt next`
+      And neither node is returned by `tektite next`
 
   Rule: Supersession retires a node without deleting it
 
     Scenario: A superseded node is hidden by default
       Given plan P2 supersedes plan P1
-      When a user runs `tkt ls`
+      When a user runs `tektite ls`
       Then P1 is not listed
-      And `tkt ls --all` lists both
+      And `tektite ls --all` lists both
 
     Scenario: A superseded node keeps its history
       Given plan P2 supersedes plan P1
-      When a user runs `tkt show` on P1
+      When a user runs `tektite show` on P1
       Then P1 shows its events and a pointer to P2
 
   Rule: Broken links are warnings
 
     Scenario: A link to a missing node
       Given a link to "ghost-000" that matches no node
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the node, the link type, and the target
       And reads of the node still succeed
 
     Scenario: A link to oneself
       Given a node linking to itself
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning is reported for the self-link

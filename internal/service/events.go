@@ -136,11 +136,11 @@ func (s *Service) Lease(in LeaseInput) (*Appended, error) {
 		l := c.snap.State(c.nf.Ref).Lease
 		switch {
 		case l == nil:
-			return step{}, newError(KindConflict, "claim the node first with `tkt claim`", "%s is not claimed", c.nf.Ref)
+			return step{}, newError(KindConflict, "claim the node first with `tektite claim`", "%s is not claimed", c.nf.Ref)
 		case l.Holder != c.actor:
 			return step{}, newError(KindConflict, "only the holder can do this", "%s is claimed by %s until %s", c.nf.Ref, l.Holder, parse.FormatTime(l.Expires))
 		case needLive && !l.LiveAt(s.Now()):
-			return step{}, newError(KindConflict, "claim the node again with `tkt claim`", "the lease on %s expired at %s", c.nf.Ref, parse.FormatTime(l.Expires))
+			return step{}, newError(KindConflict, "claim the node again with `tektite claim`", "the lease on %s expired at %s", c.nf.Ref, parse.FormatTime(l.Expires))
 		}
 		return step{}, nil
 	}})

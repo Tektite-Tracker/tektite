@@ -47,7 +47,7 @@ func contextSandbox(t *testing.T, ticketBody string) *sandbox {
 
 func (s *sandbox) context(args ...string) (ctxDoc, result) {
 	s.t.Helper()
-	res := s.tkt(append([]string{"context", "--json"}, args...)...)
+	res := s.tektite(append([]string{"context", "--json"}, args...)...)
 	var doc ctxDoc
 	if res.code == 0 {
 		decode(s.t, res.stdout, &doc)
@@ -66,7 +66,7 @@ func TestCLI_Context(t *testing.T) {
 
 	t.Run("Tiers are filled in order", func(t *testing.T) {
 		s := contextSandbox(t, "Ticket body.\n\n- [ ] first gap <!-- g:01HZ3KB2 -->\n")
-		res := s.tkt("context", "auth-retry-3fa")
+		res := s.tektite("context", "auth-retry-3fa")
 		if res.code != 0 {
 			t.Fatalf("result = %+v", res)
 		}
@@ -97,7 +97,7 @@ func TestCLI_Context(t *testing.T) {
 		if plan.Revision != 3 || !strings.Contains(plan.Text, "Revision three body.") {
 			t.Errorf("plan = %+v", plan)
 		}
-		if md := s.tkt("context", "auth-retry-3fa"); !strings.Contains(md.stdout, "revision 3") {
+		if md := s.tektite("context", "auth-retry-3fa"); !strings.Contains(md.stdout, "revision 3") {
 			t.Errorf("markdown = %s", md.stdout)
 		}
 	})
@@ -116,7 +116,7 @@ func TestCLI_Context(t *testing.T) {
 		if len(doc.Shortened) == 0 {
 			t.Errorf("shortened = %v", doc.Shortened)
 		}
-		if md := s.tkt("context", "auth-retry-3fa", "--budget", "300"); !strings.Contains(md.stdout, "Shortened: ") {
+		if md := s.tektite("context", "auth-retry-3fa", "--budget", "300"); !strings.Contains(md.stdout, "Shortened: ") {
 			t.Errorf("markdown = %s", md.stdout)
 		}
 	})
@@ -132,12 +132,12 @@ func TestCLI_Context(t *testing.T) {
 	t.Run("The bundle reports what it left out", func(t *testing.T) {
 		s := contextSandbox(t, "Ticket body.")
 		doc, _ := s.context("auth-retry-3fa", "--budget", "10")
-		if len(doc.Omitted) == 0 || !strings.HasPrefix(doc.Omitted[0].Fetch, "tkt show ") {
+		if len(doc.Omitted) == 0 || !strings.HasPrefix(doc.Omitted[0].Fetch, "tektite show ") {
 			t.Errorf("omitted = %+v", doc.Omitted)
 		}
-		md := s.tkt("context", "auth-retry-3fa", "--budget", "10").stdout
+		md := s.tektite("context", "auth-retry-3fa", "--budget", "10").stdout
 		tail := md[strings.Index(md, "## Omitted"):]
-		if !strings.Contains(tail, "`tkt show auth-spec-1aa`") || strings.Contains(tail, "## Node") {
+		if !strings.Contains(tail, "`tektite show auth-spec-1aa`") || strings.Contains(tail, "## Node") {
 			t.Errorf("tail = %s", tail)
 		}
 	})
@@ -215,7 +215,7 @@ func TestCLI_Context(t *testing.T) {
 
 	t.Run("Markdown output is the default", func(t *testing.T) {
 		s := contextSandbox(t, "Body.")
-		res := s.tkt("context", "auth-retry-3fa")
+		res := s.tektite("context", "auth-retry-3fa")
 		if res.code != 0 || strings.Count(res.stdout, "\n## ")+strings.Count(res.stdout[:3], "## ") != 6 {
 			t.Errorf("markdown = %s", res.stdout)
 		}
@@ -231,15 +231,15 @@ func TestCLI_Context(t *testing.T) {
 
 	t.Run("Unknown nodes fail clearly", func(t *testing.T) {
 		s := contextSandbox(t, "Body.")
-		if res := s.tkt("context", "ghost-000"); res.code != exitNotFound {
+		if res := s.tektite("context", "ghost-000"); res.code != exitNotFound {
 			t.Errorf("result = %+v", res)
 		}
 	})
 
 	t.Run("Output is deterministic", func(t *testing.T) {
 		s := contextSandbox(t, "Body.")
-		a := s.tkt("context", "auth-retry-3fa", "--budget", "300").stdout
-		b := s.tkt("context", "auth-retry-3fa", "--budget", "300").stdout
+		a := s.tektite("context", "auth-retry-3fa", "--budget", "300").stdout
+		b := s.tektite("context", "auth-retry-3fa", "--budget", "300").stdout
 		if a != b {
 			t.Errorf("outputs differ")
 		}

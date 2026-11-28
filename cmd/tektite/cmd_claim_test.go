@@ -12,7 +12,7 @@ func (s *sandbox) actorEvent(ref, id, typ, actor, at, extra string) {
 
 func (s *sandbox) as(actor string, args ...string) result {
 	s.env = map[string]string{"TKT_ACTOR": actor}
-	return s.tkt(args...)
+	return s.tektite(args...)
 }
 
 func claimSandbox(t *testing.T) *sandbox {
@@ -34,7 +34,7 @@ func TestCLI_Claims(t *testing.T) {
 			t.Errorf("event =\n%s", src)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &doc)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &doc)
 		claim, _ := doc["claim"].(map[string]any)
 		if claim["holder"] != "agent:claude-opus/s-4f2a" || claim["live"] != true || claim["expires_at"] != "2026-11-27T12:30:00Z" {
 			t.Errorf("claim = %v", claim)
@@ -65,7 +65,7 @@ func TestCLI_Claims(t *testing.T) {
 			t.Fatalf("result = %+v", got)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &doc)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &doc)
 		if c, _ := doc["claim"].(map[string]any); c["expires_at"] != "2026-11-27T12:30:00Z" {
 			t.Errorf("claim = %v", c)
 		}
@@ -81,7 +81,7 @@ func TestCLI_Claims(t *testing.T) {
 			t.Errorf("former holder heartbeat: %+v", got)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &doc)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &doc)
 		if c, _ := doc["claim"].(map[string]any); c["holder"] != "agent:b" {
 			t.Errorf("claim = %v", c)
 		}
@@ -114,7 +114,7 @@ func TestCLI_Claims(t *testing.T) {
 			t.Fatalf("result = %+v", got)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &doc)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &doc)
 		if doc["claim"] != nil {
 			t.Errorf("claim = %v", doc["claim"])
 		}
@@ -142,19 +142,19 @@ func TestCLI_Claims(t *testing.T) {
 	t.Run("Show and ls display the current claim", func(t *testing.T) {
 		s := claimSandbox(t)
 		s.actorEvent("auth-retry-3fa", e1, "claim", "agent:a", "2026-11-27T11:50:00Z", "ttl: 30m\n")
-		if got := s.tkt("show", "auth-retry-3fa"); !strings.Contains(got.stdout, "claimed by: agent:a (expires 2026-11-27T12:20:00Z)") {
+		if got := s.tektite("show", "auth-retry-3fa"); !strings.Contains(got.stdout, "claimed by: agent:a (expires 2026-11-27T12:20:00Z)") {
 			t.Errorf("show = %s", got.stdout)
 		}
-		if got := s.tkt("ls"); !strings.Contains(got.stdout, "agent:a") {
+		if got := s.tektite("ls"); !strings.Contains(got.stdout, "agent:a") {
 			t.Errorf("ls = %s", got.stdout)
 		}
 		var list []map[string]any
-		decode(t, s.tkt("ls", "--json").stdout, &list)
+		decode(t, s.tektite("ls", "--json").stdout, &list)
 		if c, _ := list[0]["claim"].(map[string]any); c["holder"] != "agent:a" || c["live"] != true {
 			t.Errorf("list = %v", list)
 		}
 		s.now = s.now.Add(time.Hour)
-		if got := s.tkt("show", "auth-retry-3fa"); !strings.Contains(got.stdout, "(expired 2026-11-27T12:20:00Z)") {
+		if got := s.tektite("show", "auth-retry-3fa"); !strings.Contains(got.stdout, "(expired 2026-11-27T12:20:00Z)") {
 			t.Errorf("show = %s", got.stdout)
 		}
 	})
@@ -172,7 +172,7 @@ func nextSandbox(t *testing.T) *sandbox {
 
 func nextRefs(t *testing.T, s *sandbox, args ...string) []string {
 	t.Helper()
-	got := s.tkt(append([]string{"next", "--json"}, args...)...)
+	got := s.tektite(append([]string{"next", "--json"}, args...)...)
 	var items []map[string]any
 	if got.code == 0 {
 		decode(t, got.stdout, &items)
@@ -191,7 +191,7 @@ func TestCLI_Next(t *testing.T) {
 		if len(got) != 1 || got[0] != "num-five-3f4" {
 			t.Errorf("next = %v", got)
 		}
-		if got := s.tkt("next"); got.code != 0 || !strings.HasPrefix(got.stdout, "num-five-3f4") {
+		if got := s.tektite("next"); got.code != 0 || !strings.HasPrefix(got.stdout, "num-five-3f4") {
 			t.Errorf("text = %+v", got)
 		}
 	})
@@ -225,7 +225,7 @@ func TestCLI_Next(t *testing.T) {
 		}
 	})
 
-	t.Run("A blocked node is not offered by `tkt next`", func(t *testing.T) {
+	t.Run("A blocked node is not offered by `tektite next`", func(t *testing.T) {
 		s := nextSandbox(t)
 		s.node("blocker-3f6", "01HZ3K8Q5W2X9N4T7V6B1C0D06", "ticket", "", "blocks: [num-five-3f4]\n", "x")
 		for _, ref := range nextRefs(t, s, "--limit", "9") {
@@ -233,8 +233,8 @@ func TestCLI_Next(t *testing.T) {
 				t.Errorf("blocked node offered")
 			}
 		}
-		s.tkt("unlink", "blocker-3f6", "blocks", "num-five-3f4", "--actor", "human:x")
-		s.tkt("link", "low-one-3f1", "blocked-by", "high-old-3f2", "--actor", "human:x")
+		s.tektite("unlink", "blocker-3f6", "blocks", "num-five-3f4", "--actor", "human:x")
+		s.tektite("link", "low-one-3f1", "blocked-by", "high-old-3f2", "--actor", "human:x")
 		got := strings.Join(nextRefs(t, s, "--limit", "9"), " ")
 		if strings.Contains(got, "low-one-3f1") || !strings.Contains(got, "num-five-3f4") {
 			t.Errorf("order = %s", got)
@@ -252,7 +252,7 @@ func TestCLI_Next(t *testing.T) {
 
 	t.Run("Nothing to do", func(t *testing.T) {
 		s := newSandbox(t)
-		got := s.tkt("next")
+		got := s.tektite("next")
 		if got.code != exitNotFound || !strings.Contains(got.stderr, "nothing is available") {
 			t.Errorf("result = %+v", got)
 		}
@@ -265,7 +265,7 @@ func TestCLI_Next(t *testing.T) {
 			t.Fatalf("result = %+v", got)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("show", "num-five-3f4", "--json").stdout, &doc)
+		decode(t, s.tektite("show", "num-five-3f4", "--json").stdout, &doc)
 		if c, _ := doc["claim"].(map[string]any); c["holder"] != "agent:a" {
 			t.Errorf("claim = %v", doc["claim"])
 		}

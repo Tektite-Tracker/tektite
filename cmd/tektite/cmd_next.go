@@ -37,7 +37,7 @@ func (a *app) nextCmd() *cobra.Command {
 				a.warn(warningTexts(warnings))
 			}
 			if len(list) == 0 {
-				return fail(exitNotFound, "create a ticket with `tkt new ticket` or release a claim", "nothing is available")
+				return fail(exitNotFound, "create a ticket with `tektite new ticket` or release a claim", "nothing is available")
 			}
 			if len(list) > limit {
 				list = list[:limit]

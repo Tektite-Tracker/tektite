@@ -38,7 +38,7 @@ const (
 
 var hints = map[string]string{
 	parse.CodeStatusInFrontmatter:  "remove status from the frontmatter and set it with a set-status event",
-	parse.CodeMissingID:            "run `tkt fmt` to assign an id",
+	parse.CodeMissingID:            "run `tektite fmt` to assign an id",
 	parse.CodeMissingKind:          "add a kind to the frontmatter",
 	parse.CodeMissingTitle:         "add a title to the frontmatter",
 	parse.CodeMalformedFrontmatter: "fix the YAML between the --- lines",
@@ -51,9 +51,9 @@ var hints = map[string]string{
 	CodeDuplicateID:                "give one of the nodes a new id",
 	CodeEvidenceNoCommit:           "re-attach the evidence from a git checkout so it records a commit",
 	CodeMissingBlob:                "restore the blob file or attach the evidence again",
-	CodeEvidenceStale:              "run `tkt rerun` on the evidence or attach new evidence",
+	CodeEvidenceStale:              "run `tektite rerun` on the evidence or attach new evidence",
 	CodeBlobTampered:               "restore the original blob, blobs must never change",
-	CodeUnreferencedBlob:           "remove it with `tkt gc --blobs` if it is no longer needed",
+	CodeUnreferencedBlob:           "remove it with `tektite gc --blobs` if it is no longer needed",
 	CodePolicyMalformed:            "fix the frontmatter of .tektite/policy.md, see the policy spec for the keys",
 	CodePolicyViolation:            "meet the gate, or have a human record an override with a reason",
 	CodeBlockCycle:                 "remove a blocks link from one node in the cycle",

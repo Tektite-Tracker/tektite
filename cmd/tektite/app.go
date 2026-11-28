@@ -142,7 +142,7 @@ type errorResult struct {
 }
 
 func (a *app) printError(ce *cliError, asJSON bool) {
-	line := "tkt: " + ce.msg
+	line := "tektite: " + ce.msg
 	if ce.hint != "" {
 		line += "\nhint: " + ce.hint
 	}
@@ -266,7 +266,7 @@ func (a *app) load() (*store.Repo, *store.Snapshot, error) {
 
 func (a *app) newRoot() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "tkt",
+		Use:           "tektite",
 		Version:       version,
 		Short:         "Git-like, local-first work tracking for humans and agents",
 		SilenceUsage:  true,

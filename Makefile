@@ -10,4 +10,5 @@ test:
 	go test ./...
 
 build:
-	go build -o bin/tkt ./cmd/tkt
+	go build -o bin/tektite ./cmd/tektite
+	ln -sf tektite bin/tk

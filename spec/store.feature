@@ -32,7 +32,7 @@ Feature: Store
       Given a ticket whose parent matches no node
       When the tree is built
       Then the ticket is listed as a root
-      And the resolution error is available to `tkt check`
+      And the resolution error is available to `tektite check`
 
     Scenario: Events resolve to their node by hash when the directory slug is stale
       Given events under .tektite/events/old-slug-3fa/ and a node "auth-retry-3fa"

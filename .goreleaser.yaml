@@ -1,14 +1,14 @@
 version: 2
 
-project_name: tkt
+project_name: tektite
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - main: ./cmd/tkt
-    binary: tkt
+  - main: ./cmd/tektite
+    binary: tektite
     env:
       - CGO_ENABLED=0
     goos: [linux, darwin, windows]
@@ -18,7 +18,7 @@ builds:
 
 archives:
   - formats: [tar.gz]
-    name_template: "tkt_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "tektite_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats: [zip]
@@ -45,7 +45,7 @@ changelog:
       - '^Merge pull request'
 
 brews:
-  - name: tkt
+  - name: tektite
     homepage: https://github.com/tektite-tracker/tektite
     description: Git-like, local-first work tracking for humans and agents
     license: MIT
@@ -53,5 +53,9 @@ brews:
       owner: tektite-tracker
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TOKEN }}"
+    install: |
+      bin.install "tektite"
+      bin.install_symlink "tektite" => "tk"
     test: |
-      system "#{bin}/tkt", "--version"
+      system "#{bin}/tektite", "--version"
+      assert_equal shell_output("#{bin}/tektite --version"), shell_output("#{bin}/tk --version")

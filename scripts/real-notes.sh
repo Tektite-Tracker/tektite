@@ -7,4 +7,4 @@ if [ $# -eq 0 ]; then
   exit 0
 fi
 make build >/dev/null
-go run ./scripts/realnotes --tkt "$root/bin/tkt" "$@"
+go run ./scripts/realnotes --tektite "$root/bin/tektite" "$@"

@@ -20,7 +20,7 @@ func TestCLI_FmtBlockIDs(t *testing.T) {
 	t.Run("Formatting assigns ids to checklist blocks", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("auth-retry-3fa", idA, "ticket", "", "", blockBody)
-		res := s.tkt("fmt", "--json")
+		res := s.tektite("fmt", "--json")
 		if res.code != 0 || !strings.Contains(res.stdout, "assign block ids") {
 			t.Fatalf("exit %d: %s%s", res.code, res.stdout, res.stderr)
 		}
@@ -44,7 +44,7 @@ func TestCLI_FmtBlockIDs(t *testing.T) {
 			}
 		}
 		after := s.read(".tektite/nodes/auth-retry-3fa.md")
-		if again := s.tkt("fmt", "--json"); again.code != 0 || strings.TrimSpace(again.stdout) != "[]" || s.read(".tektite/nodes/auth-retry-3fa.md") != after {
+		if again := s.tektite("fmt", "--json"); again.code != 0 || strings.TrimSpace(again.stdout) != "[]" || s.read(".tektite/nodes/auth-retry-3fa.md") != after {
 			t.Errorf("a second run must change nothing: %s", again.stdout)
 		}
 	})
@@ -53,7 +53,7 @@ func TestCLI_FmtBlockIDs(t *testing.T) {
 		s := newSandbox(t)
 		s.node("auth-retry-3fa", idA, "ticket", "", "", "- [ ] handle timeouts")
 		before := s.read(".tektite/nodes/auth-retry-3fa.md")
-		res := s.tkt("fmt", "--dry-run")
+		res := s.tektite("fmt", "--dry-run")
 		if res.code != 0 || !strings.Contains(res.stdout, "would update") || !strings.Contains(res.stdout, "assign block ids") {
 			t.Fatalf("exit %d: %s%s", res.code, res.stdout, res.stderr)
 		}

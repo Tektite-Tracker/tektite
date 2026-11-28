@@ -18,8 +18,8 @@ func TestRealNotes(t *testing.T) {
 	})
 
 	t.Run("A folder of notes is summarised without leaking content", func(t *testing.T) {
-		bin := filepath.Join(t.TempDir(), "tkt")
-		build := exec.Command("go", "build", "-o", bin, "github.com/tektite-tracker/tektite/cmd/tkt")
+		bin := filepath.Join(t.TempDir(), "tektite")
+		build := exec.Command("go", "build", "-o", bin, "github.com/tektite-tracker/tektite/cmd/tektite")
 		if msg, err := build.CombinedOutput(); err != nil {
 			t.Fatalf("build: %v\n%s", err, msg)
 		}
@@ -40,7 +40,7 @@ func TestRealNotes(t *testing.T) {
 		write("notes.txt", "not markdown")
 
 		var out, errw bytes.Buffer
-		if code := run([]string{"--tkt", bin, dir}, &out, &errw); code != 0 {
+		if code := run([]string{"--tektite", bin, dir}, &out, &errw); code != 0 {
 			t.Fatalf("code=%d err=%s", code, errw.String())
 		}
 		got := out.String()

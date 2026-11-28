@@ -10,7 +10,7 @@ import (
 func (s *sandbox) attachRun(command string, extra ...string) (attachDoc, result) {
 	s.t.Helper()
 	args := append([]string{"attach-evidence", "auth-retry-3fa", "--json", "--claim", "the command passes", "--run", command}, extra...)
-	res := s.tkt(args...)
+	res := s.tektite(args...)
 	var doc attachDoc
 	if res.code == 0 {
 		decode(s.t, res.stdout, &doc)
@@ -97,7 +97,7 @@ func TestCLI_Rerun(t *testing.T) {
 		if res.code != 0 {
 			t.Fatalf("exit %d: %s", res.code, res.stderr)
 		}
-		res = s.tkt("rerun", first.Evidence, "--json")
+		res = s.tektite("rerun", first.Evidence, "--json")
 		if res.code != 0 {
 			t.Fatalf("exit %d: %s", res.code, res.stderr)
 		}
@@ -116,11 +116,11 @@ func TestCLI_Rerun(t *testing.T) {
 
 	t.Run("Evidence without a command cannot be re-run", func(t *testing.T) {
 		s := evidenceSandbox(t)
-		res := s.tktIn(s.root, "some output", "attach-evidence", "auth-retry-3fa", "--file", "-", "--claim", "it works", "--json")
+		res := s.tektiteIn(s.root, "some output", "attach-evidence", "auth-retry-3fa", "--file", "-", "--claim", "it works", "--json")
 		var doc attachDoc
 		decode(t, res.stdout, &doc)
 		before, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
-		res = s.tkt("rerun", doc.Evidence)
+		res = s.tektite("rerun", doc.Evidence)
 		if res.code != 2 {
 			t.Fatalf("want exit 2, got %d: %s", res.code, res.stderr)
 		}

@@ -15,7 +15,7 @@ func (a *app) mcpCmd() *cobra.Command {
 		Short: "Serve tektite to agents over the Model Context Protocol on stdio",
 		Args:  exactArgs(0),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			srv := mcp.New(mcp.Options{Name: "tkt", Version: version, Open: a.svc, AllowRun: allowRun})
+			srv := mcp.New(mcp.Options{Name: "tektite", Version: version, Open: a.svc, AllowRun: allowRun})
 			return srv.Serve(a.in, a.out)
 		},
 	}

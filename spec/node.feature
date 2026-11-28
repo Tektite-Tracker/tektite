@@ -2,7 +2,7 @@ Feature: Nodes
   A node is a markdown file in .tektite/nodes/. It is the unit of work, knowledge,
   or proof. Specs, plans, tickets, gaps, and evidence are all nodes distinguished by kind.
   The parser is lenient: any markdown file is a valid node, and problems are reported
-  by `tkt check` instead of blocking reads.
+  by `tektite check` instead of blocking reads.
 
   Background:
     Given a repository with a .tektite/ directory
@@ -37,7 +37,7 @@ Feature: Nodes
       Given a node whose frontmatter has an empty "parent"
       When the node is parsed
       Then the node is a root of the tree
-      And `tkt check` reports no warning for the missing parent
+      And `tektite check` reports no warning for the missing parent
 
   Rule: Identity is the id, never the path or title
 
@@ -46,19 +46,19 @@ Feature: Nodes
       When the title is changed to "Add backoff on 429"
       Then the file is still named "add-retry-on-429-3fa.md"
       And its reference is still "add-retry-on-429-3fa"
-      And `tkt show` displays the new title
-      And no file is renamed by `tkt fmt` or any other command
+      And `tektite show` displays the new title
+      And no file is renamed by `tektite fmt` or any other command
 
     Scenario: The slug is derived from the title plus a short hash of the id
       Given a node titled "Add retry on 429" with id "01HZ3K8Q5W2X9N4T7V6B1C0D3F"
-      When the node is created with `tkt new`
+      When the node is created with `tektite new`
       Then its reference has the form "add-retry-on-429-<hash>"
       And the file is named after that reference with a .md extension
       And the slug part is fixed at creation and never regenerated
 
     Scenario: A title with no ASCII letters or digits gets a hash-only reference
       Given a node titled "日本語" with id "01HZ3K8Q5W2X9N4T7V6B1C0D3F"
-      When the node is created with `tkt new`
+      When the node is created with `tektite new`
       Then its reference is "d3f" with no slug part
       And titles are never transliterated
 
@@ -71,16 +71,16 @@ Feature: Nodes
       Given a node "add-retry-on-429-3fa"
       When another node links to "retry-ticket-3fa"
       Then the link resolves to "add-retry-on-429-3fa"
-      And `tkt check` notes that the slug part differs from the file name
+      And `tektite check` notes that the slug part differs from the file name
 
     Scenario: A reference resolves by unique hash suffix
       Given nodes "auth-retry-3fa" and "auth-hardening-7c1"
-      When a user runs `tkt show 3fa`
+      When a user runs `tektite show 3fa`
       Then the node "auth-retry-3fa" is shown
 
     Scenario: A reference with fewer than three hash characters is rejected
       Given nodes "auth-retry-3fa" and "auth-hardening-7c1"
-      When a user runs `tkt show fa`
+      When a user runs `tektite show fa`
       Then the command fails because the hash is too short
 
     Scenario: Ids created in the same millisecond sort in creation order
@@ -90,7 +90,7 @@ Feature: Nodes
 
     Scenario: An ambiguous reference is rejected
       Given two nodes whose references end in the same hash prefix
-      When a user runs `tkt show` with that prefix
+      When a user runs `tektite show` with that prefix
       Then the command exits with code 2
       And the output lists the matching nodes
 
@@ -111,7 +111,7 @@ Feature: Nodes
     Scenario: A cycle in parents is reported and not followed
       Given node A whose parent is B, and node B whose parent is A
       When the tree is built
-      Then `tkt check` reports a cycle warning naming both nodes
+      Then `tektite check` reports a cycle warning naming both nodes
       And reads of A and B still succeed
 
   Rule: Kind is an open string
@@ -125,12 +125,12 @@ Feature: Nodes
       Given a node with kind "retro"
       When the node is parsed
       Then the node is valid
-      And `tkt check` reports no error for the kind
+      And `tektite check` reports no error for the kind
 
     Scenario: A schema in .tektite/ can constrain a kind
       Given a schema for kind "ticket" that requires "estimate"
       And a ticket without "estimate"
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the node and the missing field
 
   Rule: The parser repairs instead of failing
@@ -140,11 +140,11 @@ Feature: Nodes
       When the node is parsed
       Then its kind defaults to "note"
       And its title is taken from the first heading, or the filename if there is none
-      And `tkt check` reports that an id is missing
+      And `tektite check` reports that an id is missing
 
     Scenario: A missing id or kind on an imported note is a note
       Given a markdown file with no frontmatter, and a file whose frontmatter lacks an id and a kind
-      When `tkt check` runs
+      When `tektite check` runs
       Then the missing id and the missing kind are reported with severity "note"
       And the exit code is 0 when nothing else is wrong
 
@@ -158,9 +158,9 @@ Feature: Nodes
       When the node is parsed
       Then its title is that text exactly
 
-    Scenario: A missing id is assigned by tkt fmt
+    Scenario: A missing id is assigned by tektite fmt
       Given a node with no id
-      When a user runs `tkt fmt`
+      When a user runs `tektite fmt`
       Then a new ULID is written into its frontmatter
       And the body is unchanged
 
@@ -168,7 +168,7 @@ Feature: Nodes
       Given a node whose frontmatter is not valid YAML
       When the node is parsed
       Then the whole file is treated as body
-      And `tkt check` reports the YAML error with a line number
+      And `tektite check` reports the YAML error with a line number
 
     Scenario: Malformed frontmatter takes its title from a heading or the file name
       Given a node whose frontmatter is not valid YAML and whose title line is "title: [unclosed"
@@ -181,13 +181,13 @@ Feature: Nodes
       Given a node that opens with "---" but has no closing "---" line
       When the node is parsed
       Then the whole file is treated as body
-      And `tkt check` reports that the frontmatter is not closed
+      And `tektite check` reports that the frontmatter is not closed
 
     Scenario: Duplicate frontmatter keys keep the last value with a warning
       Given a node whose frontmatter declares "title" twice
       When the node is parsed
       Then the last value wins and the key keeps its first position
-      And `tkt check` reports a warning naming the repeated key
+      And `tektite check` reports a warning naming the repeated key
 
     Scenario: A non-string value in a core field is coerced or reported
       Given a node whose "id" is the number 42 and whose "title" is a list
@@ -203,13 +203,13 @@ Feature: Nodes
 
     Scenario: Duplicate ids are reported and both nodes stay readable
       Given two files that declare the same id
-      When `tkt check` runs
+      When `tektite check` runs
       Then an error names both files
-      And `tkt ls` still lists both
+      And `tektite ls` still lists both
 
     Scenario: Unknown frontmatter fields are preserved
       Given a node with a field "reviewed_by" that tektite does not know
-      When `tkt fmt` runs
+      When `tektite fmt` runs
       Then the field is kept unchanged
 
   Rule: Bodies are plain markdown with addressable blocks
@@ -227,7 +227,7 @@ Feature: Nodes
       Given a node body containing "- [ ] handle timeouts"
       When the node is parsed
       Then the block exists with no id
-      And `tkt fmt` offers to assign it one
+      And `tektite fmt` offers to assign it one
 
     Scenario: A hand-written GAPS.md list is treated like gap blocks
       Given a node body with a section "## Gaps" containing checklist items
@@ -241,7 +241,7 @@ Feature: Nodes
 
     Scenario: A broken wikilink is a warning, not an error
       Given a node body containing "[[does-not-exist-000]]"
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the node and the unresolved reference
       And reads of the node still succeed
 
@@ -280,6 +280,6 @@ Feature: Nodes
 
     Scenario: A status field in frontmatter is ignored with a warning
       Given a node whose frontmatter contains "status: done" and no matching event
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning says status belongs in events
       And the computed status is "open"
