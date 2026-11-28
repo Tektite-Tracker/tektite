@@ -120,6 +120,13 @@ Feature: Command line
       When a user runs `tektite ls --kind ticket --status open --under auth-hardening-7c1`
       Then only matching nodes are listed
 
+    Scenario: Listing blocked nodes
+      Given ticket A is blocked-by tickets B and C, B is "done" and C is "open"
+      And ticket D is blocked-by a "done" ticket
+      When a user runs `tektite ls --blocked`
+      Then only A is listed, with C as its blocker
+      And `--json` has a "blocked_by" list of the blockers that are not closed, empty when there are none
+
     Scenario: Listing what needs approval
       Given a policy "plans require human approval before work"
       And a plan with no approval at its current revision

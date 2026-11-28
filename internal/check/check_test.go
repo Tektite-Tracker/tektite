@@ -166,7 +166,7 @@ func TestCheck_Nodes(t *testing.T) {
 	t.Run("A cycle in parents is reported and not followed", func(t *testing.T) {
 		rep := newFixture(t).node("a-d3f", idA, "plan", "b-9e1", "", "x").node("b-9e1", idB, "plan", "a-d3f", "", "y").run()
 		p := only(t, rep, check.CodeParentCycle)
-		if p.Severity != parse.SeverityWarning || !strings.Contains(p.Message, "a-d3f") || !strings.Contains(p.Message, "b-9e1") || rep.HasErrors() {
+		if p.Severity != parse.SeverityError || p.Code != "TKT-E106" || !strings.Contains(p.Message, "a-d3f -> b-9e1 -> a-d3f") || !rep.HasErrors() {
 			t.Errorf("problem = %+v", p)
 		}
 	})

@@ -30,6 +30,8 @@ type ListInput struct {
 	Under  string
 	All    bool
 	Needs  string
+
+	Blocked bool
 }
 
 func (s *Service) List(in ListInput) ([]view.ListItem, error) {
@@ -37,7 +39,7 @@ func (s *Service) List(in ListInput) ([]view.ListItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs}
+	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs, Blocked: in.Blocked}
 	if in.Needs != "" {
 		if !view.ValidNeeds(in.Needs) {
 			return nil, &Error{Kind: KindUsage, Msg: fmt.Sprintf("--needs: unknown value %q", in.Needs), Hint: "use one of " + strings.Join(view.NeedsValues, ", ")}

@@ -129,7 +129,8 @@ Feature: Links
     Scenario: Cyclic blocking is reported
       Given A blocks B and B blocks A
       When `tektite check` runs
-      Then a warning names the cycle
+      Then an error names the cycle
+      And `tektite check` exits with code 1
       And neither node is returned by `tektite next`
 
   Rule: Supersession retires a node without deleting it
