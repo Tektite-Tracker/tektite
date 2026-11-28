@@ -25,6 +25,11 @@ Feature: MCP server
       Then the answer is a JSON-RPC error with code -32700
       And the server keeps serving
 
+    Scenario: Malformed initialize params are rejected
+      When a client sends "initialize" with params that are not a JSON object
+      Then the answer is a JSON-RPC error with code -32602
+      And "initialize" without params still succeeds
+
   Rule: Tools wrap the verbs
 
     Scenario: Reading a node through a tool
