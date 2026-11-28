@@ -2,14 +2,13 @@ package service
 
 import (
 	"bytes"
-	"os"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/node"
 )
 
 func isJSONFile(path string) bool {
-	raw, err := os.ReadFile(path)
+	raw, err := readCapped(path)
 	if err != nil {
 		return false
 	}

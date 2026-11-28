@@ -434,6 +434,12 @@ Feature: Command line
       Then every issue is reported as skipped
       And no node or event file is written
 
+    Scenario: A Jira or Linear export over the size cap is refused
+      Given a Jira or Linear CSV or JSON export larger than 64 MiB
+      When a user imports it
+      Then the command exits with code 2 and the message names the 64 MiB cap
+      And nothing is read past the cap and no node is written
+
     Scenario: A missing source file
       Given no .beads/issues.jsonl exists
       When a user runs `tektite import beads`

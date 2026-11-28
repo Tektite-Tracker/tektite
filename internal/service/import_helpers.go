@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -26,8 +27,26 @@ type jsonExport struct {
 	build     func(id, title string, line int, obj map[string]any) *importIssue
 }
 
+const maxImportBytes = 64 << 20
+
+func readCapped(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(f, maxImportBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", filepath.ToSlash(path), err)
+	}
+	if len(raw) > maxImportBytes {
+		return nil, usageError("%s is larger than the %d MiB import limit, split the export into smaller files", filepath.ToSlash(path), maxImportBytes>>20)
+	}
+	return raw, nil
+}
+
 func readJSONIssues(path string, res *ImportResult, x jsonExport) (*importData, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := readCapped(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", x.tracker, err)
 	}
