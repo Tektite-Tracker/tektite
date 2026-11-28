@@ -8,6 +8,7 @@ import (
 
 	"github.com/tektite-tracker/tektite/internal/bundle"
 	"github.com/tektite-tracker/tektite/internal/check"
+	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/internal/store"
 	"github.com/tektite-tracker/tektite/internal/view"
 )
@@ -31,7 +32,9 @@ type ListInput struct {
 	All    bool
 	Needs  string
 
-	Blocked bool
+	Labels   []string
+	Priority []string
+	Blocked  bool
 }
 
 func (s *Service) List(in ListInput) ([]view.ListItem, error) {
@@ -39,7 +42,12 @@ func (s *Service) List(in ListInput) ([]view.ListItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs, Blocked: in.Blocked}
+	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs, Labels: in.Labels, Priority: in.Priority, Blocked: in.Blocked}
+	for _, p := range in.Priority {
+		if !node.ValidPriority(p) {
+			return nil, &Error{Kind: KindUsage, Msg: fmt.Sprintf("--priority: unknown value %q", p), Hint: "use one of " + strings.Join(node.Priorities, ", ")}
+		}
+	}
 	if in.Needs != "" {
 		if !view.ValidNeeds(in.Needs) {
 			return nil, &Error{Kind: KindUsage, Msg: fmt.Sprintf("--needs: unknown value %q", in.Needs), Hint: "use one of " + strings.Join(view.NeedsValues, ", ")}

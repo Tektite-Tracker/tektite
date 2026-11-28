@@ -27,6 +27,7 @@ const (
 	CodeEvidenceNoCommit = "TKT-W113"
 	CodeMissingBlob      = "TKT-W114"
 	CodeEvidenceStale    = "TKT-W115"
+	CodeInvalidPriority  = "TKT-W116"
 	CodeBlobTampered     = "TKT-E103"
 	CodeParentCycle      = "TKT-E106"
 	CodeBlockCycle       = "TKT-E107"
@@ -56,6 +57,7 @@ var hints = map[string]string{
 	CodeUnreferencedBlob:           "remove it with `tektite gc --blobs` if it is no longer needed",
 	CodePolicyMalformed:            "fix the frontmatter of .tektite/policy.md, see the policy spec for the keys",
 	CodePolicyViolation:            "meet the gate, or have a human record an override with a reason",
+	CodeInvalidPriority:            "set priority to critical, high, medium or low",
 	CodeBlockCycle:                 "remove a blocks link from one node in the cycle",
 	CodeOlderRevision:              "re-check the work against the current plan revision and record it with --revision",
 	CodeDroppedBlocker:             "remove the blocks link or reopen the blocker",
@@ -279,10 +281,21 @@ func (c *run) node(nf *store.NodeFile) {
 		c.link(nf, l)
 	}
 	c.droppedBlockers(nf)
+	c.priority(nf)
 	c.olderRevision(nf)
 	c.evidenceCommit(nf)
 	st := c.events(nf)
 	c.schema(nf, st)
+}
+
+func (c *run) priority(nf *store.NodeFile) {
+	v, ok := nf.Node.Fields["priority"]
+	if !ok || v == nil {
+		return
+	}
+	if p := parse.StringOf(v); !node.ValidPriority(p) {
+		c.add(parse.SeverityWarning, CodeInvalidPriority, nf.Path, 0, fmt.Sprintf("%s has priority %q, allowed: %s", nf.Ref, p, strings.Join(node.Priorities, ", ")))
+	}
 }
 
 func (c *run) olderRevision(nf *store.NodeFile) {

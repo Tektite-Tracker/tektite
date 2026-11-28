@@ -54,16 +54,20 @@ func (s *Server) readTools() []tool {
 			{"under", "string", "only descendants of this node", false},
 			{"all", "boolean", "include superseded nodes", false},
 			{"blocked", "boolean", "only nodes held by a blocker that is not done or dropped", false},
+			{"labels", "array", "only nodes with any of these labels", false},
+			{"priorities", "array", "only nodes with any of these priorities: critical, high, medium or low", false},
 		}, bind(func(svc *service.Service, in struct {
 			Kind   string `json:"kind"`
 			Status string `json:"status"`
 			Under  string `json:"under"`
 			All    bool   `json:"all"`
 
-			Blocked bool `json:"blocked"`
+			Blocked    bool     `json:"blocked"`
+			Labels     []string `json:"labels"`
+			Priorities []string `json:"priorities"`
 		},
 		) (any, error) {
-			return svc.List(service.ListInput{Kind: in.Kind, Status: in.Status, Under: in.Under, All: in.All, Blocked: in.Blocked})
+			return svc.List(service.ListInput{Kind: in.Kind, Status: in.Status, Under: in.Under, All: in.All, Labels: in.Labels, Priority: in.Priorities, Blocked: in.Blocked})
 		})},
 		{"tektite_next", "Return the best nodes to work on next, optionally claiming the first one.", []param{
 			{"kind", "string", "only nodes of this kind, empty for any, ticket by default", false},

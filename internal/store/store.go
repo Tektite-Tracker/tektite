@@ -43,6 +43,20 @@ type NodeFile struct {
 	ParentErr error
 }
 
+func (nf *NodeFile) Labels() []string {
+	switch v := nf.Node.Fields["labels"].(type) {
+	case string:
+		return []string{strings.TrimSpace(v)}
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, x := range v {
+			out = append(out, parse.StringOf(x))
+		}
+		return out
+	}
+	return []string{}
+}
+
 func (nf *NodeFile) ParentOrRaw() string {
 	if nf.ParentRef != "" {
 		return nf.ParentRef

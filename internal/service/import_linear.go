@@ -1,24 +1,15 @@
 package service
 
 import (
-	"fmt"
-	"slices"
-	"strings"
-	"time"
-
-	"github.com/tektite-tracker/tektite/internal/node"
 	"github.com/tektite-tracker/tektite/parse"
 )
 
-var (
-	linearMapped = map[string]bool{
-		"id": true, "title": true, "description": true, "status": true, "priority": true, "labels": true, "assignee": true,
-		"created": true, "started": true, "completed": true, "canceled": true, "parent issue": true,
-		"related to": true, "blocked by": true, "duplicate of": true,
-		"updated": true, "time in status (minutes)": true,
-	}
-	trackerTaken = map[string]bool{"id": true, "kind": true, "title": true, "parent": true, sourceField: true, sourceIDField: true, "priority": true, "labels": true, "assignee": true}
-)
+var linearMapped = map[string]bool{
+	"id": true, "title": true, "description": true, "status": true, "priority": true, "labels": true, "assignee": true,
+	"created": true, "started": true, "completed": true, "canceled": true, "parent issue": true,
+	"related to": true, "blocked by": true, "duplicate of": true,
+	"updated": true, "time in status (minutes)": true,
+}
 
 type linearSource struct{}
 
@@ -66,10 +57,10 @@ func linearIssueOf(t *csvTable, row []string, id, title string, line int) *impor
 		is.labels = append(is.labels, l)
 	}
 	is.parent = t.get(row, "Parent issue")
-	is.createdAt = csvTime(is, t.get(row, "Created"), "Created")
-	is.startedAt = csvTime(is, t.get(row, "Started"), "Started")
-	is.completedAt = csvTime(is, t.get(row, "Completed"), "Completed")
-	is.canceledAt = csvTime(is, t.get(row, "Canceled"), "Canceled")
+	is.createdAt = csvTimeFormat.parse(is, t.get(row, "Created"), "Created")
+	is.startedAt = csvTimeFormat.parse(is, t.get(row, "Started"), "Started")
+	is.completedAt = csvTimeFormat.parse(is, t.get(row, "Completed"), "Completed")
+	is.canceledAt = csvTimeFormat.parse(is, t.get(row, "Canceled"), "Canceled")
 	is.closedAt = is.completedAt
 	if !is.canceledAt.IsZero() {
 		is.closedAt = is.canceledAt
@@ -85,70 +76,4 @@ func linearIssueOf(t *csvTable, row []string, id, title string, line int) *impor
 	}
 	is.extra = leftoverColumns(t, row, func(h string) bool { return linearMapped[h] }, "linear")
 	return is
-}
-
-func bodyText(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return ""
-	}
-	return s + "\n"
-}
-
-func csvTime(is *importIssue, raw, column string) time.Time {
-	if raw == "" {
-		return time.Time{}
-	}
-	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {
-		if t, err := time.Parse(layout, raw); err == nil {
-			return t.UTC()
-		}
-	}
-	is.createWarns = append(is.createWarns, importWarn{parse.CodeImportUnmapped, column, fmt.Sprintf("%s %q is not a recognised time, the import time is used", column, raw)})
-	return time.Time{}
-}
-
-func leftoverColumns(t *csvTable, row []string, skip func(string) bool, tracker string) []node.Field {
-	type col struct {
-		key    string
-		values []string
-	}
-	cols := []col{}
-	seen := map[string]int{}
-	for _, h := range t.headers {
-		lower := strings.ToLower(strings.TrimSpace(h))
-		if skip(lower) {
-			continue
-		}
-		key := columnKey(h)
-		if key == "" || !fieldKey.MatchString(key) {
-			continue
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = len(cols)
-		cols = append(cols, col{key: key, values: t.all(row, h)})
-	}
-	slices.SortFunc(cols, func(a, b col) int { return strings.Compare(a.key, b.key) })
-	fields := []node.Field{}
-	for _, c := range cols {
-		if len(c.values) == 0 {
-			continue
-		}
-		name := c.key
-		if trackerTaken[name] {
-			name = tracker + "_" + name
-		}
-		if len(c.values) == 1 {
-			fields = append(fields, node.Field{Key: name, Value: c.values[0]})
-			continue
-		}
-		list := make([]any, len(c.values))
-		for i, v := range c.values {
-			list[i] = v
-		}
-		fields = append(fields, node.Field{Key: name, Value: list})
-	}
-	return fields
 }

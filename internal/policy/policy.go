@@ -124,7 +124,7 @@ func (g Gate) Applies(nf *store.NodeFile) bool {
 		return false
 	}
 	if len(g.Labels) > 0 {
-		for _, l := range labelsOf(nf) {
+		for _, l := range nf.Labels() {
 			if containsTrimmed(g.Labels, l) {
 				return true
 			}
@@ -132,20 +132,6 @@ func (g Gate) Applies(nf *store.NodeFile) bool {
 		return false
 	}
 	return true
-}
-
-func labelsOf(nf *store.NodeFile) []string {
-	switch v := nf.Node.Fields["labels"].(type) {
-	case string:
-		return []string{strings.TrimSpace(v)}
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, x := range v {
-			out = append(out, parse.StringOf(x))
-		}
-		return out
-	}
-	return nil
 }
 
 func containsTrimmed(list []string, s string) bool {
