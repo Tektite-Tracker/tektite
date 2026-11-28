@@ -288,9 +288,40 @@ Feature: Command line
       Then the file is reported as skipped
       And the file is unchanged
 
-    Scenario: Teaching agents the workflow
-      When a user runs `tektite init-agent`
-      Then a snippet is written for CLAUDE.md or AGENTS.md describing the verbs and exit codes
+    Scenario: Init offers an agent onboarding snippet
+      Given a terminal session and an AGENTS.md without the tektite snippet
+      When a user runs `tektite init` and answers yes
+      Then a short snippet that points agents at `tektite prime` is appended to AGENTS.md
+      And the existing content is unchanged
+
+    Scenario: The snippet goes to CLAUDE.md when there is no AGENTS.md
+      Given a CLAUDE.md and no AGENTS.md
+      When a user runs `tektite init --agent-snippet`
+      Then the snippet is appended to CLAUDE.md
+
+    Scenario: The snippet creates AGENTS.md when neither file exists
+      Given neither AGENTS.md nor CLAUDE.md exists
+      When a user runs `tektite init --agent-snippet`
+      Then AGENTS.md is created with the snippet
+
+    Scenario: The snippet is added only once
+      Given AGENTS.md already holds the tektite snippet
+      When a user runs `tektite init --agent-snippet`
+      Then AGENTS.md is unchanged
+
+    Scenario: The snippet can be skipped
+      When a user runs `tektite init --no-agent-snippet`
+      Then no agent file is written and no question is asked
+
+    Scenario: Without a terminal init does not touch agent files
+      Given no terminal and neither flag
+      When a user runs `tektite init`
+      Then no agent file is written
+
+    Scenario: Priming an agent
+      When an agent runs `tektite prime`
+      Then the For agents steps and the exit codes are printed as prompt-ready text
+      And `--json` prints the same steps and exit codes as a document
 
     Scenario: Serving the UI
       When a user runs `tektite ui`
