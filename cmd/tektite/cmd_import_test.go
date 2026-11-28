@@ -16,10 +16,10 @@ const beadsFixture = `{"id":"bd-1","title":"Ship the thing","description":"Top l
 
 type migrateDoc struct {
 	Items []struct {
-		BeadsID string `json:"source_id"`
-		Ref     string `json:"ref"`
-		Action  string `json:"action"`
-		Status  string `json:"status"`
+		SourceID string `json:"source_id"`
+		Ref      string `json:"ref"`
+		Action   string `json:"action"`
+		Status   string `json:"status"`
 	} `json:"items"`
 	Created  int `json:"created"`
 	Skipped  int `json:"skipped"`
@@ -47,9 +47,9 @@ func (s *sandbox) migrate(t *testing.T, args ...string) (result, migrateDoc) {
 	return got, doc
 }
 
-func (s *sandbox) refOf(doc migrateDoc, beadsID string) string {
+func (s *sandbox) refOf(doc migrateDoc, sourceID string) string {
 	for _, it := range doc.Items {
-		if it.BeadsID == beadsID {
+		if it.SourceID == sourceID {
 			return it.Ref
 		}
 	}

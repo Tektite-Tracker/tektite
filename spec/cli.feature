@@ -470,3 +470,61 @@ Feature: Command line
       When a user runs the import with --yes
       Then the command exits with code 2
       And no node is written
+
+  Rule: Linear issues can be imported from a CSV export
+
+    Scenario: A source needs an export file
+      Given a user runs `tektite import linear` without --from
+      Then the command exits with code 2
+
+    Scenario: An export of the wrong shape is refused
+      Given a file that is not a Linear CSV export
+      When a user runs `tektite import linear --from` that file
+      Then the command exits with code 2
+      And the message names the missing column
+
+    Scenario: Importing Linear issues
+      Given a Linear CSV with issues that have a title, description, labels, priority and assignee
+      When a user runs `tektite import linear --from` that file
+      Then each issue becomes a ticket whose title and body come from the issue
+      And the tracker is kept in the source field and the issue id in the source_id field
+      And the labels, assignee and priority are kept
+
+    Scenario: Linear statuses are mapped by workflow state
+      Given Linear issues whose statuses have custom names and Started, Completed and Canceled times
+      When a user runs `tektite import linear --from` that file
+      Then an issue with a Completed time becomes done and one with a Canceled time becomes dropped
+      And an issue with a Started time only becomes active
+      And a status with none of these is mapped by its name or asked about
+
+    Scenario: Linear parent issues become parents
+      Given Linear issues with a Parent issue column
+      When a user runs `tektite import linear --from` that file
+      Then the parent issue is created first and the child gets it as parent
+      And a parent that is not in the export produces a warning
+
+    Scenario: Linear relations become typed links
+      Given Linear issues with Blocked by, Related to and Duplicate of columns
+      When a user runs `tektite import linear --from` that file
+      Then a Blocked by relation becomes a blocks link on the blocker
+      And a Related to relation becomes a single relates-to link even when both issues list it
+      And a Duplicate of relation becomes a supersedes link on the original
+
+    Scenario: Linear timestamps become the history
+      Given a Linear issue with Created, Started and Completed times
+      When a user runs `tektite import linear --from` that file
+      Then the node is stamped with Created
+      And the active status event is stamped with Started
+      And the done status event is stamped with Completed
+
+    Scenario: Linear columns without a mapping are kept as frontmatter
+      Given a Linear CSV with Team, Estimate and Project columns
+      When a user runs `tektite import linear --from` that file
+      Then each non-empty one is written to the node frontmatter with a lowercase key
+      And Updated is not written
+
+    Scenario: Importing Linear issues again changes nothing
+      Given the Linear issues were already imported
+      When a user runs `tektite import linear --from` that file again
+      Then every issue is reported as skipped
+
