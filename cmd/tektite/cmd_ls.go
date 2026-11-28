@@ -10,7 +10,7 @@ import (
 )
 
 func (a *app) lsCmd() *cobra.Command {
-	var kind, status, under string
+	var kind, status, under, needs string
 	var all bool
 	cmd := &cobra.Command{
 		Use:   "ls",
@@ -21,7 +21,7 @@ func (a *app) lsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			items, err := sv.List(service.ListInput{Kind: kind, Status: status, Under: under, All: all})
+			items, err := sv.List(service.ListInput{Kind: kind, Status: status, Under: under, All: all, Needs: needs})
 			if err != nil {
 				return err
 			}
@@ -45,6 +45,7 @@ func (a *app) lsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&kind, "kind", "", "only nodes of this kind")
 	cmd.Flags().StringVar(&status, "status", "", "only nodes with this status")
 	cmd.Flags().StringVar(&under, "under", "", "only descendants of this node")
+	cmd.Flags().StringVar(&needs, "needs", "", "only nodes waiting on a human: approval, override or review")
 	cmd.Flags().BoolVar(&all, "all", false, "include superseded nodes")
 	return cmd
 }

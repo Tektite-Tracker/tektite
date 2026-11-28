@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/bundle"
 	"github.com/tektite-tracker/tektite/internal/check"
@@ -28,6 +29,7 @@ type ListInput struct {
 	Status string
 	Under  string
 	All    bool
+	Needs  string
 }
 
 func (s *Service) List(in ListInput) ([]view.ListItem, error) {
@@ -35,7 +37,17 @@ func (s *Service) List(in ListInput) ([]view.ListItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All}
+	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs}
+	if in.Needs != "" {
+		if !view.ValidNeeds(in.Needs) {
+			return nil, &Error{Kind: KindUsage, Msg: fmt.Sprintf("--needs: unknown value %q", in.Needs), Hint: "use one of " + strings.Join(view.NeedsValues, ", ")}
+		}
+		p, _, err := s.loadPolicy()
+		if err != nil {
+			return nil, err
+		}
+		filter.Policy = p
+	}
 	if in.Under != "" {
 		root, err := snap.Resolve(in.Under)
 		if err != nil {
