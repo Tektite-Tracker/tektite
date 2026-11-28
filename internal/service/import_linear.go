@@ -4,14 +4,12 @@ import (
 	"github.com/tektite-tracker/tektite/parse"
 )
 
-var (
-	linearMapped = map[string]bool{
-		"id": true, "title": true, "description": true, "status": true, "priority": true, "labels": true, "assignee": true,
-		"created": true, "started": true, "completed": true, "canceled": true, "parent issue": true,
-		"related to": true, "blocked by": true, "duplicate of": true,
-		"updated": true, "time in status (minutes)": true,
-	}
-)
+var linearMapped = map[string]bool{
+	"id": true, "title": true, "description": true, "status": true, "priority": true, "labels": true, "assignee": true,
+	"created": true, "started": true, "completed": true, "canceled": true, "parent issue": true,
+	"related to": true, "blocked by": true, "duplicate of": true,
+	"updated": true, "time in status (minutes)": true,
+}
 
 type linearSource struct{}
 
