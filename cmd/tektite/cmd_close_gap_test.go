@@ -23,7 +23,7 @@ func gapSandbox(t *testing.T, exitCode string) *sandbox {
 func TestCLI_CloseGap(t *testing.T) {
 	t.Run("Evidence can close a gap block", func(t *testing.T) {
 		s := gapSandbox(t, "0")
-		res := s.tkt("close-gap", "auth-retry-3fa#01HZ3KB2", "--evidence", "retry-banner-shot-5de", "--json")
+		res := s.tektite("close-gap", "auth-retry-3fa#01HZ3KB2", "--evidence", "retry-banner-shot-5de", "--json")
 		if res.code != 0 {
 			t.Fatalf("exit %d: %s", res.code, res.stderr)
 		}
@@ -39,7 +39,7 @@ func TestCLI_CloseGap(t *testing.T) {
 			}
 		}
 		var shown gapsDoc
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &shown)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &shown)
 		states := map[string]bool{}
 		for _, g := range shown.Gaps {
 			states[g.Block] = g.Closed
@@ -50,14 +50,14 @@ func TestCLI_CloseGap(t *testing.T) {
 		if !states["01HZ3KB2"] || states["01HZ3KB4"] {
 			t.Errorf("only the first gap should be closed, got %v", states)
 		}
-		if text := s.tkt("show", "auth-retry-3fa").stdout; !strings.Contains(text, "gap 01HZ3KB2: missing retry on 429 (closed by retry-banner-shot-5de)") {
+		if text := s.tektite("show", "auth-retry-3fa").stdout; !strings.Contains(text, "gap 01HZ3KB2: missing retry on 429 (closed by retry-banner-shot-5de)") {
 			t.Errorf("text output should show the gap as closed:\n%s", text)
 		}
 	})
 
 	t.Run("Failing evidence cannot close a gap block", func(t *testing.T) {
 		s := gapSandbox(t, "1")
-		res := s.tkt("close-gap", "auth-retry-3fa#01HZ3KB2", "--evidence", "retry-banner-shot-5de")
+		res := s.tektite("close-gap", "auth-retry-3fa#01HZ3KB2", "--evidence", "retry-banner-shot-5de")
 		if res.code != 2 {
 			t.Fatalf("want exit 2, got %d: %s", res.code, res.stderr)
 		}
@@ -68,12 +68,12 @@ func TestCLI_CloseGap(t *testing.T) {
 
 	t.Run("Only an open gap block of the node can be closed", func(t *testing.T) {
 		s := gapSandbox(t, "0")
-		if res := s.tkt("close-gap", "auth-retry-3fa#01HZ3KB2", "--evidence", "retry-banner-shot-5de"); res.code != 0 {
+		if res := s.tektite("close-gap", "auth-retry-3fa#01HZ3KB2", "--evidence", "retry-banner-shot-5de"); res.code != 0 {
 			t.Fatalf("first close: exit %d: %s", res.code, res.stderr)
 		}
 		before := len(eventFiles(t, s, "auth-retry-3fa"))
 		for _, block := range []string{"01HZ3KB2", "01HZ3KB3", "01HZ3KBZ"} {
-			res := s.tkt("close-gap", "auth-retry-3fa#"+block, "--evidence", "retry-banner-shot-5de")
+			res := s.tektite("close-gap", "auth-retry-3fa#"+block, "--evidence", "retry-banner-shot-5de")
 			if res.code != 2 {
 				t.Errorf("%s: want exit 2, got %d: %s", block, res.code, res.stderr)
 			}

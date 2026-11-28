@@ -74,7 +74,7 @@ func (a *app) printCreated(c *service.Created) error {
 }
 
 func (a *app) edit(initial string) (string, error) {
-	f, err := os.CreateTemp("", "tkt-*.md")
+	f, err := os.CreateTemp("", "tektite-*.md")
 	if err != nil {
 		return "", fmt.Errorf("create editor file: %w", err)
 	}

@@ -48,7 +48,7 @@ Feature: Evidence
   Rule: Attachments are content-addressed blobs
 
     Scenario: Storing an attachment
-      When an actor runs `tkt attach-evidence auth-retry-3fa --file shot.png --claim "retry banner shows"`
+      When an actor runs `tektite attach-evidence auth-retry-3fa --file shot.png --claim "retry banner shows"`
       Then the file is copied to .tektite/blobs/<sha256>.png
       And the evidence node references that path
 
@@ -65,44 +65,44 @@ Feature: Evidence
 
     Scenario: A tampered blob is detected
       Given a blob whose content no longer matches its hash name
-      When `tkt check` runs
+      When `tektite check` runs
       Then an error names the blob and the evidence nodes that reference it
 
     Scenario: A missing blob is reported
       Given an evidence node referencing a blob that does not exist
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the node and the missing path
       And the node can still be read
 
     Scenario: Large files are warned about
       Given an attachment of 12 MB and a size cap of 5 MB
       And the cap is the "blob_cap_mb" value in .tektite/config, 5 when unset
-      When a user runs `tkt attach-evidence` with that file
+      When a user runs `tektite attach-evidence` with that file
       Then the command prints a warning about repository growth
       And the command exits with code 2 unless `--allow-large` is passed
 
     Scenario: Unused blobs are listed, not deleted
       Given a blob that no node references
-      When a user runs `tkt check`
+      When a user runs `tektite check`
       Then the blob is listed as unreferenced
-      And only `tkt gc --blobs` may remove it
+      And only `tektite gc --blobs` may remove it
 
     Scenario: Unreferenced blobs are removed by gc
       Given a blob that a node references and a blob that no node references
-      When a user runs `tkt gc --blobs`
+      When a user runs `tektite gc --blobs`
       Then the unreferenced blob is removed
       And the referenced blob is kept
-      And `tkt gc --blobs --dry-run` lists the blobs without removing them
+      And `tektite gc --blobs --dry-run` lists the blobs without removing them
 
     Scenario: Gc needs a target
-      When a user runs `tkt gc`
+      When a user runs `tektite gc`
       Then the command exits with code 2
       And nothing is removed
 
   Rule: Text evidence can be inline
 
     Scenario: A command output is stored as an inline fenced block
-      When an actor runs `tkt attach-evidence auth-retry-3fa --run "go test ./..."`
+      When an actor runs `tektite attach-evidence auth-retry-3fa --run "go test ./..."`
       Then the command is executed
       And its output is stored in the evidence body inside a fenced block
       And its exit code is recorded in the provenance
@@ -114,7 +114,7 @@ Feature: Evidence
       And the body holds the last 20 lines and the path of the blob
 
     Scenario: Run cannot be combined with a file or a command
-      When an actor runs `tkt attach-evidence auth-retry-3fa --run "go test ./..." --file out.txt`
+      When an actor runs `tektite attach-evidence auth-retry-3fa --run "go test ./..." --file out.txt`
       Then the command exits with code 2
       And no evidence node is created
 
@@ -136,29 +136,29 @@ Feature: Evidence
 
     Scenario: Evidence outside a repository has no commit
       Given no git repository state is available
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning says the evidence cannot be tied to a code version
 
     Scenario: Evidence can be checked for staleness
       Given evidence recorded at commit 3f2a9c1
       And files related to the claim changed in later commits
-      When a user runs `tkt check --stale`
+      When a user runs `tektite check --stale`
       Then the evidence is reported as possibly stale with the commits that came after
       And the related files are the "files" listed in the evidence, or any file outside .tektite when it lists none
       And evidence whose related files did not change is not reported
       And evidence with no recorded commit is not reported
-      And `tkt check` without `--stale` does not look at git history
+      And `tektite check` without `--stale` does not look at git history
 
     Scenario: Evidence can be re-run
       Given evidence with a recorded command
-      When a user runs `tkt rerun retry-banner-shot-5de`
+      When a user runs `tektite rerun retry-banner-shot-5de`
       Then the command is executed again
       And a new evidence node is created that supersedes the old one
       And the new node has the same claim and parent as the old one
 
     Scenario: Evidence without a command cannot be re-run
       Given evidence with no recorded command
-      When a user runs `tkt rerun` on it
+      When a user runs `tektite rerun` on it
       Then the command exits with code 2
       And no evidence node is created
 
@@ -166,19 +166,19 @@ Feature: Evidence
 
     Scenario: Evidence can close a gap block
       Given a gap block "01HZ3KB2" and an evidence node targeting it
-      When an actor runs `tkt close-gap auth-retry-3fa#01HZ3KB2 --evidence retry-banner-shot-5de`
+      When an actor runs `tektite close-gap auth-retry-3fa#01HZ3KB2 --evidence retry-banner-shot-5de`
       Then a close event is appended referencing the evidence
       And the block is shown as closed
 
     Scenario: Failing evidence cannot close a gap block
       Given a gap block "01HZ3KB2" and an evidence node with exit code 1
-      When an actor runs `tkt close-gap` with that evidence
+      When an actor runs `tektite close-gap` with that evidence
       Then the command exits with code 2
       And no event is appended
 
     Scenario: Only an open gap block of the node can be closed
       Given a node with an already closed gap block and a checklist item that is not a gap
-      When an actor runs `tkt close-gap` on either block or on an unknown block id
+      When an actor runs `tektite close-gap` on either block or on an unknown block id
       Then the command exits with code 2
       And no event is appended
 

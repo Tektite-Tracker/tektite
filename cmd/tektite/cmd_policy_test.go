@@ -73,7 +73,7 @@ func TestCLI_Policy(t *testing.T) {
 	t.Run("A malformed policy is reported, not enforced half-way", func(t *testing.T) {
 		s := policySandbox(t, "x", gateApproval)
 		s.write(".tektite/policy.md", "---\nversion: 1\ngates: [oops\n---\n")
-		chk := s.tkt("check")
+		chk := s.tektite("check")
 		if chk.code != exitError || !strings.Contains(chk.stdout, "TKT-E104") || !strings.Contains(chk.stdout, ".tektite/policy.md") {
 			t.Errorf("check = %+v", chk)
 		}
@@ -92,7 +92,7 @@ func TestCLI_Policy(t *testing.T) {
 		} {
 			s := policySandbox(t, "x", gateApproval)
 			s.write(".tektite/policy.md", src)
-			chk := s.tkt("check")
+			chk := s.tektite("check")
 			if chk.code != exitError || !strings.Contains(chk.stdout, "TKT-E104") {
 				t.Errorf("%s: check = %+v", name, chk)
 			}
@@ -187,7 +187,7 @@ func TestCLI_Policy(t *testing.T) {
 	t.Run("Next does not offer a ticket the actor may not claim", func(t *testing.T) {
 		s := policySandbox(t, "x", gateApproval)
 		s.env = map[string]string{"TKT_ACTOR": agent}
-		if got := s.tkt("next", "--json"); got.code != exitNotFound {
+		if got := s.tektite("next", "--json"); got.code != exitNotFound {
 			t.Errorf("next = %+v", got)
 		}
 		s.actorEvent("auth-plan-1ab", e1, "approve", "human:jesus", "2026-11-27T11:00:00Z", "revision: 1\n")
@@ -250,15 +250,15 @@ func TestCLI_Policy(t *testing.T) {
 			t.Errorf("event =\n%s", src)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("show", "auth-retry-3fa", "--json").stdout, &doc)
+		decode(t, s.tektite("show", "auth-retry-3fa", "--json").stdout, &doc)
 		hist, _ := doc["history"].([]any)
 		if len(hist) != 1 || hist[0].(map[string]any)["override"] != "accepted risk" {
 			t.Errorf("history = %v", hist)
 		}
-		if out := s.tkt("show", "auth-retry-3fa").stdout; !strings.Contains(out, "(override: accepted risk)") {
+		if out := s.tektite("show", "auth-retry-3fa").stdout; !strings.Contains(out, "(override: accepted risk)") {
 			t.Errorf("show =\n%s", out)
 		}
-		if chk := s.tkt("check"); chk.code != 0 {
+		if chk := s.tektite("check"); chk.code != 0 {
 			t.Errorf("check = %+v", chk)
 		}
 	})
@@ -314,7 +314,7 @@ func TestCLI_Policy(t *testing.T) {
 	t.Run("check reports violations in existing data", func(t *testing.T) {
 		s := policySandbox(t, "x", gateEvidence)
 		s.actorEvent("auth-retry-3fa", e1, "set-status", "agent:a", "2026-11-27T11:00:00Z", "status: done\n")
-		chk := s.tkt("check")
+		chk := s.tektite("check")
 		for _, want := range []string{"TKT-E105", "auth-retry-3fa", e1, "tickets require passing evidence before done", "events/auth-retry-3fa/" + e1 + ".md"} {
 			if chk.code != exitError || !strings.Contains(chk.stdout, want) {
 				t.Fatalf("missing %q in %+v", want, chk)
@@ -326,13 +326,13 @@ func TestCLI_Policy(t *testing.T) {
 		s := policySandbox(t, "x", gateApproval)
 		s.actorEvent("auth-retry-3fa", e1, "claim", agent, "2026-11-27T10:00:00Z", "ttl: 30m\n")
 		s.actorEvent("auth-plan-1ab", e2, "approve", "human:jesus", "2026-11-27T11:00:00Z", "revision: 1\n")
-		chk := s.tkt("check")
+		chk := s.tektite("check")
 		if chk.code != exitError || !strings.Contains(chk.stdout, "TKT-E105") || !strings.Contains(chk.stdout, e1) {
 			t.Errorf("early claim = %+v", chk)
 		}
 		s.actorEvent("auth-retry-3fa", e3, "release", agent, "2026-11-27T11:05:00Z", "")
 		s.actorEvent("auth-retry-3fa", "01HZ3M0A1B2C3D4E5F6G7H8J95", "claim", agent, "2026-11-27T11:10:00Z", "ttl: 30m\n")
-		chk = s.tkt("check", "--json")
+		chk = s.tektite("check", "--json")
 		var rep struct{ Problems []map[string]any }
 		decode(t, chk.stdout, &rep)
 		if len(rep.Problems) != 1 || !strings.Contains(rep.Problems[0]["message"].(string), e1) {
@@ -343,7 +343,7 @@ func TestCLI_Policy(t *testing.T) {
 	t.Run("check ignores an override by an agent", func(t *testing.T) {
 		s := policySandbox(t, "x", gateEvidence)
 		s.actorEvent("auth-retry-3fa", e1, "set-status", agent, "2026-11-27T11:00:00Z", "status: done\noverride: skip\n")
-		if chk := s.tkt("check"); chk.code != exitError || !strings.Contains(chk.stdout, "TKT-E105") {
+		if chk := s.tektite("check"); chk.code != exitError || !strings.Contains(chk.stdout, "TKT-E105") {
 			t.Errorf("check = %+v", chk)
 		}
 	})
@@ -351,7 +351,7 @@ func TestCLI_Policy(t *testing.T) {
 	t.Run("A gate can be explained", func(t *testing.T) {
 		s := policySandbox(t, "- [ ] retry banner missing <!-- g:01HZ3KB2 -->\n", gateApproval, gateEvidence, gateGaps)
 		s.evidence("0")
-		got := s.tkt("policy", "explain", "auth-retry-3fa")
+		got := s.tektite("policy", "explain", "auth-retry-3fa")
 		if got.code != 0 {
 			t.Fatalf("result = %+v", got)
 		}
@@ -361,7 +361,7 @@ func TestCLI_Policy(t *testing.T) {
 			}
 		}
 		var doc map[string]any
-		decode(t, s.tkt("policy", "explain", "auth-retry-3fa", "--json").stdout, &doc)
+		decode(t, s.tektite("policy", "explain", "auth-retry-3fa", "--json").stdout, &doc)
 		if gates, _ := doc["gates"].([]any); len(gates) != 3 {
 			t.Errorf("doc = %v", doc)
 		}
@@ -369,7 +369,7 @@ func TestCLI_Policy(t *testing.T) {
 
 	t.Run("Explaining a node that no gate applies to", func(t *testing.T) {
 		s := policySandbox(t, "x", gateEvidence)
-		got := s.tkt("policy", "explain", "auth-plan-1ab")
+		got := s.tektite("policy", "explain", "auth-plan-1ab")
 		if got.code != 0 || !strings.Contains(got.stdout, "no gate applies") {
 			t.Errorf("result = %+v", got)
 		}

@@ -129,11 +129,11 @@ func Build(snap *store.Snapshot, nf *store.NodeFile, opts Options) *Bundle {
 			droppedGroups[c.section+"\x00"+c.group]++
 			continue
 		}
-		b.Omitted = append(b.Omitted, Omitted{Section: c.section, Ref: c.entry.Ref, Title: c.entry.Title, Fetch: "tkt show " + c.entry.Ref})
+		b.Omitted = append(b.Omitted, Omitted{Section: c.section, Ref: c.entry.Ref, Title: c.entry.Title, Fetch: "tektite show " + c.entry.Ref})
 	}
 	for _, s := range sectionDefs {
 		if n := droppedGroups[s.Key+"\x00"+nf.Ref]; n > 0 {
-			b.Omitted = append(b.Omitted, Omitted{Section: s.Key, Ref: nf.Ref, Title: fmt.Sprintf("%d %s of %s", n, strings.ToLower(s.Title), nf.Ref), Fetch: "tkt show " + nf.Ref})
+			b.Omitted = append(b.Omitted, Omitted{Section: s.Key, Ref: nf.Ref, Title: fmt.Sprintf("%d %s of %s", n, strings.ToLower(s.Title), nf.Ref), Fetch: "tektite show " + nf.Ref})
 		}
 	}
 	slices.SortStableFunc(b.Omitted, func(x, y Omitted) int { return cmp.Compare(sectionIndex(x.Section), sectionIndex(y.Section)) })
@@ -321,7 +321,7 @@ func clip(s string, limit int) string {
 }
 
 func truncate(e Entry, budget int) Entry {
-	marker := fmt.Sprintf("\n\n[body truncated: about %d of %d tokens shown, run `tkt show %s` for the full body]", budget, e.Tokens, e.Ref)
+	marker := fmt.Sprintf("\n\n[body truncated: about %d of %d tokens shown, run `tektite show %s` for the full body]", budget, e.Tokens, e.Ref)
 	limit := budget*4 - len(marker)
 	if limit < 0 {
 		limit = 0

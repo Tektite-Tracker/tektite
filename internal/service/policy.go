@@ -18,7 +18,7 @@ func (s *Service) loadPolicy() (*policy.Policy, []parse.Diagnostic, error) {
 	p, err := policy.Load(s.Repo)
 	var bad *policy.MalformedError
 	if errors.As(err, &bad) {
-		return nil, []parse.Diagnostic{warning(check.CodePolicyMalformed, "%s: %s, so no gate is enforced, run `tkt check` for details", bad.Path, bad.Msg)}, nil
+		return nil, []parse.Diagnostic{warning(check.CodePolicyMalformed, "%s: %s, so no gate is enforced, run `tektite check` for details", bad.Path, bad.Msg)}, nil
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("load policy: %w", err)

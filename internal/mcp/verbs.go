@@ -45,10 +45,10 @@ func (s *Server) readTools() []tool {
 		Stale bool `json:"stale"`
 	}
 	return []tool{
-		{"tkt_show", "Show a node with its state, links, evidence, notes and history.", []param{refParam}, bind(func(svc *service.Service, in refArgs) (any, error) {
+		{"tektite_show", "Show a node with its state, links, evidence, notes and history.", []param{refParam}, bind(func(svc *service.Service, in refArgs) (any, error) {
 			return svc.Show(in.Ref)
 		})},
-		{"tkt_ls", "List nodes, optionally filtered by kind, status or subtree.", []param{
+		{"tektite_ls", "List nodes, optionally filtered by kind, status or subtree.", []param{
 			{"kind", "string", "only nodes of this kind", false},
 			{"status", "string", "only nodes with this status", false},
 			{"under", "string", "only descendants of this node", false},
@@ -62,24 +62,24 @@ func (s *Server) readTools() []tool {
 		) (any, error) {
 			return svc.List(service.ListInput{Kind: in.Kind, Status: in.Status, Under: in.Under, All: in.All})
 		})},
-		{"tkt_next", "Return the best nodes to work on next, optionally claiming the first one.", []param{
+		{"tektite_next", "Return the best nodes to work on next, optionally claiming the first one.", []param{
 			{"kind", "string", "only nodes of this kind, empty for any, ticket by default", false},
 			actorParam,
 			{"limit", "integer", "how many nodes to return, 1 by default", false},
 			{"claim", "boolean", "claim the first node in the same call", false},
 			{"ttl", "string", "lease duration with claim, such as 30m", false},
 		}, bind(s.next)},
-		{"tkt_context", "Build a prompt-ready context bundle for a node within a token budget.", []param{refParam, {"budget", "integer", "token budget, defaults to the repository config", false}}, bind(func(svc *service.Service, in contextArgs) (any, error) {
+		{"tektite_context", "Build a prompt-ready context bundle for a node within a token budget.", []param{refParam, {"budget", "integer", "token budget, defaults to the repository config", false}}, bind(func(svc *service.Service, in contextArgs) (any, error) {
 			b, err := svc.Context(in.Ref, in.Budget)
 			if err != nil {
 				return nil, err
 			}
 			return b.Markdown(), nil
 		})},
-		{"tkt_check", "Report problems in the repository.", []param{{"stale", "boolean", "also report evidence that later commits may have outdated", false}}, bind(func(svc *service.Service, in checkArgs) (any, error) {
+		{"tektite_check", "Report problems in the repository.", []param{{"stale", "boolean", "also report evidence that later commits may have outdated", false}}, bind(func(svc *service.Service, in checkArgs) (any, error) {
 			return svc.Check(in.Stale)
 		})},
-		{"tkt_policy_explain", "List the policy gates that apply to a node and whether each is met.", []param{refParam}, bind(func(svc *service.Service, in refArgs) (any, error) {
+		{"tektite_policy_explain", "List the policy gates that apply to a node and whether each is met.", []param{refParam}, bind(func(svc *service.Service, in refArgs) (any, error) {
 			return svc.Explain(in.Ref)
 		})},
 	}
@@ -116,7 +116,7 @@ func (s *Server) next(svc *service.Service, in struct {
 		return nil, err
 	}
 	if len(list) == 0 {
-		return nil, &service.Error{Kind: service.KindNotFound, Msg: "nothing is available", Hint: "create a ticket with `tkt new ticket` or release a claim"}
+		return nil, &service.Error{Kind: service.KindNotFound, Msg: "nothing is available", Hint: "create a ticket with `tektite new ticket` or release a claim"}
 	}
 	list = list[:min(limit, len(list))]
 	out := nextResult{Items: []view.NextItem{}}
@@ -135,7 +135,7 @@ func (s *Server) next(svc *service.Service, in struct {
 
 func (s *Server) writeTools() []tool {
 	return []tool{
-		{"tkt_new", "Create a node.", []param{
+		{"tektite_new", "Create a node.", []param{
 			{"kind", "string", "node kind such as ticket, plan or gap", true},
 			{"title", "string", "node title", true},
 			{"parent", "string", "reference of the parent node", false},
@@ -151,7 +151,7 @@ func (s *Server) writeTools() []tool {
 		) (any, error) {
 			return svc.Create(service.CreateInput{Kind: in.Kind, Title: in.Title, Parent: in.Parent, Body: in.Body, Sets: in.Set})
 		})},
-		{"tkt_set_status", "Set the status of a node. Done may be gated by policy.", []param{
+		{"tektite_set_status", "Set the status of a node. Done may be gated by policy.", []param{
 			refParam,
 			{"status", "string", "open, active, blocked, review, done or dropped", true},
 			actorParam,
@@ -167,7 +167,7 @@ func (s *Server) writeTools() []tool {
 		) (any, error) {
 			return svc.SetStatus(service.SetStatusInput{Ref: in.Ref, Status: in.Status, Actor: in.Actor, Override: in.Override, Revision: in.Revision})
 		})},
-		{"tkt_note", "Add a note to a node.", []param{refParam, {"text", "string", "the note", true}, actorParam}, bind(func(svc *service.Service, in struct {
+		{"tektite_note", "Add a note to a node.", []param{refParam, {"text", "string", "the note", true}, actorParam}, bind(func(svc *service.Service, in struct {
 			Ref   string `json:"ref"`
 			Text  string `json:"text"`
 			Actor string `json:"actor"`
@@ -175,13 +175,13 @@ func (s *Server) writeTools() []tool {
 		) (any, error) {
 			return svc.Note(service.NoteInput{Ref: in.Ref, Text: in.Text, Actor: in.Actor})
 		})},
-		{"tkt_link", "Add a typed link to a node.", linkParams(), bind(func(svc *service.Service, in linkArgs) (any, error) {
+		{"tektite_link", "Add a typed link to a node.", linkParams(), bind(func(svc *service.Service, in linkArgs) (any, error) {
 			return svc.Link(service.LinkInput{Verb: parse.EventLink, Ref: in.Ref, Rel: in.Rel, Target: in.Target, Actor: in.Actor})
 		})},
-		{"tkt_unlink", "Remove a typed link from a node.", linkParams(), bind(func(svc *service.Service, in linkArgs) (any, error) {
+		{"tektite_unlink", "Remove a typed link from a node.", linkParams(), bind(func(svc *service.Service, in linkArgs) (any, error) {
 			return svc.Link(service.LinkInput{Verb: parse.EventUnlink, Ref: in.Ref, Rel: in.Rel, Target: in.Target, Actor: in.Actor})
 		})},
-		{"tkt_approve", "Approve the current revision of a plan. Only a human actor can.", []param{refParam, actorParam, revisionParam}, bind(func(svc *service.Service, in struct {
+		{"tektite_approve", "Approve the current revision of a plan. Only a human actor can.", []param{refParam, actorParam, revisionParam}, bind(func(svc *service.Service, in struct {
 			Ref      string `json:"ref"`
 			Actor    string `json:"actor"`
 			Revision int    `json:"revision"`
@@ -189,7 +189,7 @@ func (s *Server) writeTools() []tool {
 		) (any, error) {
 			return svc.Approve(service.ApproveInput{Ref: in.Ref, Actor: in.Actor, Revision: in.Revision})
 		})},
-		{"tkt_revise", "Record a new revision of a plan with a full body snapshot.", []param{refParam, {"body", "string", "the new full body", true}, actorParam}, bind(func(svc *service.Service, in struct {
+		{"tektite_revise", "Record a new revision of a plan with a full body snapshot.", []param{refParam, {"body", "string", "the new full body", true}, actorParam}, bind(func(svc *service.Service, in struct {
 			Ref   string `json:"ref"`
 			Body  string `json:"body"`
 			Actor string `json:"actor"`
@@ -197,7 +197,7 @@ func (s *Server) writeTools() []tool {
 		) (any, error) {
 			return svc.Revise(service.ReviseInput{Ref: in.Ref, Body: in.Body, Actor: in.Actor})
 		})},
-		{"tkt_close_gap", "Close a gap block of a node with passing evidence.", []param{
+		{"tektite_close_gap", "Close a gap block of a node with passing evidence.", []param{
 			{"ref", "string", "node reference followed by # and the block id, such as auth-retry-3fa#01HZ3KB2", true},
 			{"evidence", "string", "evidence node that proves the gap is closed", true},
 			actorParam,
@@ -218,12 +218,12 @@ func linkParams() []param {
 
 func (s *Server) leaseTools() []tool {
 	lease := func(verb, desc string) tool {
-		return tool{"tkt_" + verb, desc, []param{refParam, actorParam}, bind(func(svc *service.Service, in refActorArgs) (any, error) {
+		return tool{"tektite_" + verb, desc, []param{refParam, actorParam}, bind(func(svc *service.Service, in refActorArgs) (any, error) {
 			return svc.Lease(service.LeaseInput{Verb: verb, Ref: in.Ref, Actor: in.Actor})
 		})}
 	}
 	return []tool{
-		{"tkt_claim", "Claim a node with an expiring lease.", []param{refParam, actorParam, {"ttl", "string", "lease duration such as 30m", false}, revisionParam}, bind(func(svc *service.Service, in struct {
+		{"tektite_claim", "Claim a node with an expiring lease.", []param{refParam, actorParam, {"ttl", "string", "lease duration such as 30m", false}, revisionParam}, bind(func(svc *service.Service, in struct {
 			Ref      string `json:"ref"`
 			Actor    string `json:"actor"`
 			TTL      string `json:"ttl"`

@@ -158,7 +158,7 @@ func (a *app) diffCmd() *cobra.Command {
 				}
 				r, ok := st.RevisionNumbered(n)
 				if !ok {
-					return fail(exitNotFound, fmt.Sprintf("run `tkt revisions %s` to list them", nf.Ref), "%s has no revision %d", nf.Ref, n)
+					return fail(exitNotFound, fmt.Sprintf("run `tektite revisions %s` to list them", nf.Ref), "%s has no revision %d", nf.Ref, n)
 				}
 				revs[i] = r
 			}

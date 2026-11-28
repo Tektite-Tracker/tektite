@@ -26,7 +26,7 @@ func (s *Service) Claim(in ClaimInput) (*Appended, error) {
 		}
 		l := c.snap.State(c.nf.Ref).Lease
 		if l.LiveAt(s.Now()) && l.Holder != c.actor {
-			return step{}, newError(KindConflict, "wait for the lease to expire or pick another node with `tkt next`",
+			return step{}, newError(KindConflict, "wait for the lease to expire or pick another node with `tektite next`",
 				"%s is claimed by %s until %s", c.nf.Ref, l.Holder, parse.FormatTime(l.Expires))
 		}
 		return step{fields: fields, warnings: warnings}, nil
@@ -43,7 +43,7 @@ func (s *Service) Claim(in ClaimInput) (*Appended, error) {
 		if l != nil {
 			holder = l.Holder
 		}
-		return nil, newError(KindConflict, "another claim won the race, pick another node with `tkt next`", "%s was claimed by %s first", res.Ref, holder)
+		return nil, newError(KindConflict, "another claim won the race, pick another node with `tektite next`", "%s was claimed by %s first", res.Ref, holder)
 	}
 	return res, nil
 }

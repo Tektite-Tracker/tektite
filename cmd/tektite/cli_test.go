@@ -65,11 +65,11 @@ func (s *sandbox) read(rel string) string {
 	return string(data)
 }
 
-func (s *sandbox) tkt(args ...string) result {
-	return s.tktIn(s.root, "", args...)
+func (s *sandbox) tektite(args ...string) result {
+	return s.tektiteIn(s.root, "", args...)
 }
 
-func (s *sandbox) tktIn(cwd, stdin string, args ...string) result {
+func (s *sandbox) tektiteIn(cwd, stdin string, args ...string) result {
 	s.t.Helper()
 	var out, errw bytes.Buffer
 	code := run(args, env{
@@ -140,12 +140,12 @@ func TestCLI_ExitCodes(t *testing.T) {
 			{"a node that is not found", []string{"show", "ghost-000"}, exitNotFound},
 		}
 		for _, c := range cases {
-			if got := s.tkt(c.args...); got.code != c.want {
+			if got := s.tektite(c.args...); got.code != c.want {
 				t.Errorf("%s: code = %d, want %d (stderr %q)", c.name, got.code, c.want, got.stderr)
 			}
 		}
 		s.write(".tektite/nodes/bad-9e1.md", "---\ntitle: [x\n---\n")
-		if got := s.tkt("check"); got.code != exitError {
+		if got := s.tektite("check"); got.code != exitError {
 			t.Errorf("check with errors: code = %d", got.code)
 		}
 		for err, want := range map[error]int{store.ErrExists: exitConflict, store.ErrNoRepo: exitNotFound, errors.New("boom"): exitError} {
@@ -161,7 +161,7 @@ func TestCLI_ExitCodes(t *testing.T) {
 	t.Run("Unknown commands and flags are usage errors", func(t *testing.T) {
 		s := newSandbox(t)
 		for _, args := range [][]string{{"frobnicate"}, {"ls", "--nope"}, {"ls", "extra"}} {
-			got := s.tkt(args...)
+			got := s.tektite(args...)
 			if got.code != exitUsage || got.stdout != "" || got.stderr == "" {
 				t.Errorf("%v: %+v", args, got)
 			}
@@ -170,7 +170,7 @@ func TestCLI_ExitCodes(t *testing.T) {
 
 	t.Run("Errors go to stderr, data goes to stdout", func(t *testing.T) {
 		s := newSandbox(t)
-		got := s.tkt("show", "ghost-000")
+		got := s.tektite("show", "ghost-000")
 		if got.code != exitNotFound || got.stdout != "" || !strings.Contains(got.stderr, "ghost-000") || !strings.Contains(got.stderr, "hint:") {
 			t.Errorf("result = %+v", got)
 		}
@@ -188,7 +188,7 @@ func TestCLI_Output(t *testing.T) {
 
 	t.Run("Human text is the default", func(t *testing.T) {
 		s := setup(t)
-		got := s.tkt("show", "auth-retry-3fa")
+		got := s.tektite("show", "auth-retry-3fa")
 		for _, want := range []string{"auth-retry-3fa  ticket  active", "Title of auth-retry-3fa", "parent: auth-hardening-7c1", "under: auth-hardening-7c1", "Back off on 429", "human:jesus  set-status", "ghost-000 (unresolved)"} {
 			if !strings.Contains(got.stdout, want) {
 				t.Errorf("missing %q in\n%s", want, got.stdout)
@@ -201,7 +201,7 @@ func TestCLI_Output(t *testing.T) {
 
 	t.Run("JSON output is stable", func(t *testing.T) {
 		s := setup(t)
-		got := s.tkt("show", "3fa", "--json")
+		got := s.tektite("show", "3fa", "--json")
 		var doc map[string]any
 		decode(t, got.stdout, &doc)
 		for _, k := range []string{"ref", "id", "kind", "title", "parent", "status", "path", "fields", "body", "ancestors", "children", "links", "history", "diagnostics"} {
@@ -213,12 +213,12 @@ func TestCLI_Output(t *testing.T) {
 			t.Errorf("doc = %v", doc)
 		}
 		var list []map[string]any
-		decode(t, s.tkt("ls", "--json").stdout, &list)
+		decode(t, s.tektite("ls", "--json").stdout, &list)
 		if len(list) != 2 || list[1]["status"] != "active" {
 			t.Errorf("list = %v", list)
 		}
 		var empty []any
-		decode(t, newSandbox(t).tkt("ls", "--json").stdout, &empty)
+		decode(t, newSandbox(t).tektite("ls", "--json").stdout, &empty)
 		if empty == nil || len(empty) != 0 {
 			t.Errorf("empty list = %v", empty)
 		}
@@ -226,13 +226,13 @@ func TestCLI_Output(t *testing.T) {
 
 	t.Run("JSON errors", func(t *testing.T) {
 		s := setup(t)
-		got := s.tkt("show", "ghost-000", "--json")
+		got := s.tektite("show", "ghost-000", "--json")
 		var doc map[string]any
 		decode(t, got.stdout, &doc)
 		if got.code != 3 || doc["error"] == "" || doc["code"] != float64(3) || doc["hint"] == "" {
 			t.Errorf("result = %+v doc = %v", got, doc)
 		}
-		bad := s.tkt("ls", "--nope", "--json")
+		bad := s.tektite("ls", "--nope", "--json")
 		decode(t, bad.stdout, &doc)
 		if bad.code != 2 || doc["code"] != float64(2) {
 			t.Errorf("usage error: %+v", bad)
@@ -242,7 +242,7 @@ func TestCLI_Output(t *testing.T) {
 	t.Run("No colour or prompts when not a terminal", func(t *testing.T) {
 		s := setup(t)
 		for _, args := range [][]string{{"ls"}, {"show", "3fa"}, {"check"}, {"new", "ticket", "Plain"}} {
-			if got := s.tkt(args...); strings.Contains(got.stdout+got.stderr, "\x1b") || got.code != 0 {
+			if got := s.tektite(args...); strings.Contains(got.stdout+got.stderr, "\x1b") || got.code != 0 {
 				t.Errorf("%v: %+v", args, got)
 			}
 		}
@@ -257,7 +257,7 @@ func TestCLI_Repository(t *testing.T) {
 		if err := os.MkdirAll(deep, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		got := s.tktIn(deep, "", "ls")
+		got := s.tektiteIn(deep, "", "ls")
 		if got.code != 0 || !strings.Contains(got.stdout, "auth-retry-3fa") {
 			t.Errorf("result = %+v", got)
 		}
@@ -265,8 +265,8 @@ func TestCLI_Repository(t *testing.T) {
 
 	t.Run("No repository", func(t *testing.T) {
 		s := newSandbox(t)
-		got := s.tktIn(t.TempDir(), "", "ls")
-		if got.code != exitNotFound || !strings.Contains(got.stderr, "tkt init") {
+		got := s.tektiteIn(t.TempDir(), "", "ls")
+		if got.code != exitNotFound || !strings.Contains(got.stderr, "tektite init") {
 			t.Errorf("result = %+v", got)
 		}
 	})
@@ -274,11 +274,11 @@ func TestCLI_Repository(t *testing.T) {
 	t.Run("An explicit root overrides discovery", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("auth-retry-3fa", idA, "ticket", "", "", "x")
-		got := s.tktIn(t.TempDir(), "", "--root", s.root, "ls")
+		got := s.tektiteIn(t.TempDir(), "", "--root", s.root, "ls")
 		if got.code != 0 || !strings.Contains(got.stdout, "auth-retry-3fa") {
 			t.Errorf("result = %+v", got)
 		}
-		if got := s.tktIn(t.TempDir(), "", "--root", t.TempDir(), "ls"); got.code != exitNotFound {
+		if got := s.tektiteIn(t.TempDir(), "", "--root", t.TempDir(), "ls"); got.code != exitNotFound {
 			t.Errorf("missing root: %+v", got)
 		}
 	})
@@ -286,7 +286,7 @@ func TestCLI_Repository(t *testing.T) {
 	t.Run("Initialising", func(t *testing.T) {
 		dir := t.TempDir()
 		s := &sandbox{t: t, root: dir, rng: rand.New(rand.NewSource(1)), now: time.Now()}
-		first := s.tkt("init")
+		first := s.tektite("init")
 		if first.code != 0 || !strings.Contains(first.stdout, "initialised") {
 			t.Fatalf("first = %+v", first)
 		}
@@ -299,7 +299,7 @@ func TestCLI_Repository(t *testing.T) {
 			t.Errorf("config missing: %v", err)
 		}
 		s.write(".tektite/config", "auto_commit: true\n")
-		second := s.tkt("init", "--json")
+		second := s.tektite("init", "--json")
 		var doc map[string]any
 		decode(t, second.stdout, &doc)
 		if second.code != 0 || doc["created"] != false || s.read(".tektite/config") != "auto_commit: true\n" {
@@ -312,7 +312,7 @@ func TestCLI_New(t *testing.T) {
 	t.Run("Creating a node", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("retry-plan-9de", idC, "plan", "", "", "plan")
-		got := s.tkt("new", "ticket", "Add retry on 429", "--parent", "retry-plan-9de")
+		got := s.tektite("new", "ticket", "Add retry on 429", "--parent", "retry-plan-9de")
 		ref := strings.TrimSpace(got.stdout)
 		if got.code != 0 || !strings.HasPrefix(ref, "add-retry-on-429-") {
 			t.Fatalf("result = %+v", got)
@@ -332,11 +332,11 @@ func TestCLI_New(t *testing.T) {
 				t.Errorf("missing %q in\n%s", want, src)
 			}
 		}
-		if again := s.tkt("check"); again.code != 0 || !strings.Contains(again.stdout, "0 errors") {
+		if again := s.tektite("check"); again.code != 0 || !strings.Contains(again.stdout, "0 errors") {
 			t.Errorf("check = %+v", again)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("new", "ticket", "Another", "--json").stdout, &doc)
+		decode(t, s.tektite("new", "ticket", "Another", "--json").stdout, &doc)
 		if doc["ref"] == "" || doc["path"] == "" || doc["id"] == "" {
 			t.Errorf("doc = %v", doc)
 		}
@@ -345,13 +345,13 @@ func TestCLI_New(t *testing.T) {
 	t.Run("A new node stores its parent as a full reference", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("retry-plan-9de", idC, "plan", "", "", "plan")
-		got := s.tkt("new", "ticket", "Add retry", "--parent", "9de")
+		got := s.tektite("new", "ticket", "Add retry", "--parent", "9de")
 		ref := strings.TrimSpace(got.stdout)
 		if got.code != 0 || !strings.Contains(s.read(".tektite/nodes/"+ref+".md"), "parent: retry-plan-9de\n") {
 			t.Errorf("result = %+v", got)
 		}
 		before, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
-		bad := s.tkt("new", "ticket", "Orphan", "--parent", "ghost-000")
+		bad := s.tektite("new", "ticket", "Orphan", "--parent", "ghost-000")
 		after, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
 		if bad.code != exitNotFound || len(before) != len(after) {
 			t.Errorf("bad parent: %+v", bad)
@@ -360,7 +360,7 @@ func TestCLI_New(t *testing.T) {
 
 	t.Run("The body can come from stdin or an editor", func(t *testing.T) {
 		s := newSandbox(t)
-		got := s.tktIn(s.root, "text from stdin\nsecond line\n", "new", "ticket", "Add retry", "--body", "-")
+		got := s.tektiteIn(s.root, "text from stdin\nsecond line\n", "new", "ticket", "Add retry", "--body", "-")
 		ref := strings.TrimSpace(got.stdout)
 		if got.code != 0 || !strings.HasSuffix(s.read(".tektite/nodes/"+ref+".md"), "---\ntext from stdin\nsecond line\n") {
 			t.Errorf("result = %+v\n%s", got, s.read(".tektite/nodes/"+ref+".md"))
@@ -371,18 +371,18 @@ func TestCLI_New(t *testing.T) {
 			t.Fatal(err)
 		}
 		s.interactive, s.editor = true, script
-		edited := s.tkt("new", "ticket", "Edited")
+		edited := s.tektite("new", "ticket", "Edited")
 		eref := strings.TrimSpace(edited.stdout)
 		if edited.code != 0 || !strings.HasSuffix(s.read(".tektite/nodes/"+eref+".md"), "from editor\n") || !strings.Contains(s.read(".tektite/nodes/"+eref+".md"), "### Context") {
 			t.Errorf("editor result = %+v\n%s", edited, s.read(".tektite/nodes/"+eref+".md"))
 		}
-		explicit := s.tkt("new", "ticket", "Explicit", "--body", "given")
+		explicit := s.tektite("new", "ticket", "Explicit", "--body", "given")
 		xref := strings.TrimSpace(explicit.stdout)
 		if strings.Contains(s.read(".tektite/nodes/"+xref+".md"), "from editor") {
 			t.Error("--body must skip the editor")
 		}
 		s.interactive = false
-		piped := s.tkt("new", "ticket", "Piped")
+		piped := s.tektite("new", "ticket", "Piped")
 		pref := strings.TrimSpace(piped.stdout)
 		if strings.Contains(s.read(".tektite/nodes/"+pref+".md"), "from editor") {
 			t.Error("a non-terminal must not open the editor")
@@ -392,18 +392,18 @@ func TestCLI_New(t *testing.T) {
 	t.Run("The template seeds a new body", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/schemas/ticket.md", "---\nkind: ticket\n---\n## Template\n### Context\n### Acceptance criteria\n")
-		ref := strings.TrimSpace(s.tkt("new", "ticket", "Add retry").stdout)
+		ref := strings.TrimSpace(s.tektite("new", "ticket", "Add retry").stdout)
 		if !strings.HasSuffix(s.read(".tektite/nodes/"+ref+".md"), "---\n### Context\n### Acceptance criteria\n") {
 			t.Errorf("node:\n%s", s.read(".tektite/nodes/"+ref+".md"))
 		}
 		if err := os.Remove(filepath.Join(s.root, ".tektite", "schemas", "ticket.md")); err != nil {
 			t.Fatal(err)
 		}
-		builtIn := strings.TrimSpace(s.tkt("new", "ticket", "Built in").stdout)
+		builtIn := strings.TrimSpace(s.tektite("new", "ticket", "Built in").stdout)
 		if !strings.Contains(s.read(".tektite/nodes/"+builtIn+".md"), "### Acceptance criteria") {
 			t.Errorf("built-in template missing:\n%s", s.read(".tektite/nodes/"+builtIn+".md"))
 		}
-		custom := strings.TrimSpace(s.tkt("new", "retro", "Friday").stdout)
+		custom := strings.TrimSpace(s.tektite("new", "retro", "Friday").stdout)
 		if !strings.HasSuffix(s.read(".tektite/nodes/"+custom+".md"), "---\n") {
 			t.Errorf("custom kind must have an empty body:\n%s", s.read(".tektite/nodes/"+custom+".md"))
 		}
@@ -412,7 +412,7 @@ func TestCLI_New(t *testing.T) {
 	t.Run("Explicit body overrides the template", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/schemas/ticket.md", "---\nkind: ticket\n---\n## Template\n### Context\n")
-		ref := strings.TrimSpace(s.tkt("new", "ticket", "Add retry", "--body", "short").stdout)
+		ref := strings.TrimSpace(s.tektite("new", "ticket", "Add retry", "--body", "short").stdout)
 		src := s.read(".tektite/nodes/" + ref + ".md")
 		if !strings.HasSuffix(src, "---\nshort\n") || strings.Contains(src, "Context") {
 			t.Errorf("node:\n%s", src)
@@ -422,16 +422,16 @@ func TestCLI_New(t *testing.T) {
 	t.Run("A required field is requested at creation", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/schemas/ticket.md", "---\nkind: ticket\nrequired: [estimate]\n---\n")
-		got := s.tkt("new", "ticket", "Add retry")
+		got := s.tektite("new", "ticket", "Add retry")
 		if got.code != 0 || strings.TrimSpace(got.stdout) == "" || !strings.Contains(got.stderr, `"estimate" is required`) || !strings.Contains(got.stderr, "--set estimate=") {
 			t.Errorf("result = %+v", got)
 		}
 		var doc map[string]any
-		decode(t, s.tkt("new", "ticket", "Again", "--json").stdout, &doc)
+		decode(t, s.tektite("new", "ticket", "Again", "--json").stdout, &doc)
 		if m, _ := doc["missing_required"].([]any); len(m) != 1 || m[0] != "estimate" {
 			t.Errorf("doc = %v", doc)
 		}
-		ok := s.tkt("new", "ticket", "With estimate", "--set", "estimate=3")
+		ok := s.tektite("new", "ticket", "With estimate", "--set", "estimate=3")
 		if ok.stderr != "" {
 			t.Errorf("no note expected: %+v", ok)
 		}
@@ -439,7 +439,7 @@ func TestCLI_New(t *testing.T) {
 
 	t.Run("Setting fields at creation", func(t *testing.T) {
 		s := newSandbox(t)
-		ref := strings.TrimSpace(s.tkt("new", "ticket", "Add retry", "--set", "estimate=3", "--set", "labels=[net, auth]", "--set", "owner=team a").stdout)
+		ref := strings.TrimSpace(s.tektite("new", "ticket", "Add retry", "--set", "estimate=3", "--set", "labels=[net, auth]", "--set", "owner=team a").stdout)
 		src := s.read(".tektite/nodes/" + ref + ".md")
 		for _, want := range []string{"estimate: 3\n", "labels:\n  - net\n  - auth\n", "owner: team a\n"} {
 			if !strings.Contains(src, want) {
@@ -447,22 +447,22 @@ func TestCLI_New(t *testing.T) {
 			}
 		}
 		for _, bad := range []string{"estimate", "id=x", "9bad=1", "title=x"} {
-			if got := s.tkt("new", "ticket", "X", "--set", bad); got.code != exitUsage {
+			if got := s.tektite("new", "ticket", "X", "--set", bad); got.code != exitUsage {
 				t.Errorf("--set %s: %+v", bad, got)
 			}
 		}
-		if got := s.tkt("new", "ticket", "  "); got.code != exitUsage {
+		if got := s.tektite("new", "ticket", "  "); got.code != exitUsage {
 			t.Errorf("empty title: %+v", got)
 		}
 	})
 
 	t.Run("A title with no ASCII letters or digits gets a hash-only reference", func(t *testing.T) {
 		s := newSandbox(t)
-		ref := strings.TrimSpace(s.tkt("new", "note", "日本語").stdout)
+		ref := strings.TrimSpace(s.tektite("new", "note", "日本語").stdout)
 		if len(ref) < 3 || strings.Contains(ref, "-") || strings.Contains(ref, "node") {
 			t.Errorf("ref = %q", ref)
 		}
-		if got := s.tkt("show", ref); got.code != 0 || !strings.Contains(got.stdout, "日本語") {
+		if got := s.tektite("show", ref); got.code != 0 || !strings.Contains(got.stdout, "日本語") {
 			t.Errorf("show = %+v", got)
 		}
 	})
@@ -478,7 +478,7 @@ func TestCLI_List(t *testing.T) {
 		s.event("auth-timeout-9e1", e1, "set-status", "2026-11-27T10:00:00Z", "status: done\n")
 		refs := func(args ...string) []string {
 			var list []map[string]string
-			decode(t, s.tkt(append([]string{"ls", "--json"}, args...)...).stdout, &list)
+			decode(t, s.tektite(append([]string{"ls", "--json"}, args...)...).stdout, &list)
 			out := []string{}
 			for _, it := range list {
 				out = append(out, it["ref"])
@@ -501,7 +501,7 @@ func TestCLI_List(t *testing.T) {
 				t.Errorf("%v: got %s, want %s", c.args, got, c.want)
 			}
 		}
-		if got := s.tkt("ls", "--under", "ghost-000"); got.code != exitNotFound {
+		if got := s.tektite("ls", "--under", "ghost-000"); got.code != exitNotFound {
 			t.Errorf("unknown --under: %+v", got)
 		}
 	})
@@ -510,11 +510,11 @@ func TestCLI_List(t *testing.T) {
 		s := newSandbox(t)
 		s.node("one-d3f", idA, "spec", "", "", "x")
 		s.node("two-9e1", idA, "spec", "", "", "y")
-		ls := s.tkt("ls")
+		ls := s.tektite("ls")
 		if !strings.Contains(ls.stdout, "one-d3f") || !strings.Contains(ls.stdout, "two-9e1") {
 			t.Errorf("ls = %+v", ls)
 		}
-		chk := s.tkt("check")
+		chk := s.tektite("check")
 		if chk.code != exitError || !strings.Contains(chk.stdout, "TKT-E101") {
 			t.Errorf("check = %+v", chk)
 		}
@@ -522,15 +522,15 @@ func TestCLI_List(t *testing.T) {
 
 	t.Run("Renaming a title does not change identity or the file name", func(t *testing.T) {
 		s := newSandbox(t)
-		ref := strings.TrimSpace(s.tkt("new", "ticket", "Add retry on 429").stdout)
+		ref := strings.TrimSpace(s.tektite("new", "ticket", "Add retry on 429").stdout)
 		rel := ".tektite/nodes/" + ref + ".md"
 		before := s.read(rel)
 		s.write(rel, strings.Replace(before, "title: Add retry on 429", "title: Add backoff on 429", 1))
-		got := s.tkt("show", ref)
+		got := s.tektite("show", ref)
 		if !strings.Contains(got.stdout, "Add backoff on 429") || !strings.HasPrefix(got.stdout, ref+"  ") {
 			t.Errorf("show = %+v", got)
 		}
-		if fm := s.tkt("fmt"); fm.code != 0 {
+		if fm := s.tektite("fmt"); fm.code != 0 {
 			t.Errorf("fmt = %+v", fm)
 		}
 		entries, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
@@ -539,7 +539,7 @@ func TestCLI_List(t *testing.T) {
 		if len(entries) != 1 || entries[0].Name() != ref+".md" || idOf(before) != idOf(after) {
 			t.Errorf("entries = %v\n%s", entries, after)
 		}
-		if again := s.tkt("show", ref[len(ref)-3:]); !strings.HasPrefix(again.stdout, ref+"  ") {
+		if again := s.tektite("show", ref[len(ref)-3:]); !strings.HasPrefix(again.stdout, ref+"  ") {
 			t.Errorf("hash lookup = %+v", again)
 		}
 	})
@@ -549,7 +549,7 @@ func TestCLI_Check(t *testing.T) {
 	t.Run("Checking the repository", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("tk-d3f", idA, "ticket", "ghost-000", "blocks: [nowhere-111]\n", "x")
-		got := s.tkt("check")
+		got := s.tektite("check")
 		if got.code != 0 {
 			t.Fatalf("warnings only must exit 0: %+v", got)
 		}
@@ -559,7 +559,7 @@ func TestCLI_Check(t *testing.T) {
 			}
 		}
 		s.write(".tektite/nodes/bad-9e1.md", "---\ntitle: [x\n---\n")
-		bad := s.tkt("check")
+		bad := s.tektite("check")
 		if bad.code != exitError || !strings.Contains(bad.stdout, "bad-9e1.md:") || !strings.Contains(bad.stdout, "error TKT-E001") || bad.stderr != "" {
 			t.Errorf("bad = %+v", bad)
 		}
@@ -569,11 +569,11 @@ func TestCLI_Check(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/nodes/plain-3fa.md", "# Heading\ntext\n")
 		s.write(".tektite/nodes/partial-9e1.md", "---\ntitle: Partial\n---\nbody\n")
-		got := s.tkt("check")
+		got := s.tektite("check")
 		if got.code != 0 || !strings.Contains(got.stdout, "note TKT-W002") || !strings.Contains(got.stdout, "0 errors, 0 warnings, 3 notes") {
 			t.Errorf("text = %+v", got)
 		}
-		js := s.tkt("check", "--json")
+		js := s.tektite("check", "--json")
 		var rep struct {
 			Problems []struct {
 				Code     string `json:"code"`
@@ -596,7 +596,7 @@ func TestCLI_Check(t *testing.T) {
 		s := newSandbox(t)
 		s.node("tk-d3f", idA, "ticket", "ghost-000", "", "x")
 		s.write(".tektite/nodes/bad-9e1.md", "---\ntitle: [x\n---\n")
-		got := s.tkt("check", "--json")
+		got := s.tektite("check", "--json")
 		var rep struct {
 			Problems []map[string]any `json:"problems"`
 			Errors   int              `json:"errors"`
@@ -619,10 +619,10 @@ func TestCLI_Check(t *testing.T) {
 func TestCLI_Fmt(t *testing.T) {
 	const noID = "---\nkind: ticket\ntitle: Messy\nparent: \"\"\nreviewed_by:   jesus\nlabels: [a,   b]\n---\n\n# Body  \n  keep   this\n"
 
-	t.Run("A missing id is assigned by tkt fmt", func(t *testing.T) {
+	t.Run("A missing id is assigned by tektite fmt", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/nodes/messy-3fa.md", noID)
-		got := s.tkt("fmt")
+		got := s.tektite("fmt")
 		src := s.read(".tektite/nodes/messy-3fa.md")
 		if got.code != 0 || !strings.Contains(got.stdout, "updated .tektite/nodes/messy-3fa.md: assign id") {
 			t.Fatalf("result = %+v", got)
@@ -630,7 +630,7 @@ func TestCLI_Fmt(t *testing.T) {
 		if !strings.HasPrefix(src, "---\nid: 01") || !strings.HasSuffix(src, "---\n\n# Body  \n  keep   this\n") {
 			t.Errorf("node:\n%s", src)
 		}
-		if chk := s.tkt("check"); strings.Contains(chk.stdout, "TKT-W002") {
+		if chk := s.tektite("check"); strings.Contains(chk.stdout, "TKT-W002") {
 			t.Errorf("id still missing: %s", chk.stdout)
 		}
 	})
@@ -638,7 +638,7 @@ func TestCLI_Fmt(t *testing.T) {
 	t.Run("Unknown frontmatter fields are preserved", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/nodes/messy-3fa.md", noID)
-		s.tkt("fmt")
+		s.tektite("fmt")
 		src := s.read(".tektite/nodes/messy-3fa.md")
 		for _, want := range []string{"reviewed_by: jesus\n", "labels: [a, b]\n"} {
 			if !strings.Contains(src, want) {
@@ -655,7 +655,7 @@ func TestCLI_Fmt(t *testing.T) {
 		s.write(".tektite/nodes/messy-3fa.md", noID)
 		s.write(".tektite/nodes/plain-9e1.md", "# Just a heading\ntext\n")
 		s.write(".tektite/nodes/broken-7c1.md", "---\ntitle: [x\n---\nbody\n")
-		first := s.tkt("fmt")
+		first := s.tektite("fmt")
 		if !strings.Contains(first.stdout, "skipped .tektite/nodes/broken-7c1.md") || !strings.Contains(first.stdout, "add frontmatter") {
 			t.Errorf("first = %+v", first)
 		}
@@ -663,7 +663,7 @@ func TestCLI_Fmt(t *testing.T) {
 			t.Error("broken file must stay untouched")
 		}
 		snapshot := s.read(".tektite/nodes/messy-3fa.md") + s.read(".tektite/nodes/plain-9e1.md")
-		second := s.tkt("fmt")
+		second := s.tektite("fmt")
 		if strings.Contains(second.stdout, "updated") || snapshot != s.read(".tektite/nodes/messy-3fa.md")+s.read(".tektite/nodes/plain-9e1.md") {
 			t.Errorf("second = %+v", second)
 		}
@@ -676,7 +676,7 @@ func TestCLI_Fmt(t *testing.T) {
 	t.Run("Formatting keeps the values, styles and comments of fields it does not own", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/nodes/dated-3fa.md", "---\ntitle: Invented\ndate: 2024-01-05\ncreated: 2024-01-05 10:30\n# keep this comment\nquoted: 'single'\nzip: \"007\"\ntags:\n  - alpha\n  - beta\nmulti: |\n  line one\n  line two\nsummary: \"A long invented summary that goes well past eighty characters so that any line folding would be visible here\"\n---\nbody\n")
-		got := s.tkt("fmt")
+		got := s.tektite("fmt")
 		src := s.read(".tektite/nodes/dated-3fa.md")
 		if got.code != 0 || strings.Contains(got.stdout, "skipped") {
 			t.Fatalf("result = %+v", got)
@@ -689,7 +689,7 @@ func TestCLI_Fmt(t *testing.T) {
 		if !strings.HasPrefix(src, "---\nid: 01") || !strings.HasSuffix(src, "---\nbody\n") {
 			t.Errorf("node:\n%s", src)
 		}
-		again := s.tkt("fmt")
+		again := s.tektite("fmt")
 		if strings.Contains(again.stdout, "updated") || s.read(".tektite/nodes/dated-3fa.md") != src {
 			t.Errorf("second run changed the file: %+v", again)
 		}
@@ -699,7 +699,7 @@ func TestCLI_Fmt(t *testing.T) {
 		s := newSandbox(t)
 		const dangling = "---\ntitle: &t\ncopy: *t\n---\nbody\n"
 		s.write(".tektite/nodes/dangling-3fa.md", dangling)
-		got := s.tkt("fmt")
+		got := s.tektite("fmt")
 		if got.code != 0 || !strings.Contains(got.stdout, "skipped .tektite/nodes/dangling-3fa.md") || s.read(".tektite/nodes/dangling-3fa.md") != dangling {
 			t.Errorf("result = %+v", got)
 		}
@@ -708,16 +708,16 @@ func TestCLI_Fmt(t *testing.T) {
 	t.Run("Formatting", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/nodes/messy-3fa.md", noID)
-		dry := s.tkt("fmt", "--dry-run")
+		dry := s.tektite("fmt", "--dry-run")
 		if dry.code != 0 || !strings.Contains(dry.stdout, "would update .tektite/nodes/messy-3fa.md") || s.read(".tektite/nodes/messy-3fa.md") != noID {
 			t.Errorf("dry run = %+v", dry)
 		}
 		var items []map[string]any
-		decode(t, s.tkt("fmt", "--dry-run", "--json").stdout, &items)
+		decode(t, s.tektite("fmt", "--dry-run", "--json").stdout, &items)
 		if len(items) != 1 || items[0]["written"] != false {
 			t.Errorf("items = %v", items)
 		}
-		s.tkt("fmt")
+		s.tektite("fmt")
 		if s.read(".tektite/nodes/messy-3fa.md") == noID {
 			t.Error("fmt must write")
 		}
@@ -728,7 +728,7 @@ func TestCLI_Schema(t *testing.T) {
 	t.Run("The built-in kinds", func(t *testing.T) {
 		s := newSandbox(t)
 		s.write(".tektite/schemas/ticket.md", "---\nkind: ticket\nrequired: [estimate]\n---\n")
-		got := s.tkt("schema", "ls")
+		got := s.tektite("schema", "ls")
 		want := map[string]string{"decision": "built-in", "evidence": "built-in", "gap": "built-in", "plan": "built-in", "spec": "built-in", "ticket": "local"}
 		rows := map[string]string{}
 		for _, line := range strings.Split(strings.TrimSpace(got.stdout), "\n") {
@@ -744,7 +744,7 @@ func TestCLI_Schema(t *testing.T) {
 			}
 		}
 		var list []map[string]any
-		decode(t, s.tkt("schema", "ls", "--json").stdout, &list)
+		decode(t, s.tektite("schema", "ls", "--json").stdout, &list)
 		if len(list) != 6 || list[5]["kind"] != "ticket" || list[5]["source"] != "local" {
 			t.Errorf("list = %v", list)
 		}
@@ -755,14 +755,14 @@ func TestCLI_Schema(t *testing.T) {
 		const schema = "---\nkind:   ticket\nowner: team-a\nrequired: [estimate]\n---\n## Template\n### Context\n"
 		s.write(".tektite/schemas/ticket.md", schema)
 		s.node("tk-d3f", idA, "ticket", "", "", "x")
-		if got := s.tkt("fmt"); got.code != 0 {
+		if got := s.tektite("fmt"); got.code != 0 {
 			t.Fatalf("fmt = %+v", got)
 		}
 		if s.read(".tektite/schemas/ticket.md") != schema {
 			t.Errorf("schema changed:\n%s", s.read(".tektite/schemas/ticket.md"))
 		}
 		var list []map[string]any
-		decode(t, s.tkt("schema", "ls", "--json").stdout, &list)
+		decode(t, s.tektite("schema", "ls", "--json").stdout, &list)
 		extra, _ := list[5]["extra"].(map[string]any)
 		if extra["owner"] != "team-a" {
 			t.Errorf("extra = %v", list[5])

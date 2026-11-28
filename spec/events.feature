@@ -37,7 +37,7 @@ Feature: Events
 
     Scenario: A missing required field makes the event invalid
       Given a claim event with no "ttl"
-      When `tkt check` runs
+      When `tektite check` runs
       Then an error names the event and the missing field
       And the event is skipped in the fold
 
@@ -104,7 +104,7 @@ Feature: Events
 
     Scenario: A missing actor is repaired from the environment
       Given an event with no actor
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning says the actor is missing
       And the parser leaves the actor empty and the event stays valid
       And callers repair the actor from the environment, else attribute it to "unknown"
@@ -131,7 +131,7 @@ Feature: Events
       Given two set-status events from different actors with the same timestamp
       When the node's state is computed
       Then the event with the greater ULID wins
-      And `tkt check` reports the concurrent change as a note
+      And `tektite check` reports the concurrent change as a note
 
     Scenario: The shared lifecycle states are known
       Given a set-status event with status "blocked"
@@ -140,7 +140,7 @@ Feature: Events
 
     Scenario: An unknown status is accepted with a warning
       Given a set-status event with status "parked"
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the event and the unknown status
       And the computed status is "parked"
 
@@ -154,46 +154,46 @@ Feature: Events
     Scenario: A kind schema can restrict statuses
       Given a schema for kind "gap" allowing only open and done
       And a set-status event with status "review" on a gap
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the event and the disallowed status
 
   Rule: Claims are expiring leases
 
     Scenario: Claiming an open node
       Given the ticket is unclaimed
-      When agent "agent:claude-opus/s-4f2a" runs `tkt claim auth-retry-3fa`
+      When agent "agent:claude-opus/s-4f2a" runs `tektite claim auth-retry-3fa`
       Then a claim event is appended with a ttl of 30 minutes
       And the node's holder is "agent:claude-opus/s-4f2a"
       And the command exits with code 0
 
     Scenario: A claim blocks other actors while the lease is live
       Given the ticket is claimed by "agent:a" and the lease has not expired
-      When "agent:b" runs `tkt claim auth-retry-3fa`
+      When "agent:b" runs `tektite claim auth-retry-3fa`
       Then no event is appended
       And the command exits with code 4
       And the output names the holder and the lease expiry
 
     Scenario: A heartbeat extends the lease
       Given the ticket is claimed by "agent:a" with 5 minutes left
-      When "agent:a" runs `tkt heartbeat auth-retry-3fa`
+      When "agent:a" runs `tektite heartbeat auth-retry-3fa`
       Then a heartbeat event is appended
       And the lease now expires 30 minutes after the heartbeat
 
     Scenario: An expired lease can be taken over
       Given the ticket was claimed by "agent:a" and the lease expired 10 minutes ago
-      When "agent:b" runs `tkt claim auth-retry-3fa`
+      When "agent:b" runs `tektite claim auth-retry-3fa`
       Then a claim event is appended for "agent:b"
       And the holder is "agent:b"
 
     Scenario: Only the holder can heartbeat or release
       Given the ticket is claimed by "agent:a"
-      When "agent:b" runs `tkt release auth-retry-3fa`
+      When "agent:b" runs `tektite release auth-retry-3fa`
       Then no event is appended
       And the command exits with code 4
 
     Scenario: Releasing frees the node immediately
       Given the ticket is claimed by "agent:a"
-      When "agent:a" runs `tkt release auth-retry-3fa`
+      When "agent:a" runs `tektite release auth-retry-3fa`
       Then a release event is appended
       And the node has no holder
 
@@ -201,7 +201,7 @@ Feature: Events
       Given two claim events on the same node from different actors that merged from separate branches
       When the node's state is computed
       Then the claim with the lower ULID holds the lease
-      And `tkt check` reports the losing claim as a conflict note
+      And `tektite check` reports the losing claim as a conflict note
 
     Scenario: The lease time comes from the event, not the clock of the reader
       Given a claim event at 10:00 with a 30 minute ttl
@@ -212,18 +212,18 @@ Feature: Events
   Rule: Comments, notes, and links are events
 
     Scenario: Adding a note
-      When an actor runs `tkt note auth-retry-3fa "backoff needs jitter"`
+      When an actor runs `tektite note auth-retry-3fa "backoff needs jitter"`
       Then a note event is appended with that body
       And the node's history shows the note
 
     Scenario: A late link is added by event
-      When an actor runs `tkt link auth-retry-3fa implements retry-plan-9de`
+      When an actor runs `tektite link auth-retry-3fa implements retry-plan-9de`
       Then a link event is appended with type "implements" and target "retry-plan-9de"
       And the folded node has that link in addition to those in its frontmatter
 
     Scenario: Removing a late link is a new event
       Given a link event to "retry-plan-9de"
-      When an actor runs `tkt unlink auth-retry-3fa implements retry-plan-9de`
+      When an actor runs `tektite unlink auth-retry-3fa implements retry-plan-9de`
       Then an unlink event is appended
       And the folded node no longer has that link
       And the original link event is still in the history
@@ -232,7 +232,7 @@ Feature: Events
 
     Scenario: Revising a plan
       Given a plan node "retry-plan-9de"
-      When an actor runs `tkt revise retry-plan-9de` with a new body
+      When an actor runs `tektite revise retry-plan-9de` with a new body
       Then a revision event is appended containing the full new body
       And the revision gets the next number for that plan
 
@@ -243,25 +243,25 @@ Feature: Events
 
     Scenario: Diffing two revisions
       Given a plan with revisions 1 and 3
-      When a user runs `tkt diff retry-plan-9de 1 3`
+      When a user runs `tektite diff retry-plan-9de 1 3`
       Then the output is a unified diff of the two snapshot bodies
 
     Scenario: Concurrent revisions both survive
       Given two revision events with the same number from different branches
       When the plan's state is computed
       Then both revisions are kept in the history ordered by ULID
-      And `tkt check` reports that the plan has diverged
+      And `tektite check` reports that the plan has diverged
 
     Scenario: Work records which revision it was built against
       Given a ticket implementing the plan at revision 2, recorded with `--revision 2` on claim or set-status
       And the plan is now at revision 4
-      When `tkt check` runs
+      When `tektite check` runs
       Then a note says the ticket was built against an older revision
 
   Rule: Evidence is attached by event with provenance
 
     Scenario: Attaching evidence to a node
-      When an actor runs `tkt attach-evidence auth-retry-3fa --file shot.png --claim "retry banner shows"`
+      When an actor runs `tektite attach-evidence auth-retry-3fa --file shot.png --claim "retry banner shows"`
       Then the file is stored under .tektite/blobs/ by content hash
       And an evidence node is created with the parent "auth-retry-3fa"
       And an attach event on the ticket references the new evidence node
@@ -273,7 +273,7 @@ Feature: Events
 
     Scenario: Evidence without a commit SHA is flagged
       Given evidence created outside a git repository state
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning says the evidence cannot be tied to a code version
 
   Rule: Writers create event files atomically
@@ -292,7 +292,7 @@ Feature: Events
 
     Scenario: An event for a missing node is kept and reported
       Given an event under .tektite/events/ghost-000/
-      When `tkt check` runs
+      When `tektite check` runs
       Then a warning names the orphan event
       And other nodes are unaffected
 
@@ -306,7 +306,7 @@ Feature: Events
       Given an event whose frontmatter is invalid
       When the node's state is computed
       Then the event is skipped
-      And `tkt check` reports the file and the problem
+      And `tektite check` reports the file and the problem
 
     Scenario: Folding is deterministic
       Given the same set of event files on two machines

@@ -1,6 +1,6 @@
 /bin/
 /dist/
-/tkt
+/tektite
 *.test
 *.out
 coverage.*

@@ -18,7 +18,7 @@ type checkDoc struct {
 
 func staleCodes(t *testing.T, s *sandbox, args ...string) []string {
 	t.Helper()
-	res := s.tkt(append([]string{"check", "--json"}, args...)...)
+	res := s.tektite(append([]string{"check", "--json"}, args...)...)
 	var doc checkDoc
 	decode(t, res.stdout, &doc)
 	out := []string{}
@@ -76,13 +76,13 @@ func exists(s *sandbox, name string) bool {
 func TestCLI_GC(t *testing.T) {
 	t.Run("Unreferenced blobs are removed by gc", func(t *testing.T) {
 		s, kept, lost := gcSandbox(t)
-		res := s.tkt("gc", "--blobs", "--dry-run", "--json")
+		res := s.tektite("gc", "--blobs", "--dry-run", "--json")
 		var doc gcResult
 		decode(t, res.stdout, &doc)
 		if res.code != 0 || !doc.DryRun || !slices.Equal(doc.Removed, []string{lost}) || !exists(s, lost) {
 			t.Fatalf("dry run should list %s and keep it: %+v exit %d", lost, doc, res.code)
 		}
-		res = s.tkt("gc", "--blobs")
+		res = s.tektite("gc", "--blobs")
 		if res.code != 0 || !strings.Contains(res.stdout, "removed blobs/"+lost) {
 			t.Fatalf("exit %d: %s%s", res.code, res.stdout, res.stderr)
 		}
@@ -93,7 +93,7 @@ func TestCLI_GC(t *testing.T) {
 
 	t.Run("Gc needs a target", func(t *testing.T) {
 		s, _, lost := gcSandbox(t)
-		res := s.tkt("gc")
+		res := s.tektite("gc")
 		if res.code != 2 || !exists(s, lost) {
 			t.Errorf("want exit 2 and nothing removed, got %d, blob present %v", res.code, exists(s, lost))
 		}

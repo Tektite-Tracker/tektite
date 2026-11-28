@@ -72,7 +72,7 @@ func main() {
 func run(args []string, out, errw io.Writer) int {
 	flags := flag.NewFlagSet("realnotes", flag.ContinueOnError)
 	flags.SetOutput(errw)
-	tkt := flags.String("tkt", "bin/tkt", "path to the tkt binary")
+	tektite := flags.String("tektite", "bin/tektite", "path to the tektite binary")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -83,7 +83,7 @@ func run(args []string, out, errw io.Writer) int {
 	exit := 0
 	for i, dir := range flags.Args() {
 		_, _ = fmt.Fprintf(out, "== folder %d ==\n", i+1)
-		rep, err := analyse(dir, *tkt)
+		rep, err := analyse(dir, *tektite)
 		if err != nil {
 			_, _ = fmt.Fprintf(out, "error: %s\n", classifyErr(err))
 			exit = 1
@@ -104,7 +104,7 @@ func classifyErr(err error) string {
 	return "analysis failed"
 }
 
-func analyse(dir, tkt string) (*report, error) {
+func analyse(dir, tektite string) (*report, error) {
 	files, skipped, err := collect(dir)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func analyse(dir, tkt string) (*report, error) {
 		contents = append(contents, src)
 		rep.parseOne(src)
 	}
-	rep.cliPhase(contents, tkt)
+	rep.cliPhase(contents, tektite)
 	return rep, nil
 }
 
@@ -258,13 +258,13 @@ func (r *report) shapeOf(src []byte, n *parse.Node) {
 	}
 }
 
-type tktResult struct {
+type tektiteResult struct {
 	stdout []byte
 	code   int
 	panic  bool
 }
 
-func (r *report) tkt(bin, dir string, args ...string) tktResult {
+func (r *report) tektite(bin, dir string, args ...string) tektiteResult {
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
@@ -274,7 +274,7 @@ func (r *report) tkt(bin, dir string, args ...string) tktResult {
 	start := time.Now()
 	err := cmd.Run()
 	r.timings[args[0]] += time.Since(start)
-	res := tktResult{stdout: out.Bytes()}
+	res := tektiteResult{stdout: out.Bytes()}
 	if err != nil {
 		res.code = -1
 		var ee *exec.ExitError
@@ -319,7 +319,7 @@ func (r *report) cliPhase(contents [][]byte, bin string) {
 	r.runShow(bin, tmp, refs)
 }
 
-func (r *report) note(name string, res tktResult) {
+func (r *report) note(name string, res tektiteResult) {
 	r.cli[name+" exit "+fmt.Sprint(res.code)]++
 	if res.panic {
 		r.cli[name+" panics"]++
@@ -327,7 +327,7 @@ func (r *report) note(name string, res tktResult) {
 }
 
 func (r *report) runCheck(bin, dir string) {
-	res := r.tkt(bin, dir, "check", "--json")
+	res := r.tektite(bin, dir, "check", "--json")
 	r.note("check", res)
 	var rep struct {
 		Problems []struct {
@@ -346,7 +346,7 @@ func (r *report) runCheck(bin, dir string) {
 }
 
 func (r *report) runLs(bin, dir string) []string {
-	res := r.tkt(bin, dir, "ls", "--json")
+	res := r.tektite(bin, dir, "ls", "--json")
 	r.note("ls", res)
 	var list []struct {
 		Ref    string `json:"ref"`
@@ -370,7 +370,7 @@ func (r *report) runLs(bin, dir string) []string {
 }
 
 func (r *report) runFmt(bin, dir string) {
-	res := r.tkt(bin, dir, "fmt", "--dry-run", "--json")
+	res := r.tektite(bin, dir, "fmt", "--dry-run", "--json")
 	r.note("fmt", res)
 	var items []struct {
 		Changes []string `json:"changes"`
@@ -392,9 +392,9 @@ func (r *report) runFmt(bin, dir string) {
 }
 
 func (r *report) runFmtWrite(bin, dir string, contents [][]byte) {
-	res := r.tkt(bin, dir, "fmt", "--json")
+	res := r.tektite(bin, dir, "fmt", "--json")
 	r.note("fmt write", res)
-	again := r.tkt(bin, dir, "fmt", "--dry-run", "--json")
+	again := r.tektite(bin, dir, "fmt", "--dry-run", "--json")
 	var items []struct {
 		Changes []string `json:"changes"`
 	}
@@ -429,7 +429,7 @@ func (r *report) runFmtWrite(bin, dir string, contents [][]byte) {
 
 func (r *report) runShow(bin, dir string, refs []string) {
 	for _, ref := range refs {
-		res := r.tkt(bin, dir, "show", ref, "--json")
+		res := r.tektite(bin, dir, "show", ref, "--json")
 		r.note("show", res)
 	}
 }
@@ -444,7 +444,7 @@ func (r *report) print(w io.Writer) {
 	r.codes.lines(w, "  ")
 	p("shape:\n")
 	r.shape.lines(w, "  ")
-	p("tkt:\n")
+	p("tektite:\n")
 	r.cli.lines(w, "  ")
 	r.cliSites.lines(w, "  panic site ")
 	names := make([]string, 0, len(r.timings))

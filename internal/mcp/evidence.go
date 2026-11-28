@@ -5,12 +5,12 @@ import (
 )
 
 func (s *Server) runDisabled() error {
-	return &service.Error{Kind: service.KindPolicy, Msg: "running commands is disabled", Hint: "start the server with `tkt mcp --allow-run` to enable it"}
+	return &service.Error{Kind: service.KindPolicy, Msg: "running commands is disabled", Hint: "start the server with `tektite mcp --allow-run` to enable it"}
 }
 
 func (s *Server) evidenceTools() []tool {
 	return []tool{
-		{"tkt_attach_evidence", "Attach text, or the output of a command, as evidence to a node.", []param{
+		{"tektite_attach_evidence", "Attach text, or the output of a command, as evidence to a node.", []param{
 			refParam,
 			{"claim", "string", "what the evidence proves", true},
 			{"text", "string", "the evidence text", false},
@@ -38,7 +38,7 @@ func (s *Server) evidenceTools() []tool {
 			}
 			return svc.AttachEvidence(service.AttachInput{Ref: in.Ref, Data: []byte(in.Text), Ext: ".txt", Claim: in.Claim, Command: in.Command, ExitCode: in.ExitCode, Actor: in.Actor, AllowLarge: in.AllowLarge, Run: in.Run})
 		})},
-		{"tkt_rerun", "Run the recorded command of an evidence node again and record a superseding evidence node.", []param{refParam, actorParam}, bind(func(svc *service.Service, in refActorArgs) (any, error) {
+		{"tektite_rerun", "Run the recorded command of an evidence node again and record a superseding evidence node.", []param{refParam, actorParam}, bind(func(svc *service.Service, in refActorArgs) (any, error) {
 			if !s.opts.AllowRun {
 				return nil, s.runDisabled()
 			}

@@ -29,8 +29,8 @@ const (
 var rules = map[string]bool{RuleApproval: true, RuleEvidence: true, RuleNoGaps: true}
 
 var hints = map[string]string{
-	RuleApproval: "ask a human to run `tkt approve` on the plan",
-	RuleEvidence: "attach passing evidence with `tkt attach-evidence`",
+	RuleApproval: "ask a human to run `tektite approve` on the plan",
+	RuleEvidence: "attach passing evidence with `tektite attach-evidence`",
 	RuleNoGaps:   "close the open gaps",
 }
 

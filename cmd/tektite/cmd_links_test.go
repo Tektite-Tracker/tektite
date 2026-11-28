@@ -23,7 +23,7 @@ type showLinks struct {
 func (s *sandbox) links(ref string) showLinks {
 	s.t.Helper()
 	var doc showLinks
-	decode(s.t, s.tkt("show", ref, "--json").stdout, &doc)
+	decode(s.t, s.tektite("show", ref, "--json").stdout, &doc)
 	return doc
 }
 
@@ -48,7 +48,7 @@ func TestCLI_Links(t *testing.T) {
 
 	t.Run("A late link is added by event", func(t *testing.T) {
 		s := linkSandbox(t)
-		res := s.tkt("link", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
+		res := s.tektite("link", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
 		if res.code != 0 {
 			t.Fatalf("exit %d: %s", res.code, res.stderr)
 		}
@@ -71,11 +71,11 @@ func TestCLI_Links(t *testing.T) {
 
 	t.Run("Removing a late link is a new event", func(t *testing.T) {
 		s := linkSandbox(t)
-		added := s.tkt("link", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
+		added := s.tektite("link", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
 		var first appended
 		decode(t, added.stdout, &first)
 		s.now = s.now.Add(time.Minute)
-		res := s.tkt("unlink", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
+		res := s.tektite("unlink", "ticket-a-3f1", "blocks", "ticket-b-3f3", "--json")
 		if res.code != 0 {
 			t.Fatalf("exit %d: %s", res.code, res.stderr)
 		}
@@ -114,7 +114,7 @@ func TestCLI_Links(t *testing.T) {
 		if len(got.Backlinks) != 1 || got.Backlinks[0].Rel != "implemented-by" || got.Backlinks[0].Ref != "ticket-a-3f1" {
 			t.Errorf("backlinks = %+v", got.Backlinks)
 		}
-		if out := s.tkt("show", "plan-p-3f2"); !strings.Contains(out.stdout, "implemented-by: ticket-a-3f1") {
+		if out := s.tektite("show", "plan-p-3f2"); !strings.Contains(out.stdout, "implemented-by: ticket-a-3f1") {
 			t.Errorf("show = %s", out.stdout)
 		}
 	})
@@ -146,7 +146,7 @@ func TestCLI_Links(t *testing.T) {
 		if got := nextRefs(t, s, "--limit", "9"); !strings.Contains(strings.Join(got, " "), "ticket-d-3f5") {
 			t.Errorf("next = %v", got)
 		}
-		out := s.tkt("check")
+		out := s.tektite("check")
 		if !strings.Contains(out.stdout, "note TKT-N102") || !strings.Contains(out.stdout, "ticket-d-3f5.md") {
 			t.Errorf("check = %s", out.stdout)
 		}
@@ -156,10 +156,10 @@ func TestCLI_Links(t *testing.T) {
 		s := newSandbox(t)
 		s.node("ticket-a-3f1", "01HZ3K8Q5W2X9N4T7V6B1C0D01", "ticket", "", "blocks: [ticket-b-3f3]\n", "x")
 		s.node("ticket-b-3f3", "01HZ3K8Q5W2X9N4T7V6B1C0D03", "ticket", "", "blocks: [ticket-a-3f1]\n", "x")
-		if got := s.tkt("next"); got.code != exitNotFound {
+		if got := s.tektite("next"); got.code != exitNotFound {
 			t.Errorf("next = %+v", got)
 		}
-		out := s.tkt("check")
+		out := s.tektite("check")
 		if out.code != 0 || !strings.Contains(out.stdout, "TKT-W112") || !strings.Contains(out.stdout, "ticket-a-3f1 is blocked by ticket-b-3f3 is blocked by ticket-a-3f1") {
 			t.Errorf("check = %+v", out)
 		}
@@ -169,10 +169,10 @@ func TestCLI_Links(t *testing.T) {
 		s := newSandbox(t)
 		s.node("plan-p1-3f1", "01HZ3K8Q5W2X9N4T7V6B1C0D01", "plan", "", "", "x")
 		s.node("plan-p2-3f2", "01HZ3K8Q5W2X9N4T7V6B1C0D02", "plan", "", "supersedes: [plan-p1-3f1]\n", "x")
-		if got := s.tkt("ls"); strings.Contains(got.stdout, "plan-p1-3f1") || !strings.Contains(got.stdout, "plan-p2-3f2") {
+		if got := s.tektite("ls"); strings.Contains(got.stdout, "plan-p1-3f1") || !strings.Contains(got.stdout, "plan-p2-3f2") {
 			t.Errorf("ls = %s", got.stdout)
 		}
-		if got := s.tkt("ls", "--all"); !strings.Contains(got.stdout, "plan-p1-3f1") || !strings.Contains(got.stdout, "plan-p2-3f2") {
+		if got := s.tektite("ls", "--all"); !strings.Contains(got.stdout, "plan-p1-3f1") || !strings.Contains(got.stdout, "plan-p2-3f2") {
 			t.Errorf("ls --all = %s", got.stdout)
 		}
 	})
@@ -182,7 +182,7 @@ func TestCLI_Links(t *testing.T) {
 		s.node("plan-p1-3f1", "01HZ3K8Q5W2X9N4T7V6B1C0D01", "plan", "", "", "x")
 		s.node("plan-p2-3f2", "01HZ3K8Q5W2X9N4T7V6B1C0D02", "plan", "", "supersedes: [plan-p1-3f1]\n", "x")
 		s.event("plan-p1-3f1", "01HZ3M0A1B2C3D4E5F6G7H8J91", "note", "2026-11-27T09:00:00Z", "")
-		got := s.tkt("show", "plan-p1-3f1")
+		got := s.tektite("show", "plan-p1-3f1")
 		if !strings.Contains(got.stdout, "superseded-by: plan-p2-3f2") || !strings.Contains(got.stdout, "note") {
 			t.Errorf("show = %s", got.stdout)
 		}
@@ -191,11 +191,11 @@ func TestCLI_Links(t *testing.T) {
 	t.Run("A link to a missing node", func(t *testing.T) {
 		s := linkSandbox(t)
 		s.node("ticket-e-3f6", "01HZ3K8Q5W2X9N4T7V6B1C0D06", "ticket", "", "evidences: [ghost-000]\n", "x")
-		out := s.tkt("check")
+		out := s.tektite("check")
 		if out.code != 0 || !strings.Contains(out.stdout, "TKT-W101") || !strings.Contains(out.stdout, "evidences") || !strings.Contains(out.stdout, "ghost-000") {
 			t.Errorf("check = %+v", out)
 		}
-		if show := s.tkt("show", "ticket-e-3f6"); show.code != 0 {
+		if show := s.tektite("show", "ticket-e-3f6"); show.code != 0 {
 			t.Errorf("show = %+v", show)
 		}
 	})

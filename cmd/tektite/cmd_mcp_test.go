@@ -19,7 +19,7 @@ type rpcMsg struct {
 
 func (s *sandbox) mcp(flags []string, msgs ...string) []rpcMsg {
 	s.t.Helper()
-	res := s.tktIn(s.root, strings.Join(msgs, "\n")+"\n", append([]string{"mcp"}, flags...)...)
+	res := s.tektiteIn(s.root, strings.Join(msgs, "\n")+"\n", append([]string{"mcp"}, flags...)...)
 	if res.code != 0 {
 		s.t.Fatalf("mcp exit %d: %s", res.code, res.stderr)
 	}
@@ -77,7 +77,7 @@ func TestCLI_MCP(t *testing.T) {
 		}
 		info, _ := replies[0].Result["serverInfo"].(map[string]any)
 		caps, _ := replies[0].Result["capabilities"].(map[string]any)
-		if info["name"] != "tkt" || info["version"] == "" || caps["tools"] == nil || replies[0].Result["protocolVersion"] != "2025-03-26" {
+		if info["name"] != "tektite" || info["version"] == "" || caps["tools"] == nil || replies[0].Result["protocolVersion"] != "2025-03-26" {
 			t.Errorf("unexpected initialize result: %v", replies[0].Result)
 		}
 	})
@@ -96,8 +96,8 @@ func TestCLI_MCP(t *testing.T) {
 			have[tool["name"].(string)] = true
 		}
 		for _, want := range []string{"show", "ls", "next", "context", "check", "new", "set_status", "note", "link", "unlink", "claim", "heartbeat", "release", "approve", "revise", "attach_evidence", "rerun", "close_gap", "policy_explain"} {
-			if !have["tkt_"+want] {
-				t.Errorf("tool tkt_%s is missing", want)
+			if !have["tektite_"+want] {
+				t.Errorf("tool tektite_%s is missing", want)
 			}
 		}
 	})
@@ -112,8 +112,8 @@ func TestCLI_MCP(t *testing.T) {
 
 	t.Run("Reading a node through a tool", func(t *testing.T) {
 		s := eventSandbox(t)
-		text, isError := s.callTool(nil, "tkt_show", map[string]any{"ref": "auth-retry-3fa"})
-		cli := s.tkt("show", "auth-retry-3fa", "--json")
+		text, isError := s.callTool(nil, "tektite_show", map[string]any{"ref": "auth-retry-3fa"})
+		cli := s.tektite("show", "auth-retry-3fa", "--json")
 		if isError || strings.TrimSpace(text) != strings.TrimSpace(cli.stdout) {
 			t.Errorf("tool result differs from the CLI:\n%s\n%s", text, cli.stdout)
 		}
@@ -121,7 +121,7 @@ func TestCLI_MCP(t *testing.T) {
 
 	t.Run("Writing through a tool appends the same event as the CLI", func(t *testing.T) {
 		s := eventSandbox(t)
-		text, isError := s.callTool(nil, "tkt_set_status", map[string]any{"ref": "auth-retry-3fa", "status": "review", "actor": "agent:claude"})
+		text, isError := s.callTool(nil, "tektite_set_status", map[string]any{"ref": "auth-retry-3fa", "status": "review", "actor": "agent:claude"})
 		var doc struct {
 			Event, Type, Actor, Path string
 		}
@@ -135,7 +135,7 @@ func TestCLI_MCP(t *testing.T) {
 
 	t.Run("A refused write is a tool error with its kind and hint", func(t *testing.T) {
 		s := policySandbox(t, "x", gateEvidence)
-		text, isError := s.callTool(nil, "tkt_set_status", map[string]any{"ref": "auth-retry-3fa", "status": "done", "actor": "agent:claude"})
+		text, isError := s.callTool(nil, "tektite_set_status", map[string]any{"ref": "auth-retry-3fa", "status": "done", "actor": "agent:claude"})
 		var doc struct {
 			Kind, Hint string
 			Gates      []struct{ Name string }
@@ -151,7 +151,7 @@ func TestCLI_MCP(t *testing.T) {
 	t.Run("Warnings are returned as diagnostics", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("auth-retry-3fa", idA, "ticket", "", "", "x")
-		text, isError := s.callTool(nil, "tkt_note", map[string]any{"ref": "auth-retry-3fa", "text": "hello"})
+		text, isError := s.callTool(nil, "tektite_note", map[string]any{"ref": "auth-retry-3fa", "text": "hello"})
 		var doc struct {
 			Warnings []struct{ Code, Severity string }
 		}
@@ -162,7 +162,7 @@ func TestCLI_MCP(t *testing.T) {
 
 	t.Run("Evidence can be attached from text", func(t *testing.T) {
 		s := evidenceSandbox(t)
-		text, isError := s.callTool(nil, "tkt_attach_evidence", map[string]any{"ref": "auth-retry-3fa", "claim": "it works", "text": "all green"})
+		text, isError := s.callTool(nil, "tektite_attach_evidence", map[string]any{"ref": "auth-retry-3fa", "claim": "it works", "text": "all green"})
 		var doc attachDoc
 		if err := json.Unmarshal([]byte(text), &doc); err != nil || isError || doc.Evidence == "" || !doc.Stored || doc.Hash != sha("all green") {
 			t.Fatalf("unexpected result (error=%v): %s", isError, text)
@@ -176,8 +176,8 @@ func TestCLI_MCP(t *testing.T) {
 		s := evidenceSandbox(t)
 		before, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes"))
 		for tool, args := range map[string]map[string]any{
-			"tkt_attach_evidence": {"ref": "auth-retry-3fa", "claim": "x", "run": "echo hi"},
-			"tkt_rerun":           {"ref": "auth-retry-3fa"},
+			"tektite_attach_evidence": {"ref": "auth-retry-3fa", "claim": "x", "run": "echo hi"},
+			"tektite_rerun":           {"ref": "auth-retry-3fa"},
 		} {
 			text, isError := s.callTool(nil, tool, args)
 			if !isError || !strings.Contains(text, "disabled") {
@@ -187,7 +187,7 @@ func TestCLI_MCP(t *testing.T) {
 		if after, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes")); len(after) != len(before) {
 			t.Errorf("nothing should be written")
 		}
-		text, isError := s.callTool([]string{"--allow-run"}, "tkt_attach_evidence", map[string]any{"ref": "auth-retry-3fa", "claim": "x", "run": "echo hi"})
+		text, isError := s.callTool([]string{"--allow-run"}, "tektite_attach_evidence", map[string]any{"ref": "auth-retry-3fa", "claim": "x", "run": "echo hi"})
 		if isError || !strings.Contains(text, "evidence") {
 			t.Errorf("--allow-run should enable it, got error=%v: %s", isError, text)
 		}
