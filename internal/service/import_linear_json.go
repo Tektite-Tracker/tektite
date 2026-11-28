@@ -1,11 +1,7 @@
 package service
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -18,48 +14,17 @@ const linearTruncated = "(truncated, use `get_issue` for full description)"
 var linearImage = regexp.MustCompile(`(?s)<linear-image>.*?</linear-image>`)
 
 func readLinearJSON(path string, res *ImportResult) (*importData, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("import-linear: %w", err)
-	}
-	raw = bytes.TrimPrefix(bytes.TrimSpace(raw), []byte("\xef\xbb\xbf"))
-	var list []any
-	switch raw[0] {
-	case '[':
-		if err := json.Unmarshal(raw, &list); err != nil {
-			return nil, usageError("%s is not valid JSON: %v", filepath.ToSlash(path), err)
-		}
-	default:
-		var doc map[string]any
-		if err := json.Unmarshal(raw, &doc); err != nil {
-			return nil, usageError("%s is not valid JSON: %v", filepath.ToSlash(path), err)
-		}
-		if issues, ok := doc["issues"].([]any); ok {
-			list = issues
-		} else if _, ok := doc["id"]; ok {
-			list = []any{doc}
-		} else {
-			return nil, usageError("not a Linear JSON export, expected an issues list or issue objects with an id and a title")
-		}
-	}
-	data := &importData{}
-	seen := map[string]bool{}
-	for n, e := range list {
-		obj, _ := e.(map[string]any)
-		id, title := strings.TrimSpace(str(obj["id"])), strings.TrimSpace(str(obj["title"]))
-		line := n + 1
-		switch {
-		case id == "" || title == "":
-			res.Warnings = append(res.Warnings, importDiag(parse.CodeImportSkipped, line, "id", "issue %d has no id or title, skipped", n+1))
-			continue
-		case seen[id]:
-			res.Warnings = append(res.Warnings, importDiag(parse.CodeImportSkipped, line, "id", "issue %q appears more than once, the first one is used", id))
-			continue
-		}
-		seen[id] = true
-		data.issues = append(data.issues, linearJSONIssue(id, title, line, obj))
-	}
-	return data, nil
+	return readJSONIssues(path, res, jsonExport{
+		tracker:   "import-linear",
+		single:    "id",
+		notExport: "not a Linear JSON export, expected an issues list or issue objects with an id and a title",
+		idField:   "id",
+		missing:   "id or title",
+		idTitle: func(obj map[string]any) (string, string) {
+			return str(obj["id"]), str(obj["title"])
+		},
+		build: linearJSONIssue,
+	})
 }
 
 func linearJSONIssue(id, title string, line int, o map[string]any) *importIssue {
@@ -84,10 +49,10 @@ func linearJSONIssue(id, title string, line int, o map[string]any) *importIssue 
 		}
 	}
 	is.parent = nameOfString(o["parentId"])
-	is.createdAt = csvTime(is, str(o["createdAt"]), "createdAt")
-	is.startedAt = csvTime(is, str(o["startedAt"]), "startedAt")
-	is.completedAt = csvTime(is, str(o["completedAt"]), "completedAt")
-	is.canceledAt = csvTime(is, str(o["canceledAt"]), "canceledAt")
+	is.createdAt = csvTimeFormat.parse(is, str(o["createdAt"]), "createdAt")
+	is.startedAt = csvTimeFormat.parse(is, str(o["startedAt"]), "startedAt")
+	is.completedAt = csvTimeFormat.parse(is, str(o["completedAt"]), "completedAt")
+	is.canceledAt = csvTimeFormat.parse(is, str(o["canceledAt"]), "canceledAt")
 	is.closedAt = is.completedAt
 	if !is.canceledAt.IsZero() {
 		is.closedAt = is.canceledAt
@@ -120,13 +85,6 @@ func linearJSONIssue(id, title string, line int, o map[string]any) *importIssue 
 	}
 	is.extra = extra
 	return is
-}
-
-func nameOfString(v any) string {
-	if s, ok := v.(string); ok {
-		return strings.TrimSpace(s)
-	}
-	return nameOf(v)
 }
 
 func estimateOf(v any) string {

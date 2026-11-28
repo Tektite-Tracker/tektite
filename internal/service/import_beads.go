@@ -38,7 +38,6 @@ var (
 		"comments": true, "assignee": true, "close_reason": true, "created_at": true, "closed_at": true,
 		"_type": true, "comment_count": true, "dependency_count": true, "dependent_count": true, "updated_at": true,
 	}
-	beadsTaken = map[string]bool{"id": true, "kind": true, "title": true, "parent": true, sourceField: true, sourceIDField: true, "priority": true, "labels": true, "assignee": true}
 )
 
 type beadsSource struct{}
@@ -145,7 +144,7 @@ func beadsIssueOf(id, title string, line int, raw map[string]any) *importIssue {
 			continue
 		}
 		name := k
-		if beadsTaken[k] {
+		if trackerTaken[k] {
 			name = "beads_" + k
 		}
 		is.extra = append(is.extra, node.Field{Key: name, Value: v})

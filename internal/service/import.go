@@ -164,23 +164,9 @@ func (m *importer) ensure(id string) error {
 	}
 	m.done[id] = true
 	existing := is.ref != ""
-	parentRef := ""
-	if is.parent != "" {
-		parent := m.issues[is.parent]
-		switch {
-		case parent == nil:
-			m.warn(is, parse.CodeImportSkipped, "dependencies", "parent %q is not in the export, imported without a parent", is.parent)
-		case m.visiting[is.parent]:
-			m.warn(is, parse.CodeImportSkipped, "dependencies", "parent %q forms a cycle, imported without a parent", is.parent)
-		default:
-			m.visiting[id] = true
-			err := m.ensure(is.parent)
-			delete(m.visiting, id)
-			if err != nil {
-				return err
-			}
-			parentRef = parent.ref
-		}
+	parentRef, err := m.parentRef(is)
+	if err != nil {
+		return err
 	}
 	m.emit(is, is.statusWarns)
 	item := ImportItem{SourceID: id, Ref: is.ref, Title: is.title, Kind: is.kind, Status: is.status, Action: actionSkip}
@@ -197,11 +183,37 @@ func (m *importer) ensure(id string) error {
 		m.res.Items = append(m.res.Items, item)
 		return nil
 	}
+	return m.create(is, item, parentRef)
+}
+
+func (m *importer) parentRef(is *importIssue) (string, error) {
+	if is.parent == "" {
+		return "", nil
+	}
+	parent := m.issues[is.parent]
+	switch {
+	case parent == nil:
+		m.warn(is, parse.CodeImportSkipped, "dependencies", "parent %q is not in the export, imported without a parent", is.parent)
+		return "", nil
+	case m.visiting[is.parent]:
+		m.warn(is, parse.CodeImportSkipped, "dependencies", "parent %q forms a cycle, imported without a parent", is.parent)
+		return "", nil
+	}
+	m.visiting[is.id] = true
+	err := m.ensure(is.parent)
+	delete(m.visiting, is.id)
+	if err != nil {
+		return "", err
+	}
+	return parent.ref, nil
+}
+
+func (m *importer) create(is *importIssue, item ImportItem, parentRef string) error {
 	fields := m.fields(is)
 	m.emit(is, is.createWarns)
 	created, err := m.s.Repo.CreateNode(m.snap, m.at(is.createdAt), m.s.Rand, store.NewNode{Kind: is.kind, Title: is.title, Parent: parentRef, Extra: fields, Body: is.body})
 	if err != nil {
-		return fmt.Errorf("import-%s: %s: %w", m.tracker, id, err)
+		return fmt.Errorf("import-%s: %s: %w", m.tracker, is.id, err)
 	}
 	is.ref, item.Ref = created.Ref, created.Ref
 	if m.snap, err = m.s.load(); err != nil {
@@ -225,31 +237,48 @@ func (m *importer) fields(is *importIssue) []node.Field {
 	return append(fields, is.extra...)
 }
 
+type importNote struct {
+	text string
+	at   time.Time
+}
+
 func (m *importer) events(is *importIssue) error {
 	if is.status != event.StatusOpen {
-		at := is.createdAt
-		switch is.status {
-		case event.StatusDone, event.StatusDropped:
-			at = is.closedAt
-		case event.StatusActive:
-			if !is.startedAt.IsZero() {
-				at = is.startedAt
-			}
-		}
-		if _, err := m.s.appendEvent(eventInput{typ: parse.EventSetStatus, query: is.ref, actor: m.actor, at: m.at(at), prepare: func(context) (step, error) {
-			return step{fields: []node.Field{{Key: "status", Value: is.status}}}, nil
-		}}); err != nil {
-			return fmt.Errorf("import-%s: %s: %w", m.tracker, is.id, err)
+		if err := m.statusEvent(is); err != nil {
+			return err
 		}
 	}
 	m.emit(is, is.eventWarns)
-	type note struct {
-		text string
-		at   time.Time
+	for _, n := range m.notes(is) {
+		if _, err := m.s.Note(NoteInput{Ref: is.ref, Text: n.text, Actor: m.actor, At: n.at}); err != nil {
+			return fmt.Errorf("import-%s: %s: %w", m.tracker, is.id, err)
+		}
 	}
-	notes := []note{}
+	return nil
+}
+
+func (m *importer) statusEvent(is *importIssue) error {
+	at := is.createdAt
+	switch is.status {
+	case event.StatusDone, event.StatusDropped:
+		at = is.closedAt
+	case event.StatusActive:
+		if !is.startedAt.IsZero() {
+			at = is.startedAt
+		}
+	}
+	if _, err := m.s.appendEvent(eventInput{typ: parse.EventSetStatus, query: is.ref, actor: m.actor, at: m.at(at), prepare: func(context) (step, error) {
+		return step{fields: []node.Field{{Key: "status", Value: is.status}}}, nil
+	}}); err != nil {
+		return fmt.Errorf("import-%s: %s: %w", m.tracker, is.id, err)
+	}
+	return nil
+}
+
+func (m *importer) notes(is *importIssue) []importNote {
+	notes := []importNote{}
 	if is.closeNote != "" {
-		notes = append(notes, note{is.closeNote, m.at(is.closedAt)})
+		notes = append(notes, importNote{is.closeNote, m.at(is.closedAt)})
 	}
 	for _, c := range is.comments {
 		text := c.text
@@ -260,43 +289,18 @@ func (m *importer) events(is *importIssue) error {
 		if at.IsZero() {
 			at = m.at(is.createdAt)
 		}
-		notes = append(notes, note{text, at})
+		notes = append(notes, importNote{text, at})
 	}
-	for _, n := range notes {
-		if _, err := m.s.Note(NoteInput{Ref: is.ref, Text: n.text, Actor: m.actor, At: n.at}); err != nil {
-			return fmt.Errorf("import-%s: %s: %w", m.tracker, is.id, err)
-		}
-	}
-	return nil
+	return notes
 }
 
 func (m *importer) link(is *importIssue) error {
 	for _, l := range is.links {
-		other := m.issues[l.other]
-		switch {
-		case l.unmaps != "":
-			m.warn(is, parse.CodeImportUnmapped, "dependencies", "%s", l.unmaps)
-			continue
-		case other == nil:
-			m.warn(is, parse.CodeImportSkipped, "dependencies", "dependency on %q is not in the export, not imported", l.other)
+		other, ok := m.linkTarget(is, l)
+		if !ok {
 			continue
 		}
-		blocker, blocked := is, other
-		if l.inbound {
-			blocker, blocked = other, is
-		}
-		if l.rel == relBlocks && blocker.status == event.StatusDropped && blocked.status != event.StatusDropped {
-			m.warn(is, parse.CodeImportSkipped, "dependencies", "dependency on deleted issue %q would block a live ticket, not imported", l.other)
-			continue
-		}
-		from, to := is.id, other.id
-		if l.inbound {
-			from, to = other.id, is.id
-		}
-		if l.rel == relRelates && from > to {
-			from, to = to, from
-		}
-		key := l.rel + "\x00" + from + "\x00" + to
+		key := linkKey(is, other, l)
 		if m.seen[key] {
 			continue
 		}
@@ -314,6 +318,38 @@ func (m *importer) link(is *importIssue) error {
 		}
 	}
 	return nil
+}
+
+func (m *importer) linkTarget(is *importIssue, l importLink) (*importIssue, bool) {
+	other := m.issues[l.other]
+	switch {
+	case l.unmaps != "":
+		m.warn(is, parse.CodeImportUnmapped, "dependencies", "%s", l.unmaps)
+		return nil, false
+	case other == nil:
+		m.warn(is, parse.CodeImportSkipped, "dependencies", "dependency on %q is not in the export, not imported", l.other)
+		return nil, false
+	}
+	blocker, blocked := is, other
+	if l.inbound {
+		blocker, blocked = other, is
+	}
+	if l.rel == relBlocks && blocker.status == event.StatusDropped && blocked.status != event.StatusDropped {
+		m.warn(is, parse.CodeImportSkipped, "dependencies", "dependency on deleted issue %q would block a live ticket, not imported", l.other)
+		return nil, false
+	}
+	return other, true
+}
+
+func linkKey(is, other *importIssue, l importLink) string {
+	from, to := is.id, other.id
+	if l.inbound {
+		from, to = other.id, is.id
+	}
+	if l.rel == relRelates && from > to {
+		from, to = to, from
+	}
+	return l.rel + "\x00" + from + "\x00" + to
 }
 
 func importDiag(code string, line int, field, format string, args ...any) parse.Diagnostic {
