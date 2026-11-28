@@ -41,6 +41,10 @@ func (s *sandbox) evidence(exit string) {
 	s.node("shot-5de", idEv, "evidence", "auth-retry-3fa", extra, "proof")
 }
 
+func (s *sandbox) evidenceFor(parent, id string) {
+	s.node("shot-"+id[len(id)-3:], id, "evidence", parent, "provenance:\n  actor: human:jesus\n  exit_code: 0\n", "proof")
+}
+
 func countEvents(t *testing.T, s *sandbox, ref string) int {
 	t.Helper()
 	return len(eventFiles(t, s, ref))

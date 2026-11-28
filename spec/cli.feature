@@ -120,6 +120,29 @@ Feature: Command line
       When a user runs `tektite ls --kind ticket --status open --under auth-hardening-7c1`
       Then only matching nodes are listed
 
+    Scenario: Listing what needs approval
+      Given a policy "plans require human approval before work"
+      And a plan with no approval at its current revision
+      When a user runs `tektite ls --needs approval`
+      Then only that plan is listed
+      And an approved plan is not listed
+
+    Scenario: Listing what needs an override
+      Given a policy with a completion gate
+      And a ticket in review that fails that gate
+      When a user runs `tektite ls --needs override`
+      Then only that ticket is listed
+      And a ticket in review that passes every gate is not listed
+
+    Scenario: Listing what needs review
+      When a user runs `tektite ls --needs review`
+      Then only nodes with status "review" are listed
+
+    Scenario: An unknown needs value is a usage error
+      When a user runs `tektite ls --needs lunch`
+      Then the command exits with code 2
+      And an empty result lists as [] with --json
+
     Scenario: Showing a tree
       When a user runs `tektite tree auth-hardening-7c1`
       Then the node and its descendants are printed indented to any depth
