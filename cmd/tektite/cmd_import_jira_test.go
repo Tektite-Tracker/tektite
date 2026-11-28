@@ -131,4 +131,69 @@ func TestCLI_ImportJira(t *testing.T) {
 			t.Fatalf("node = %s", story)
 		}
 	})
+
+	t.Run("Importing a Jira JSON export", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("jira.json", jiraJSONFixture)
+		got := s.tektite("import", "jira", "--json", "--from", s.root+"/jira.json")
+		var doc migrateDoc
+		if got.code != 0 {
+			t.Fatalf("got = %+v", got)
+		}
+		decode(t, got.stdout, &doc)
+		want := map[string]string{"J-1": "open", "J-2": "review", "J-3": "dropped"}
+		for _, it := range doc.Items {
+			if it.Status != want[it.SourceID] {
+				t.Errorf("%s status = %s, want %s", it.SourceID, it.Status, want[it.SourceID])
+			}
+		}
+		story := s.read(".tektite/nodes/" + s.refOf(doc, "J-2") + ".md")
+		epic := s.read(".tektite/nodes/" + s.refOf(doc, "J-1") + ".md")
+		for _, want := range []string{"parent: " + s.refOf(doc, "J-1"), "assignee: Sam Lee", "- ui", "priority: medium", "source_id: J-2"} {
+			if !strings.Contains(story, want) {
+				t.Errorf("story lacks %q:\n%s", want, story)
+			}
+		}
+		if !strings.Contains(epic, "kind: plan") {
+			t.Errorf("epic = %s", epic)
+		}
+		if ev := s.eventsOf(s.refOf(doc, "J-2")); !strings.Contains(ev, "rel: blocks") || !strings.Contains(ev, `at: "2024-03-27T16:00:00Z"`) {
+			t.Errorf("story events = %s", ev)
+		}
+		if ev := s.eventsOf(s.refOf(doc, "J-3")); !strings.Contains(ev, `at: "2024-03-28T10:00:00Z"`) {
+			t.Errorf("bug events = %s", ev)
+		}
+	})
+
+	t.Run("Jira rich text becomes plain text", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("jira.json", jiraJSONFixture)
+		got := s.tektite("import", "jira", "--json", "--from", s.root+"/jira.json")
+		var doc migrateDoc
+		decode(t, got.stdout, &doc)
+		story := s.read(".tektite/nodes/" + s.refOf(doc, "J-2") + ".md")
+		if !strings.Contains(story, "Filter by tag\n") || !strings.Contains(story, "- first\n- second") {
+			t.Fatalf("story = %s", story)
+		}
+		if ev := s.eventsOf(s.refOf(doc, "J-2")); !strings.Contains(ev, "Lee: Looks fine") {
+			t.Fatalf("events = %s", ev)
+		}
+	})
+
+	t.Run("A JSON file that is not a Jira export is refused", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("jira.json", `{"hello":"world"}`)
+		if got := s.tektite("import", "jira", "--from", s.root+"/jira.json"); got.code != exitUsage {
+			t.Fatalf("got = %+v", got)
+		}
+	})
 }
+
+const jiraJSONFixture = `{"issues":[
+{"key":"J-1","fields":{"summary":"Search revamp","issuetype":{"name":"Epic"},"status":{"name":"Backlog Grooming","statusCategory":{"name":"To Do"}},"priority":{"name":"High"},"created":"2024-03-27T09:00:00.000+0000"}},
+{"key":"J-2","fields":{"summary":"Add filters","issuetype":{"name":"Story"},"status":{"name":"In Review","statusCategory":{"name":"In Progress"}},"priority":{"name":"Medium"},"assignee":{"displayName":"Sam Lee"},"labels":["ui"],"parent":{"key":"J-1"},"created":"2024-03-27T15:12:00.000+0000",
+"description":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Filter by tag"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"first"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"second"}]}]}]}]},
+"issuelinks":[{"type":{"name":"Blocks"},"outwardIssue":{"key":"J-3"}}],
+"comment":{"comments":[{"author":{"displayName":"Lee"},"body":"Looks fine","created":"2024-03-27T16:00:00.000+0000"}]}}},
+{"key":"J-3","fields":{"summary":"Drop legacy","issuetype":{"name":"Bug"},"status":{"name":"Won't Do","statusCategory":{"name":"Done"}},"priority":{"name":"Low"},"resolution":{"name":"Won't Do"},"created":"2024-03-28T08:00:00.000+0000","resolutiondate":"2024-03-28T10:00:00.000+0000"}}
+]}`

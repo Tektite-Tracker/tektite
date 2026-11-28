@@ -35,6 +35,9 @@ func (jiraSource) fixed() bool               { return false }
 func (jiraSource) defaultPath(string) string { return "" }
 
 func (jiraSource) read(path string, res *ImportResult) (*importData, error) {
+	if isJSONFile(path) {
+		return readJiraJSON(path, res)
+	}
 	t, err := readCSVTable(path, "jira")
 	if err != nil {
 		return nil, err
