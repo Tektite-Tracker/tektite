@@ -60,3 +60,9 @@ Feature: MCP server
       Then the result is an error that says commands are disabled
       And nothing is executed or written
       And `tektite mcp --allow-run` enables both
+
+    Scenario: Archiving through a tool
+      Given a done ticket
+      When a client calls tektite_archive with its reference
+      Then the node is archived exactly as the CLI would
+      And tektite_unarchive restores it

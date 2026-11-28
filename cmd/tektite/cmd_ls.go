@@ -14,7 +14,7 @@ import (
 func (a *app) lsCmd() *cobra.Command {
 	var kind, status, under, needs string
 	var labels, priorities []string
-	var all, blocked bool
+	var all, blocked, archived bool
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List nodes",
@@ -24,7 +24,7 @@ func (a *app) lsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			items, err := sv.List(service.ListInput{Kind: kind, Status: status, Under: under, All: all, Needs: needs, Labels: labels, Priority: priorities, Blocked: blocked})
+			items, err := sv.List(service.ListInput{Kind: kind, Status: status, Under: under, All: all, Needs: needs, Labels: labels, Priority: priorities, Blocked: blocked, Archived: archived})
 			if err != nil {
 				return err
 			}
@@ -42,6 +42,9 @@ func (a *app) lsCmd() *cobra.Command {
 					prio = p
 				}
 				title := it.Title
+				if it.Archived {
+					title += "  (archived)"
+				}
 				if len(it.BlockedBy) > 0 {
 					title += "  (blocked by " + strings.Join(it.BlockedBy, ", ") + ")"
 				}
@@ -60,6 +63,7 @@ func (a *app) lsCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&labels, "label", nil, "only nodes with this label, repeatable, any of them matches")
 	cmd.Flags().StringArrayVar(&priorities, "priority", nil, "only nodes with this priority: critical, high, medium or low, repeatable")
 	cmd.Flags().BoolVar(&blocked, "blocked", false, "only nodes held by a blocker that is not done or dropped")
-	cmd.Flags().BoolVar(&all, "all", false, "include superseded nodes")
+	cmd.Flags().BoolVar(&archived, "archived", false, "include archived nodes")
+	cmd.Flags().BoolVar(&all, "all", false, "include superseded and archived nodes")
 	return cmd
 }

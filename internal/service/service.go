@@ -143,6 +143,9 @@ func (s *Service) appendEvent(in eventInput) (*Appended, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", in.typ, err)
 	}
+	if nf.Archived {
+		return nil, newError(KindConflict, "run `tektite unarchive "+nf.Ref+"` first", "%s: %s is archived", in.typ, nf.Ref)
+	}
 	actor, warnings := in.actor, []parse.Diagnostic(nil)
 	if actor == "" {
 		actor, warnings = s.ResolveActor(in.actorFlag)

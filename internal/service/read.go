@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/tektite-tracker/tektite/internal/bundle"
@@ -35,12 +34,16 @@ type ListInput struct {
 	Labels   []string
 	Priority []string
 	Blocked  bool
+	Archived bool
 }
 
 func (s *Service) List(in ListInput) ([]view.ListItem, error) {
 	snap, err := s.load()
 	if err != nil {
 		return nil, err
+	}
+	if in.Archived || in.All {
+		snap = snap.IncludeArchived()
 	}
 	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs, Labels: in.Labels, Priority: in.Priority, Blocked: in.Blocked}
 	for _, p := range in.Priority {
@@ -68,7 +71,7 @@ func (s *Service) List(in ListInput) ([]view.ListItem, error) {
 	return view.List(snap, filter, s.Now()), nil
 }
 
-func (s *Service) Context(ref string, budget int) (*bundle.Bundle, error) {
+func (s *Service) Context(ref string, budget int, archived bool) (*bundle.Bundle, error) {
 	snap, err := s.load()
 	if err != nil {
 		return nil, err
@@ -84,7 +87,7 @@ func (s *Service) Context(ref string, budget int) (*bundle.Bundle, error) {
 		}
 		budget = cfg.ContextBudget
 	}
-	return bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: s.git().Head(), BlobSize: s.blobSize}), nil
+	return bundle.Build(snap, nf, bundle.Options{Budget: budget, Head: s.git().Head(), BlobSize: s.blobSize, Archived: archived}), nil
 }
 
 func (s *Service) blobSize(attachment string) (int64, bool) {
@@ -92,15 +95,15 @@ func (s *Service) blobSize(attachment string) (int64, bool) {
 	if name == "" {
 		return 0, false
 	}
-	info, err := os.Stat(filepath.Join(s.Repo.BlobsDir(), name))
+	info, err := os.Stat(s.Repo.BlobPath(name))
 	if err != nil {
 		return 0, false
 	}
 	return info.Size(), true
 }
 
-func (s *Service) Check(stale bool) (check.Report, error) {
-	rep, err := check.RunWith(s.Repo, check.Options{Stale: stale, Log: s.git().CommitsSince})
+func (s *Service) Check(stale, archived bool) (check.Report, error) {
+	rep, err := check.RunWith(s.Repo, check.Options{Stale: stale, Archived: archived, Log: s.git().CommitsSince})
 	if err != nil {
 		return check.Report{}, fmt.Errorf("check: %w", err)
 	}

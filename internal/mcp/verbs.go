@@ -38,11 +38,13 @@ func (s *Server) buildTools() []tool {
 
 func (s *Server) readTools() []tool {
 	type contextArgs struct {
-		Ref    string `json:"ref"`
-		Budget int    `json:"budget"`
+		Ref      string `json:"ref"`
+		Budget   int    `json:"budget"`
+		Archived bool   `json:"archived"`
 	}
 	type checkArgs struct {
-		Stale bool `json:"stale"`
+		Stale    bool `json:"stale"`
+		Archived bool `json:"archived"`
 	}
 	return []tool{
 		{"tektite_show", "Show a node with its state, links, evidence, notes and history.", []param{refParam}, bind(func(svc *service.Service, in refArgs) (any, error) {
@@ -52,7 +54,8 @@ func (s *Server) readTools() []tool {
 			{"kind", "string", "only nodes of this kind", false},
 			{"status", "string", "only nodes with this status", false},
 			{"under", "string", "only descendants of this node", false},
-			{"all", "boolean", "include superseded nodes", false},
+			{"all", "boolean", "include superseded and archived nodes", false},
+			{"archived", "boolean", "include archived nodes", false},
 			{"blocked", "boolean", "only nodes held by a blocker that is not done or dropped", false},
 			{"labels", "array", "only nodes with any of these labels", false},
 			{"priorities", "array", "only nodes with any of these priorities: critical, high, medium or low", false},
@@ -62,12 +65,13 @@ func (s *Server) readTools() []tool {
 			Under  string `json:"under"`
 			All    bool   `json:"all"`
 
+			Archived   bool     `json:"archived"`
 			Blocked    bool     `json:"blocked"`
 			Labels     []string `json:"labels"`
 			Priorities []string `json:"priorities"`
 		},
 		) (any, error) {
-			return svc.List(service.ListInput{Kind: in.Kind, Status: in.Status, Under: in.Under, All: in.All, Labels: in.Labels, Priority: in.Priorities, Blocked: in.Blocked})
+			return svc.List(service.ListInput{Kind: in.Kind, Status: in.Status, Under: in.Under, All: in.All, Labels: in.Labels, Priority: in.Priorities, Blocked: in.Blocked, Archived: in.Archived})
 		})},
 		{"tektite_next", "Return the best nodes to work on next, optionally claiming the first one.", []param{
 			{"kind", "string", "only nodes of this kind, empty for any, ticket by default", false},
@@ -76,15 +80,15 @@ func (s *Server) readTools() []tool {
 			{"claim", "boolean", "claim the first node in the same call", false},
 			{"ttl", "string", "lease duration with claim, such as 30m", false},
 		}, bind(s.next)},
-		{"tektite_context", "Build a prompt-ready context bundle for a node within a token budget.", []param{refParam, {"budget", "integer", "token budget, defaults to the repository config", false}}, bind(func(svc *service.Service, in contextArgs) (any, error) {
-			b, err := svc.Context(in.Ref, in.Budget)
+		{"tektite_context", "Build a prompt-ready context bundle for a node within a token budget.", []param{refParam, {"budget", "integer", "token budget, defaults to the repository config", false}, {"archived", "boolean", "include archived nodes in the bundle", false}}, bind(func(svc *service.Service, in contextArgs) (any, error) {
+			b, err := svc.Context(in.Ref, in.Budget, in.Archived)
 			if err != nil {
 				return nil, err
 			}
 			return b.Markdown(), nil
 		})},
-		{"tektite_check", "Report problems in the repository.", []param{{"stale", "boolean", "also report evidence that later commits may have outdated", false}}, bind(func(svc *service.Service, in checkArgs) (any, error) {
-			return svc.Check(in.Stale)
+		{"tektite_check", "Report problems in the repository.", []param{{"stale", "boolean", "also report evidence that later commits may have outdated", false}, {"archived", "boolean", "also check archived nodes", false}}, bind(func(svc *service.Service, in checkArgs) (any, error) {
+			return svc.Check(in.Stale, in.Archived)
 		})},
 		{"tektite_policy_explain", "List the policy gates that apply to a node and whether each is met.", []param{refParam}, bind(func(svc *service.Service, in refArgs) (any, error) {
 			return svc.Explain(in.Ref)
@@ -173,6 +177,30 @@ func (s *Server) writeTools() []tool {
 		},
 		) (any, error) {
 			return svc.SetStatus(service.SetStatusInput{Ref: in.Ref, Status: in.Status, Actor: in.Actor, Override: in.Override, Revision: in.Revision})
+		})},
+		{"tektite_archive", "Move done or dropped nodes into .tektite/archive/. Give refs, or done with an optional older_than such as 30d. Nodes with open children or that block an open node are refused.", []param{
+			{"refs", "array", "references of the nodes to archive", false},
+			{"done", "boolean", "select every done or dropped node", false},
+			{"older_than", "string", "with done, only nodes whose last event is older than this, such as 30d, 2w or 720h", false},
+			{"dry_run", "boolean", "list what would move without moving it", false},
+		}, bind(func(svc *service.Service, in struct {
+			Refs      []string `json:"refs"`
+			Done      bool     `json:"done"`
+			OlderThan string   `json:"older_than"`
+			DryRun    bool     `json:"dry_run"`
+		},
+		) (any, error) {
+			return svc.Archive(service.ArchiveInput{Refs: in.Refs, Done: in.Done, OlderThan: in.OlderThan, DryRun: in.DryRun})
+		})},
+		{"tektite_unarchive", "Move archived nodes back into the active set.", []param{
+			{"refs", "array", "references of the nodes to restore", true},
+			{"dry_run", "boolean", "list what would move without moving it", false},
+		}, bind(func(svc *service.Service, in struct {
+			Refs   []string `json:"refs"`
+			DryRun bool     `json:"dry_run"`
+		},
+		) (any, error) {
+			return svc.Unarchive(in.Refs, in.DryRun)
 		})},
 		{"tektite_note", "Add a note to a node.", []param{refParam, {"text", "string", "the note", true}, actorParam}, bind(func(svc *service.Service, in struct {
 			Ref   string `json:"ref"`

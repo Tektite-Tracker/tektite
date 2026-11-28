@@ -98,8 +98,9 @@ func (r Report) HasErrors() bool {
 type CommitLog func(since string, paths []string) ([]string, error)
 
 type Options struct {
-	Stale bool
-	Log   CommitLog
+	Stale    bool
+	Archived bool
+	Log      CommitLog
 }
 
 type run struct {
@@ -119,6 +120,9 @@ func RunWith(r *store.Repo, opts Options) (Report, error) {
 	snap, err := r.Load()
 	if err != nil {
 		return Report{}, fmt.Errorf("load repository: %w", err)
+	}
+	if opts.Archived {
+		snap = snap.IncludeArchived()
 	}
 	schemas, err := r.LoadSchemas()
 	if err != nil {

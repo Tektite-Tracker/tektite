@@ -29,14 +29,14 @@ func (s *Snapshot) BuildGraph() *Graph {
 		Blockers: map[string][]string{},
 		States:   map[string]event.State{},
 	}
-	for _, nf := range s.Nodes {
+	for _, nf := range s.all() {
 		st := s.State(nf.Ref)
 		g.States[nf.Ref] = st
 		g.Out[nf.Ref] = s.foldLinks(nf.Node.Links, st.LinkOps)
 	}
 	seenIn := map[string]bool{}
 	seenBlock := map[[2]string]bool{}
-	for _, nf := range s.Nodes {
+	for _, nf := range s.all() {
 		for _, l := range g.Out[nf.Ref] {
 			t, err := s.Resolve(l.Target)
 			if err != nil || t.Ref == nf.Ref {

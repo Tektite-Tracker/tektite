@@ -192,4 +192,24 @@ func TestCLI_MCP(t *testing.T) {
 			t.Errorf("--allow-run should enable it, got error=%v: %s", isError, text)
 		}
 	})
+	t.Run("Archiving through a tool", func(t *testing.T) {
+		s := newSandbox(t)
+		s.closed("done-a-aa1", nid(), "done", "2026-11-20T10:00:00Z")
+		text, isError := s.callTool(nil, "tektite_archive", map[string]any{"refs": []string{"done-a-aa1"}})
+		if isError || !strings.Contains(compact(text), `"ref":"done-a-aa1"`) || !s.exists(".tektite/archive/nodes/done-a-aa1.md") || s.exists(".tektite/nodes/done-a-aa1.md") {
+			t.Fatalf("archive (error=%v): %s", isError, text)
+		}
+		text, isError = s.callTool(nil, "tektite_ls", map[string]any{"archived": true})
+		if isError || !strings.Contains(text, "done-a-aa1") {
+			t.Errorf("ls with archived (error=%v): %s", isError, text)
+		}
+		text, isError = s.callTool(nil, "tektite_note", map[string]any{"ref": "done-a-aa1", "text": "x"})
+		if !isError || !strings.Contains(text, "conflict") {
+			t.Errorf("note on an archived node should be a conflict (error=%v): %s", isError, text)
+		}
+		text, isError = s.callTool(nil, "tektite_unarchive", map[string]any{"refs": []string{"done-a-aa1"}})
+		if isError || !s.exists(".tektite/nodes/done-a-aa1.md") {
+			t.Errorf("unarchive (error=%v): %s", isError, text)
+		}
+	})
 }

@@ -296,6 +296,8 @@ func (a *app) newRoot() *cobra.Command {
 		a.checkCmd(),
 		a.fmtCmd(),
 		a.gcCmd(),
+		a.archiveCmd(),
+		a.unarchiveCmd(),
 		a.schemaCmd(),
 		a.setStatusCmd(),
 		a.claimCmd(),

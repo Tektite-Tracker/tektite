@@ -32,6 +32,9 @@ func (a *app) showCmd() *cobra.Command {
 func (a *app) printShow(d view.ShowDoc) {
 	a.printf(a.out, "%s  %s  %s\n%s\n", d.Ref, d.Kind, d.Status, d.Title)
 	a.printf(a.out, "path: %s\n", d.Path)
+	if d.Archived {
+		a.printf(a.out, "archived: yes\n")
+	}
 	if d.Claim != nil {
 		state := "expires"
 		if !d.Claim.Live {
