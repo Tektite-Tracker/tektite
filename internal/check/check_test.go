@@ -119,6 +119,18 @@ func TestCheck_Nodes(t *testing.T) {
 		}
 	})
 
+	t.Run("A priority outside critical, high, medium and low is a warning", func(t *testing.T) {
+		rep := newFixture(t).
+			node("bad-3fa", idA, "ticket", "", "priority: urgent\n", "x").
+			node("up-9e1", idB, "ticket", "", "priority: HIGH\n", "x").
+			node("low-7c1", idC, "ticket", "", "priority: low\n", "x").
+			run()
+		p := only(t, rep, check.CodeInvalidPriority)
+		if p.Severity != parse.SeverityWarning || !strings.Contains(p.Message, "bad-3fa") || !strings.Contains(p.Message, "critical, high, medium, low") {
+			t.Errorf("problem = %+v", p)
+		}
+	})
+
 	t.Run("An unknown kind is accepted", func(t *testing.T) {
 		rep := newFixture(t).node("retro-d3f", idA, "retro", "", "", "x").run()
 		if len(rep.Problems) != 0 {

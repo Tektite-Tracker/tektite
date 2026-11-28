@@ -120,6 +120,25 @@ Feature: Command line
       When a user runs `tektite ls --kind ticket --status open --under auth-hardening-7c1`
       Then only matching nodes are listed
 
+    Scenario: Listing by label
+      Given tickets labelled "net" and "auth" and a ticket with no labels
+      When a user runs `tektite ls --label net --label ui`
+      Then nodes that carry any of those labels are listed
+      And combined with --kind, --status or --needs only nodes matching every flag are listed
+
+    Scenario: Listing by priority
+      Given tickets with priority "critical", "high" and "low" and a ticket with none
+      When a user runs `tektite ls --priority critical --priority high`
+      Then only the critical and high tickets are listed
+      And an unknown priority value exits with code 2
+
+    Scenario: Listing shows labels and priority
+      Given a ticket with priority "high" and labels "net" and "auth"
+      When a user runs `tektite ls --json`
+      Then the item has "priority" "high" and "labels" ["net","auth"]
+      And a node with neither has a null "priority" and an empty "labels" list
+      And the plain output has a priority column that shows "-" when there is none
+
     Scenario: Listing what needs approval
       Given a policy "plans require human approval before work"
       And a plan with no approval at its current revision
