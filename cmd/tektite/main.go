@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/tektite-tracker/tektite/internal/gitcli"
 )
 
 func main() {
@@ -12,6 +14,7 @@ func main() {
 	if err != nil {
 		cwd = "."
 	}
+	git := gitcli.Git{Dir: cwd}
 	os.Exit(run(os.Args[1:], env{
 		in:          os.Stdin,
 		out:         os.Stdout,
@@ -21,10 +24,10 @@ func main() {
 		rand:        rand.Reader,
 		getenv:      os.Getenv,
 		interactive: interactive(os.Stdin, os.Stdout),
-		gitUser:     gitUserName(cwd),
-		gitHead:     gitHead(cwd),
-		gitDirty:    gitDirty(cwd),
-		gitLog:      gitCommitsSince(cwd),
+		gitUser:     git.User,
+		gitHead:     git.Head,
+		gitDirty:    git.Dirty,
+		gitLog:      git.CommitsSince,
 	}))
 }
 
