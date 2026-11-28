@@ -5,7 +5,7 @@ import "strings"
 // RelMentions is the relation of an untyped wikilink.
 const RelMentions = "mentions"
 
-// The built-in link types.
+// LinkImplements and the constants after it are the built-in link types.
 const (
 	LinkImplements  = "implements"
 	LinkBlocks      = "blocks"
