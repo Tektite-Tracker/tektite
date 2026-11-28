@@ -67,6 +67,13 @@ func countFiles(t *testing.T, dir string) int {
 	return n
 }
 
+const beadsTombstoneFixture = `{"id":"bd-1","title":"Live work","status":"open","priority":1,"dependencies":[{"issue_id":"bd-1","depends_on_id":"bd-2","type":"blocks"}]}
+{"id":"bd-2","title":"Deleted work","status":"tombstone","priority":2}
+{"id":"bd-3","title":"Found while deleting","status":"open","dependencies":[{"issue_id":"bd-3","depends_on_id":"bd-2","type":"discovered-from"}]}
+{"id":"bd-4","title":"Deleted too","status":"tombstone","dependencies":[{"issue_id":"bd-4","depends_on_id":"bd-2","type":"blocks"}]}
+{"id":"bd-5","title":"Mystery","status":"weird"}
+`
+
 func TestCLI_MigrateBeads(t *testing.T) {
 	t.Run("Importing beads issues", func(t *testing.T) {
 		s := beadsSandbox(t, beadsFixture)
@@ -104,6 +111,47 @@ func TestCLI_MigrateBeads(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("no deferred warning: %+v", doc.Warnings)
+		}
+	})
+
+	t.Run("Deleted beads issues are imported as dropped", func(t *testing.T) {
+		s := beadsSandbox(t, beadsTombstoneFixture)
+		got, doc := s.migrate(t)
+		if got.code != 0 || doc.Created != 5 {
+			t.Fatalf("got = %+v", got)
+		}
+		gone := s.refOf(doc, "bd-2")
+		if show := s.tektite("show", gone, "--json"); !strings.Contains(show.stdout, `"status": "dropped"`) {
+			t.Errorf("tombstone status: %s", show.stdout)
+		}
+		unknown, skipped := 0, 0
+		for _, w := range doc.Warnings {
+			if strings.Contains(w.Message, "bd-2") && w.Code == "TKT-W014" {
+				t.Errorf("tombstone warned: %+v", w)
+			}
+			if w.Code == "TKT-W014" && strings.Contains(w.Message, "bd-5") {
+				unknown++
+			}
+			if w.Code == "TKT-W015" && strings.Contains(w.Message, "bd-1") && strings.Contains(w.Message, "deleted") {
+				skipped++
+			}
+		}
+		if unknown != 1 || skipped != 1 {
+			t.Errorf("unknown = %d skipped = %d warnings = %+v", unknown, skipped, doc.Warnings)
+		}
+		if blocker := s.tektite("show", gone, "--json"); !strings.Contains(blocker.stdout, `"blocks"`) || !strings.Contains(blocker.stdout, s.refOf(doc, "bd-4")) {
+			t.Errorf("dropped-to-dropped link missing: %s", blocker.stdout)
+		}
+		if strings.Contains(s.tektite("show", gone, "--json").stdout, s.refOf(doc, "bd-1")) {
+			t.Errorf("live ticket is blocked by a dropped one")
+		}
+		if derived := s.tektite("show", s.refOf(doc, "bd-3"), "--json"); !strings.Contains(derived.stdout, `"derived-from"`) || !strings.Contains(derived.stdout, gone) {
+			t.Errorf("derived-from link missing: %s", derived.stdout)
+		}
+		before := countFiles(t, filepath.Join(s.root, ".tektite"))
+		again, redo := s.migrate(t)
+		if again.code != 0 || redo.Created != 0 || redo.Skipped != 5 || countFiles(t, filepath.Join(s.root, ".tektite")) != before {
+			t.Errorf("rerun = %+v %+v", again, redo)
 		}
 	})
 

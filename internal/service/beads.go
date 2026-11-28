@@ -33,6 +33,7 @@ var (
 		"blocked":     event.StatusBlocked,
 		"closed":      event.StatusDone,
 		"deferred":    event.StatusBlocked,
+		"tombstone":   event.StatusDropped,
 	}
 	beadsPriorities = []string{"critical", "high", "medium", "low", "low"}
 	beadsMapped     = map[string]bool{
@@ -77,6 +78,10 @@ type beadsIssue struct {
 	deps    []beadsDep
 	created bool
 	ref     string
+}
+
+func (is *beadsIssue) dropped() bool {
+	return beadsStatuses[str(is.raw["status"])] == event.StatusDropped
 }
 
 type beadsDep struct {
@@ -385,6 +390,9 @@ func (m *migration) link(is *beadsIssue) error {
 			continue
 		case other == nil:
 			m.warn(is, parse.CodeImportSkipped, "dependencies", "dependency on %q is not in the export, not imported", d.target)
+			continue
+		case d.typ == depBlocks && other.dropped() && !is.dropped():
+			m.warn(is, parse.CodeImportSkipped, "dependencies", "dependency on deleted issue %q would block a live ticket, not imported", d.target)
 			continue
 		}
 		m.res.Links++

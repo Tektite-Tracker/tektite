@@ -343,6 +343,15 @@ Feature: Command line
       Then they are open, active, blocked, blocked and done
       And the deferred issue produces a warning
 
+    Scenario: Deleted beads issues are imported as dropped
+      Given a beads issue with status tombstone
+      When a user runs `tektite migrate-beads`
+      Then it becomes a node with status dropped
+      And no warning is reported for the status
+      And a blocks dependency that would make a live ticket blocked by it is not imported
+      And a discovered-from dependency on it is kept
+      And an unknown status still produces a warning
+
     Scenario: Beads priorities and labels are kept
       Given a beads issue with priority 1 and labels
       When a user runs `tektite migrate-beads`
