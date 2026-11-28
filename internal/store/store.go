@@ -281,6 +281,14 @@ func (s *Snapshot) Refs() []string {
 	return append([]string{}, s.refs...)
 }
 
+func (s *Snapshot) Reserve(ref string) {
+	// why: lets a bulk writer keep ref collision checks current without reloading the store after every node.
+	i, found := slices.BinarySearch(s.refs, ref)
+	if !found {
+		s.refs = slices.Insert(s.refs, i, ref)
+	}
+}
+
 func (s *Snapshot) Get(ref string) (*NodeFile, bool) {
 	n, ok := s.byRef[ref]
 	return n, ok
