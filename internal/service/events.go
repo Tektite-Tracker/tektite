@@ -2,6 +2,7 @@ package service
 
 import (
 	"strings"
+	"time"
 
 	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/node"
@@ -49,13 +50,14 @@ type NoteInput struct {
 	Ref   string
 	Text  string
 	Actor string
+	At    time.Time
 }
 
 func (s *Service) Note(in NoteInput) (*Appended, error) {
 	if strings.TrimSpace(in.Text) == "" {
 		return nil, usageError("note text must not be empty")
 	}
-	return s.appendEvent(eventInput{typ: parse.EventNote, query: in.Ref, actorFlag: in.Actor, body: in.Text})
+	return s.appendEvent(eventInput{typ: parse.EventNote, query: in.Ref, actorFlag: in.Actor, body: in.Text, at: in.At})
 }
 
 type LinkInput struct {
@@ -64,6 +66,7 @@ type LinkInput struct {
 	Rel    string
 	Target string
 	Actor  string
+	At     time.Time
 }
 
 func (s *Service) Link(in LinkInput) (*Appended, error) {
@@ -71,7 +74,7 @@ func (s *Service) Link(in LinkInput) (*Appended, error) {
 	if rel == "" || target == "" {
 		return nil, usageError("rel and target must not be empty")
 	}
-	return s.appendEvent(eventInput{typ: in.Verb, query: in.Ref, actorFlag: in.Actor, prepare: func(c context) (step, error) {
+	return s.appendEvent(eventInput{typ: in.Verb, query: in.Ref, actorFlag: in.Actor, at: in.At, prepare: func(c context) (step, error) {
 		warnings := []parse.Diagnostic{}
 		resolved := target
 		if t, err := c.snap.Resolve(target); err == nil {

@@ -22,6 +22,8 @@ const (
 	CodeInvalidTTL           = "TKT-W011"
 	CodeInvalidRevision      = "TKT-W012"
 	CodePlanDiverged         = "TKT-W013"
+	CodeImportUnmapped       = "TKT-W014"
+	CodeImportSkipped        = "TKT-W015"
 	CodeMalformedFrontmatter = "TKT-E001"
 	CodeUnterminatedFrontmtr = "TKT-E002"
 	CodeMissingEventType     = "TKT-E003"
