@@ -528,6 +528,8 @@ Feature: Command line
       When a user runs `tektite import linear --from` that file again
       Then every issue is reported as skipped
 
+
+
   Rule: Jira issues can be imported from a CSV export
 
     Scenario: An export of the wrong shape is refused by jira
@@ -595,6 +597,36 @@ Feature: Command line
       When a user runs `tektite import jira --from` that file
       Then the command exits with code 2
 
+    Scenario: A won't do resolution drops a done status
+      Given a Jira status in the Done category whose issues were all resolved as Won't Do or Duplicate
+      When a user runs `tektite import jira --from` that file
+      Then the status is proposed as dropped, whatever its name
+
+    Scenario: Spanish status names are recognised by keyword
+      Given statuses named in Spanish such as Por hacer, En curso, Hecho and Descartado
+      When the import proposes a mapping
+      Then they are proposed as open, active, done and dropped
+
+    Scenario: Jira rich text keeps bold, italic, code and links
+      Given a Jira JSON description with strong, em, code and link marks and a heading
+      When a user runs `tektite import jira --from` that file
+      Then the node body holds the same emphasis, code, links and heading as Markdown
+
+    Scenario: A won't do resolution drops a done status
+      Given a Jira status in the Done category whose issues were all resolved as Won't Do or Duplicate
+      When a user runs `tektite import jira --from` that file
+      Then the status is proposed as dropped, whatever its name
+
+    Scenario: Spanish status names are recognised by keyword
+      Given statuses named in Spanish such as Por hacer, En curso, Hecho and Descartado
+      When the import proposes a mapping
+      Then they are proposed as open, active, done and dropped
+
+    Scenario: Jira rich text keeps bold, italic, code and links
+      Given a Jira JSON description with strong, em, code and link marks and a heading
+      When a user runs `tektite import jira --from` that file
+      Then the node body holds the same emphasis, code, links and heading as Markdown
+
     Scenario: Importing a Linear JSON export
       Given a JSON file with an issues list in the shape the Linear MCP server returns, as an MCP server or a script can save it
       When a user runs `tektite import linear --from` that file
@@ -617,4 +649,3 @@ Feature: Command line
       Given a JSON file with neither an issues list nor an issue object with an id
       When a user runs `tektite import linear --from` that file
       Then the command exits with code 2
-

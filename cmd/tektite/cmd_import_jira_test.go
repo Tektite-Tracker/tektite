@@ -197,3 +197,17 @@ const jiraJSONFixture = `{"issues":[
 "comment":{"comments":[{"author":{"displayName":"Lee"},"body":"Looks fine","created":"2024-03-27T16:00:00.000+0000"}]}}},
 {"key":"J-3","fields":{"summary":"Drop legacy","issuetype":{"name":"Bug"},"status":{"name":"Won't Do","statusCategory":{"name":"Done"}},"priority":{"name":"Low"},"resolution":{"name":"Won't Do"},"created":"2024-03-28T08:00:00.000+0000","resolutiondate":"2024-03-28T10:00:00.000+0000"}}
 ]}`
+
+func TestCLI_ImportJiraMarks(t *testing.T) {
+	t.Run("Jira rich text keeps bold, italic, code and links", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("jira.json", `{"issues":[{"key":"J-1","fields":{"summary":"Marks","issuetype":{"name":"Task"},"status":{"name":"Done","statusCategory":{"name":"Done"}},"priority":{"name":"Low"},"description":{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Title"}]},{"type":"paragraph","content":[{"type":"text","text":"bold","marks":[{"type":"strong"}]},{"type":"text","text":" and "},{"type":"text","text":"it","marks":[{"type":"em"}]},{"type":"text","text":" and "},{"type":"text","text":"x()","marks":[{"type":"code"}]},{"type":"text","text":" and "},{"type":"text","text":"site","marks":[{"type":"link","attrs":{"href":"https://e.test"}}]}]}]}}}]}`)
+		got := s.tektite("import", "jira", "--json", "--yes", "--from", s.root+"/jira.json")
+		var doc migrateDoc
+		decode(t, got.stdout, &doc)
+		body := s.read(".tektite/nodes/" + s.refOf(doc, "J-1") + ".md")
+		if !strings.Contains(body, "## Title") || !strings.Contains(body, "**bold** and *it* and `x()` and [site](https://e.test)") {
+			t.Fatalf("body = %s", body)
+		}
+	})
+}

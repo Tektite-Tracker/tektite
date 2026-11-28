@@ -187,4 +187,29 @@ func TestImportMapping(t *testing.T) {
 			t.Fatalf("err = %v", err)
 		}
 	})
+
+	t.Run("A won't do resolution drops a done status", func(t *testing.T) {
+		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		wont := stubIssue("1", "Archived")
+		wont.category = "Done"
+		wont.canceledAt = at
+		shipped := stubIssue("2", "Closed Out")
+		shipped.category = "Done"
+		shipped.completedAt = at
+		for _, v := range scanFacets(&importData{issues: []*importIssue{wont, shipped}}) {
+			want := map[string]string{"Archived": "dropped", "Closed Out": "done"}[v.value]
+			if got, _, certain := propose(v); !certain || got != want {
+				t.Errorf("%q = %q certain=%v, want %q", v.value, got, certain, want)
+			}
+		}
+	})
+
+	t.Run("Spanish status names are recognised by keyword", func(t *testing.T) {
+		want := map[string]string{"Por hacer": "open", "En curso": "active", "Hecho": "done", "Descartado": "dropped", "En revisión": "review", "Bloqueado": "blocked"}
+		for name, target := range want {
+			if got := keywordStatus(name); got != target {
+				t.Errorf("%q = %q, want %q", name, got, target)
+			}
+		}
+	})
 }
