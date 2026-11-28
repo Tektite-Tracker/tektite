@@ -74,6 +74,10 @@ func (a *app) printCreated(c *service.Created) error {
 }
 
 func (a *app) edit(initial string) (string, error) {
+	parts := strings.Fields(a.getenv("EDITOR"))
+	if len(parts) == 0 {
+		return "", usage("EDITOR is set but empty, set EDITOR to your editor command or pass --body")
+	}
 	f, err := os.CreateTemp("", "tektite-*.md")
 	if err != nil {
 		return "", fmt.Errorf("create editor file: %w", err)
@@ -86,7 +90,6 @@ func (a *app) edit(initial string) (string, error) {
 	if err := f.Close(); err != nil {
 		return "", fmt.Errorf("close editor file: %w", err)
 	}
-	parts := strings.Fields(a.getenv("EDITOR"))
 	c := exec.Command(parts[0], append(parts[1:], f.Name())...)
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := c.Run(); err != nil {
