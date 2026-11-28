@@ -6,12 +6,21 @@ import (
 	"github.com/tektite-tracker/tektite/internal/service"
 )
 
-func (a *app) migrateBeadsCmd() *cobra.Command {
+func (a *app) importCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "import",
+		Short: "Import issues from another tracker's file export, once and one way",
+	}
+	cmd.AddCommand(a.importBeadsCmd())
+	return cmd
+}
+
+func (a *app) importBeadsCmd() *cobra.Command {
 	var from, actor string
 	var dry bool
 	cmd := &cobra.Command{
-		Use:   "migrate-beads",
-		Short: "Import .beads/issues.jsonl into nodes, once and one way",
+		Use:   "beads",
+		Short: "Import a Beads issues.jsonl export into nodes",
 		Args:  exactArgs(0),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			svc, err := a.svc()

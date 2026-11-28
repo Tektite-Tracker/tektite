@@ -39,7 +39,7 @@ func beadsSandbox(t *testing.T, src string) *sandbox {
 
 func (s *sandbox) migrate(t *testing.T, args ...string) (result, migrateDoc) {
 	t.Helper()
-	got := s.tektite(append([]string{"migrate-beads", "--json"}, args...)...)
+	got := s.tektite(append([]string{"import", "beads", "--json"}, args...)...)
 	var doc migrateDoc
 	if got.code == 0 {
 		decode(t, got.stdout, &doc)
@@ -88,7 +88,7 @@ func (s *sandbox) eventsOf(ref string) string {
 	return sb.String()
 }
 
-func TestCLI_MigrateBeads(t *testing.T) {
+func TestCLI_ImportBeads(t *testing.T) {
 	t.Run("Importing beads issues", func(t *testing.T) {
 		s := beadsSandbox(t, beadsFixture)
 		got, doc := s.migrate(t)
@@ -278,7 +278,7 @@ func TestCLI_MigrateBeads(t *testing.T) {
 		if got.code != 0 || doc.Created != 5 || doc.Links != 2 || len(doc.Items) != 5 || countFiles(t, filepath.Join(s.root, ".tektite")) != before {
 			t.Errorf("got = %+v doc = %+v", got, doc)
 		}
-		text := s.tektite("migrate-beads", "--dry-run")
+		text := s.tektite("import", "beads", "--dry-run")
 		if !strings.Contains(text.stdout, "would create bd-2 ticket Fix the bug") {
 			t.Errorf("text = %q", text.stdout)
 		}
@@ -301,7 +301,7 @@ func TestCLI_MigrateBeads(t *testing.T) {
 
 	t.Run("A missing source file", func(t *testing.T) {
 		s := newSandbox(t)
-		if got := s.tektite("migrate-beads"); got.code != exitNotFound || !strings.Contains(got.stderr, "issues.jsonl") {
+		if got := s.tektite("import", "beads"); got.code != exitNotFound || !strings.Contains(got.stderr, "issues.jsonl") {
 			t.Errorf("got = %+v", got)
 		}
 	})
