@@ -117,7 +117,7 @@ Feature: Nodes
     Scenario: A cycle in parents is reported and not followed
       Given node A whose parent is B, and node B whose parent is A
       When the tree is built
-      Then `tektite check` reports a cycle warning naming both nodes
+      Then `tektite check` reports a cycle error naming both nodes
       And reads of A and B still succeed
 
   Rule: Kind is an open string

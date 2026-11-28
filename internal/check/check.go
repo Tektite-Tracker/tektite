@@ -18,19 +18,19 @@ const (
 	CodeBrokenLink       = "TKT-W101"
 	CodeSelfLink         = "TKT-W102"
 	CodeBrokenParent     = "TKT-W103"
-	CodeParentCycle      = "TKT-W104"
 	CodeOrphanEvents     = "TKT-W105"
 	CodeAmbiguousRef     = "TKT-W106"
 	CodeShortRef         = "TKT-W107"
 	CodeMissingRequired  = "TKT-W108"
 	CodeDisallowedStatus = "TKT-W109"
 	CodeDisallowedParent = "TKT-W111"
-	CodeBlockCycle       = "TKT-W112"
 	CodeEvidenceNoCommit = "TKT-W113"
 	CodeMissingBlob      = "TKT-W114"
 	CodeEvidenceStale    = "TKT-W115"
 	CodeInvalidPriority  = "TKT-W116"
 	CodeBlobTampered     = "TKT-E103"
+	CodeParentCycle      = "TKT-E106"
+	CodeBlockCycle       = "TKT-E107"
 	CodeUnreferencedBlob = "TKT-N103"
 	CodeStaleSlug        = "TKT-N101"
 	CodeDroppedBlocker   = "TKT-N102"
@@ -202,7 +202,7 @@ func (c *run) duplicateIDs() {
 func (c *run) cycles() {
 	for _, cyc := range c.snap.Tree.Cycles {
 		nf, _ := c.snap.Get(cyc[0])
-		c.add(parse.SeverityWarning, CodeParentCycle, nf.Path, 0, "parent cycle: "+strings.Join(append(append([]string{}, cyc...), cyc[0]), " -> "))
+		c.add(parse.SeverityError, CodeParentCycle, nf.Path, 0, "parent cycle: "+strings.Join(append(append([]string{}, cyc...), cyc[0]), " -> "))
 	}
 }
 
@@ -258,7 +258,7 @@ func (c *run) blockCycle(cycle []string, seen map[string]bool) {
 	nf, _ := c.snap.Get(cycle[0])
 	chain := append([]string{}, cycle...)
 	chain = append(chain, cycle[0])
-	c.add(parse.SeverityWarning, CodeBlockCycle, nf.Path, 0, "blocking cycle: "+strings.Join(chain, " is blocked by "))
+	c.add(parse.SeverityError, CodeBlockCycle, nf.Path, 0, "blocking cycle: "+strings.Join(chain, " is blocked by "))
 }
 
 func (c *run) orphans() {

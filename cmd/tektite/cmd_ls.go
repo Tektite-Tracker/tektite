@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 func (a *app) lsCmd() *cobra.Command {
 	var kind, status, under, needs string
 	var labels, priorities []string
-	var all bool
+	var all, blocked bool
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List nodes",
@@ -23,7 +24,7 @@ func (a *app) lsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			items, err := sv.List(service.ListInput{Kind: kind, Status: status, Under: under, All: all, Needs: needs, Labels: labels, Priority: priorities})
+			items, err := sv.List(service.ListInput{Kind: kind, Status: status, Under: under, All: all, Needs: needs, Labels: labels, Priority: priorities, Blocked: blocked})
 			if err != nil {
 				return err
 			}
@@ -40,7 +41,11 @@ func (a *app) lsCmd() *cobra.Command {
 				if p := parse.StringOf(it.Priority); it.Priority != nil && p != "" {
 					prio = p
 				}
-				a.printf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", it.Ref, it.Kind, it.Status, prio, holder, it.Title)
+				title := it.Title
+				if len(it.BlockedBy) > 0 {
+					title += "  (blocked by " + strings.Join(it.BlockedBy, ", ") + ")"
+				}
+				a.printf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", it.Ref, it.Kind, it.Status, prio, holder, title)
 			}
 			if err := w.Flush(); err != nil {
 				return fmt.Errorf("write list: %w", err)
@@ -54,6 +59,7 @@ func (a *app) lsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&needs, "needs", "", "only nodes waiting on a human: approval, override or review")
 	cmd.Flags().StringArrayVar(&labels, "label", nil, "only nodes with this label, repeatable, any of them matches")
 	cmd.Flags().StringArrayVar(&priorities, "priority", nil, "only nodes with this priority: critical, high, medium or low, repeatable")
+	cmd.Flags().BoolVar(&blocked, "blocked", false, "only nodes held by a blocker that is not done or dropped")
 	cmd.Flags().BoolVar(&all, "all", false, "include superseded nodes")
 	return cmd
 }

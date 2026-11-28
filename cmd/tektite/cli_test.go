@@ -569,6 +569,38 @@ func TestCLI_List(t *testing.T) {
 		}
 	})
 
+	t.Run("Listing blocked nodes", func(t *testing.T) {
+		s := newSandbox(t)
+		s.node("a-3fa", idA, "ticket", "", "blocked-by: [b-9e1, c-7c1]\n", "t")
+		s.node("b-9e1", idB, "ticket", "", "", "t")
+		s.node("c-7c1", idC, "ticket", "", "", "t")
+		s.node("d-5d2", "01HZ3K8Q5W2X9N4T7V6B1C0D5D", "ticket", "", "blocked-by: [b-9e1]\n", "t")
+		s.node("e-6e3", "01HZ3K8Q5W2X9N4T7V6B1C0D6E", "ticket", "", "blocked-by: [c-7c1]\n", "t")
+		s.event("b-9e1", e1, "set-status", "2026-11-27T10:00:00Z", "status: done\n")
+		s.event("e-6e3", "01HZ3M0A1B2C3D4E5F6G7H8J92", "set-status", "2026-11-27T10:00:00Z", "status: dropped\n")
+		var list []map[string]any
+		decode(t, s.tektite("ls", "--json", "--blocked").stdout, &list)
+		if len(list) != 1 || list[0]["ref"] != "a-3fa" {
+			t.Fatalf("blocked = %v", list)
+		}
+		if by, _ := list[0]["blocked_by"].([]any); len(by) != 1 || by[0] != "c-7c1" {
+			t.Errorf("blocked_by = %v", list[0]["blocked_by"])
+		}
+		decode(t, s.tektite("ls", "--json").stdout, &list)
+		for _, it := range list {
+			by, ok := it["blocked_by"].([]any)
+			if !ok || (len(by) > 0) != (it["ref"] == "a-3fa" || it["ref"] == "e-6e3") {
+				t.Errorf("%v blocked_by = %v", it["ref"], it["blocked_by"])
+			}
+		}
+		if got := s.tektite("ls", "--blocked").stdout; !strings.Contains(got, "(blocked by c-7c1)") {
+			t.Errorf("plain = %s", got)
+		}
+		if got := s.tektite("ls", "--json", "--blocked", "--status", "done"); strings.TrimSpace(got.stdout) != "[]" {
+			t.Errorf("empty = %+v", got)
+		}
+	})
+
 	t.Run("Duplicate ids are reported and both nodes stay readable", func(t *testing.T) {
 		s := newSandbox(t)
 		s.node("one-d3f", idA, "spec", "", "", "x")

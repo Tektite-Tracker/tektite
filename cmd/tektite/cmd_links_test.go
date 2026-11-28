@@ -160,7 +160,7 @@ func TestCLI_Links(t *testing.T) {
 			t.Errorf("next = %+v", got)
 		}
 		out := s.tektite("check")
-		if out.code != 0 || !strings.Contains(out.stdout, "TKT-W112") || !strings.Contains(out.stdout, "ticket-a-3f1 is blocked by ticket-b-3f3 is blocked by ticket-a-3f1") {
+		if out.code != exitError || !strings.Contains(out.stdout, "error TKT-E107") || !strings.Contains(out.stdout, "ticket-a-3f1 is blocked by ticket-b-3f3 is blocked by ticket-a-3f1") {
 			t.Errorf("check = %+v", out)
 		}
 	})
@@ -197,6 +197,23 @@ func TestCLI_Links(t *testing.T) {
 		}
 		if show := s.tektite("show", "ticket-e-3f6"); show.code != 0 {
 			t.Errorf("show = %+v", show)
+		}
+	})
+}
+
+func TestCLI_ParentCycle(t *testing.T) {
+	t.Run("A cycle in parents is reported and not followed", func(t *testing.T) {
+		s := newSandbox(t)
+		s.node("a-3fa", idA, "plan", "b-9e1", "", "x")
+		s.node("b-9e1", idB, "plan", "a-3fa", "", "y")
+		out := s.tektite("check")
+		if out.code != exitError || !strings.Contains(out.stdout, "error TKT-E106") || !strings.Contains(out.stdout, "a-3fa -> b-9e1 -> a-3fa") {
+			t.Errorf("check = %+v", out)
+		}
+		for _, ref := range []string{"a-3fa", "b-9e1"} {
+			if got := s.tektite("show", ref); got.code != 0 {
+				t.Errorf("show %s = %+v", ref, got)
+			}
 		}
 	})
 }

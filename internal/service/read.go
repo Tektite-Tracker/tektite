@@ -34,6 +34,7 @@ type ListInput struct {
 
 	Labels   []string
 	Priority []string
+	Blocked  bool
 }
 
 func (s *Service) List(in ListInput) ([]view.ListItem, error) {
@@ -41,7 +42,7 @@ func (s *Service) List(in ListInput) ([]view.ListItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs, Labels: in.Labels, Priority: in.Priority}
+	filter := view.ListFilter{Kind: in.Kind, Status: in.Status, All: in.All, Needs: in.Needs, Labels: in.Labels, Priority: in.Priority, Blocked: in.Blocked}
 	for _, p := range in.Priority {
 		if !node.ValidPriority(p) {
 			return nil, &Error{Kind: KindUsage, Msg: fmt.Sprintf("--priority: unknown value %q", p), Hint: "use one of " + strings.Join(node.Priorities, ", ")}
