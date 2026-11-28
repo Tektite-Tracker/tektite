@@ -289,6 +289,7 @@ func (a *app) newRoot() *cobra.Command {
 	root.AddCommand(
 		a.initCmd(),
 		a.primeCmd(),
+		a.migrateBeadsCmd(),
 		a.newCmd(),
 		a.showCmd(),
 		a.lsCmd(),

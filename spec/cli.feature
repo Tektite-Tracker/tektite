@@ -327,3 +327,58 @@ Feature: Command line
       When a user runs `tektite ui`
       Then a local server starts on localhost
       And pages update live as files change
+
+  Rule: Beads issues can be imported once
+
+    Scenario: Importing beads issues
+      Given a .beads/issues.jsonl with a task, a bug and an epic
+      When a user runs `tektite migrate-beads`
+      Then each issue becomes a node whose title and body come from the issue
+      And the original id is kept in the beads_id field
+      And the source file is not modified
+
+    Scenario: Beads statuses map to tektite statuses
+      Given beads issues that are open, in_progress, blocked, deferred and closed
+      When a user runs `tektite migrate-beads`
+      Then they are open, active, blocked, blocked and done
+      And the deferred issue produces a warning
+
+    Scenario: Beads priorities and labels are kept
+      Given a beads issue with priority 1 and labels
+      When a user runs `tektite migrate-beads`
+      Then the node has priority high and the same labels
+
+    Scenario: Beads dependencies become parents and links
+      Given beads issues related by parent-child, blocks and discovered-from dependencies
+      When a user runs `tektite migrate-beads`
+      Then the parent-child dependency sets the parent of the child
+      And the blocks dependency becomes a blocks link on the blocker
+      And the discovered-from dependency becomes a derived-from link
+
+    Scenario: Unknown beads fields are kept as frontmatter
+      Given a beads issue with a field tektite has no mapping for
+      When a user runs `tektite migrate-beads`
+      Then the field is written to the node frontmatter
+
+    Scenario: Beads dependencies that cannot be mapped warn
+      Given a beads issue with a related dependency and one on a missing issue
+      When a user runs `tektite migrate-beads`
+      Then a warning diagnostic is reported for each
+      And the import still completes
+
+    Scenario: A dry run writes nothing
+      Given a .beads/issues.jsonl
+      When a user runs `tektite migrate-beads --dry-run`
+      Then the nodes that would be created are listed
+      And no node or event file is written
+
+    Scenario: Importing again changes nothing
+      Given the issues were already imported
+      When a user runs `tektite migrate-beads` again
+      Then every issue is reported as skipped
+      And no node or event file is written
+
+    Scenario: A missing source file
+      Given no .beads/issues.jsonl exists
+      When a user runs `tektite migrate-beads`
+      Then the command exits with code 3
