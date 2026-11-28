@@ -1007,3 +1007,47 @@ func lsRefs(t *testing.T, s *sandbox, args ...string) []string {
 	}
 	return out
 }
+
+func TestCLI_Docs(t *testing.T) {
+	t.Run("Listing the topics", func(t *testing.T) {
+		got := newSandbox(t).tektite("docs")
+		lines := strings.Split(strings.TrimSpace(got.stdout), "\n")
+		if got.code != 0 || len(lines) < 2 || !strings.HasPrefix(lines[0], "index") || !strings.Contains(got.stdout, "design") {
+			t.Errorf("result = %+v", got)
+		}
+	})
+
+	t.Run("Listing the topics as JSON", func(t *testing.T) {
+		var list []map[string]string
+		decode(t, newSandbox(t).tektite("docs", "--json").stdout, &list)
+		if len(list) < 2 || list[0]["topic"] != "index" || list[0]["title"] == "" {
+			t.Errorf("list = %v", list)
+		}
+	})
+
+	t.Run("Printing a topic", func(t *testing.T) {
+		want, err := os.ReadFile(filepath.Join("..", "..", "docs", "design.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := newSandbox(t).tektite("docs", "design")
+		if got.code != 0 || got.stdout != string(want) {
+			t.Errorf("code = %d, stdout differs from docs/design.md", got.code)
+		}
+	})
+
+	t.Run("An unknown topic is refused", func(t *testing.T) {
+		got := newSandbox(t).tektite("docs", "nope")
+		if got.code != 3 || !strings.Contains(got.stderr, "tektite docs") {
+			t.Errorf("result = %+v", got)
+		}
+	})
+
+	t.Run("Docs need no repository", func(t *testing.T) {
+		s := newSandbox(t)
+		got := s.tektiteIn(t.TempDir(), "", "docs")
+		if got.code != 0 || !strings.Contains(got.stdout, "index") {
+			t.Errorf("result = %+v", got)
+		}
+	})
+}

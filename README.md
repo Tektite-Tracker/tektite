@@ -31,6 +31,10 @@ tektite check
 
 References are a slug plus a short hash. The hash is the identity, so a renamed title still resolves. `tektite new` prints the reference to use. Add `--json` to any command for machine-readable output.
 
+## Documentation
+
+The pages under [docs/](docs/index.md) are also built into the binary: `tektite docs` lists the topics and `tektite docs <topic>` prints one, offline and matching the installed version.
+
 ## For agents
 
 `tektite init` offers to add a short snippet to AGENTS.md or CLAUDE.md (`--agent-snippet` adds it without asking, `--no-agent-snippet` skips it), and `tektite prime` prints the steps below as prompt-ready text (`--json` for a document).
