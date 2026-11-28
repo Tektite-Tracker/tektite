@@ -155,7 +155,7 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 	var out []candidate
 	ancestors, _ := snap.Tree.Ancestors(nf.Ref)
 	for _, ref := range ancestors {
-		if anc, ok := snap.Get(ref); ok && !seen[ref] && (opts.Archived || nf.Archived || !anc.Archived) {
+		if anc, ok := snap.Get(ref); ok && !seen[ref] && visible(opts, nf, anc) {
 			seen[ref] = true
 			out = append(out, nodeCandidate("ancestors", snap, anc, ""))
 		}
@@ -171,16 +171,20 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 		out = append(out, candidate{section: "gaps", group: nf.Ref, entry: sized(Entry{Ref: nf.Ref, Kind: nf.Node.Kind, Title: blk.Text, Mode: modeFull, Block: blk.ID, Text: text})})
 	}
 	out = append(out, evidenceCandidates(snap, graph, nf, opts, seen)...)
-	for _, l := range graph.Out[nf.Ref] {
-		if t, err := snap.Resolve(l.Target); err == nil && !seen[t.Ref] && (opts.Archived || nf.Archived || !t.Archived) {
+	addLink := func(t *store.NodeFile, rel string) {
+		if !seen[t.Ref] && visible(opts, nf, t) {
 			seen[t.Ref] = true
-			out = append(out, nodeCandidate("links", snap, t, l.Rel))
+			out = append(out, nodeCandidate("links", snap, t, rel))
+		}
+	}
+	for _, l := range graph.Out[nf.Ref] {
+		if t, err := snap.Resolve(l.Target); err == nil {
+			addLink(t, l.Rel)
 		}
 	}
 	for _, bl := range graph.In[nf.Ref] {
-		if t, ok := snap.Get(bl.Ref); ok && !seen[t.Ref] && (opts.Archived || nf.Archived || !t.Archived) {
-			seen[t.Ref] = true
-			out = append(out, nodeCandidate("links", snap, t, bl.Rel))
+		if t, ok := snap.Get(bl.Ref); ok {
+			addLink(t, bl.Rel)
 		}
 	}
 	hist := []event.Entry{}
@@ -205,6 +209,10 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 	return out
 }
 
+func visible(opts Options, from, to *store.NodeFile) bool {
+	return opts.Archived || from.Archived || !to.Archived
+}
+
 func nodeCandidate(section string, snap *store.Snapshot, nf *store.NodeFile, rel string) candidate {
 	full := nodeEntry(snap, nf)
 	full.Mode, full.Rel = modeFull, rel
@@ -222,7 +230,7 @@ func evidenceCandidates(snap *store.Snapshot, graph *store.Graph, nf *store.Node
 	}
 	var out []candidate
 	for _, ev := range found {
-		if seen[ev.Node.Ref] || (ev.Node.Archived && !opts.Archived && !nf.Archived) {
+		if seen[ev.Node.Ref] || !visible(opts, nf, ev.Node) {
 			continue
 		}
 		seen[ev.Node.Ref] = true
