@@ -216,9 +216,7 @@ func (m *importer) create(is *importIssue, item ImportItem, parentRef string) er
 		return fmt.Errorf("import-%s: %s: %w", m.tracker, is.id, err)
 	}
 	is.ref, item.Ref = created.Ref, created.Ref
-	if m.snap, err = m.s.load(); err != nil {
-		return err
-	}
+	m.snap.Reserve(created.Ref)
 	m.res.Items = append(m.res.Items, item)
 	return m.events(is)
 }
