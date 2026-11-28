@@ -6,6 +6,8 @@ Specs, plans, tickets, gaps and evidence are plain `.md` files under `.tektite/`
 
 Use it when you want a coding agent (Claude Code, Codex, Cursor or similar) to work from a durable plan, not a chat history: the plan, the open gaps and the proof of each claim stay in the repo, versioned with the code.
 
+A tracker that agents can only create and update goes stale and looks authoritative. Tektite makes closing the work part of the work: an agent cannot mark a ticket done without evidence, and policy gates and human plan approval are enforced at the CLI and MCP level, not left as advice in an instructions file. Sync is plain git with one file per writer, so there is nothing to break.
+
 ## Install
 
 ```sh
