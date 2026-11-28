@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/tektite-tracker/tektite/internal/event"
 	"github.com/tektite-tracker/tektite/internal/view"
 )
 
@@ -81,7 +82,7 @@ func (a *app) printShow(d view.ShowDoc) {
 		a.printf(a.out, "evidence: %s\n", line)
 	}
 	for _, g := range d.Gaps {
-		state := "open"
+		state := event.StatusOpen
 		if g.Closed {
 			state = "closed"
 			if g.Evidence != "" {

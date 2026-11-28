@@ -4,15 +4,16 @@ import (
 	"time"
 
 	"github.com/tektite-tracker/tektite/internal/node"
+	"github.com/tektite-tracker/tektite/parse"
 )
 
 const (
 	sourceField   = "source"
 	sourceIDField = "source_id"
 	legacyBeadsID = "beads_id"
-	relBlocks     = "blocks"
-	relDerived    = "derived-from"
-	relSupersedes = "supersedes"
+	relBlocks     = parse.LinkBlocks
+	relDerived    = parse.LinkDerivedFrom
+	relSupersedes = parse.LinkSupersedes
 	relRelates    = "relates-to"
 )
 
