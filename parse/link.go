@@ -5,16 +5,28 @@ import "strings"
 // RelMentions is the relation of an untyped wikilink.
 const RelMentions = "mentions"
 
+// LinkImplements and the constants after it are the built-in link types.
+const (
+	LinkImplements  = "implements"
+	LinkBlocks      = "blocks"
+	LinkEvidences   = "evidences"
+	LinkSupersedes  = "supersedes"
+	LinkDerivedFrom = "derived-from"
+)
+
+// RelBlockedBy is the inverse of LinkBlocks.
+const RelBlockedBy = "blocked-by"
+
 // LinkTypes lists the built-in link types in a stable order.
-var LinkTypes = []string{"implements", "blocks", "evidences", "supersedes", "derived-from"}
+var LinkTypes = []string{LinkImplements, LinkBlocks, LinkEvidences, LinkSupersedes, LinkDerivedFrom}
 
 var inverses = map[string]string{
-	"implements":   "implemented-by",
-	"blocks":       "blocked-by",
-	"evidences":    "evidenced-by",
-	"supersedes":   "superseded-by",
-	"derived-from": "source-of",
-	RelMentions:    "mentioned-by",
+	LinkImplements:  "implemented-by",
+	LinkBlocks:      RelBlockedBy,
+	LinkEvidences:   "evidenced-by",
+	LinkSupersedes:  "superseded-by",
+	LinkDerivedFrom: "source-of",
+	RelMentions:     "mentioned-by",
 }
 
 // Inverse returns the relation seen from the target of a link of type rel. Unknown types

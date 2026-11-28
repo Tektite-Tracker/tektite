@@ -49,9 +49,9 @@ func (s *Snapshot) BuildGraph() *Graph {
 			}
 			blocked, blocker := "", ""
 			switch l.Rel {
-			case "blocks":
+			case parse.LinkBlocks:
 				blocked, blocker = t.Ref, nf.Ref
-			case "blocked-by":
+			case parse.RelBlockedBy:
 				blocked, blocker = nf.Ref, t.Ref
 			}
 			if blocked != "" && !seenBlock[[2]string{blocked, blocker}] {

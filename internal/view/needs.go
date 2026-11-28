@@ -10,7 +10,7 @@ import (
 const (
 	NeedsApproval = "approval"
 	NeedsOverride = "override"
-	NeedsReview   = "review"
+	NeedsReview   = event.StatusReview
 )
 
 var NeedsValues = []string{NeedsApproval, NeedsOverride, NeedsReview}
