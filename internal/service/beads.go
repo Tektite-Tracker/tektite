@@ -18,7 +18,7 @@ import (
 
 const (
 	beadsIDField   = "beads_id"
-	beadsActor     = "tool:migrate-beads"
+	beadsActor     = "tool:import-beads"
 	actionCreate   = "create"
 	actionSkip     = "skip"
 	beadsPlanKind  = "epic"
@@ -138,7 +138,7 @@ func (s *Service) readBeads(path string, res *MigrateBeadsResult) (map[string]*b
 		if os.IsNotExist(err) {
 			return nil, nil, newError(KindNotFound, "pass --from to point at an issues.jsonl", "no beads export at %s", filepath.ToSlash(path))
 		}
-		return nil, nil, fmt.Errorf("migrate-beads: %w", err)
+		return nil, nil, fmt.Errorf("import-beads: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 	issues := map[string]*beadsIssue{}
@@ -170,7 +170,7 @@ func (s *Service) readBeads(path string, res *MigrateBeadsResult) (map[string]*b
 		order = append(order, id)
 	}
 	if err := sc.Err(); err != nil {
-		return nil, nil, fmt.Errorf("migrate-beads: read %s: %w", filepath.ToSlash(path), err)
+		return nil, nil, fmt.Errorf("import-beads: read %s: %w", filepath.ToSlash(path), err)
 	}
 	return issues, order, nil
 }
@@ -258,7 +258,7 @@ func (m *migration) ensure(id string) error {
 	extra, body := m.fields(is)
 	created, err := m.s.Repo.CreateNode(m.snap, m.stamp(is, "created_at", time.Time{}), m.s.Rand, store.NewNode{Kind: kind, Title: is.title, Parent: parentRef, Extra: extra, Body: body})
 	if err != nil {
-		return fmt.Errorf("migrate-beads: %s: %w", id, err)
+		return fmt.Errorf("import-beads: %s: %w", id, err)
 	}
 	is.ref, item.Ref = created.Ref, created.Ref
 	if m.snap, err = m.s.load(); err != nil {
@@ -358,7 +358,7 @@ func (m *migration) events(is *beadsIssue, status string) error {
 		if _, err := m.s.appendEvent(eventInput{typ: parse.EventSetStatus, query: is.ref, actor: m.actor, at: m.stamp(is, source, time.Time{}), prepare: func(context) (step, error) {
 			return step{fields: []node.Field{{Key: "status", Value: status}}}, nil
 		}}); err != nil {
-			return fmt.Errorf("migrate-beads: %s: %w", is.id, err)
+			return fmt.Errorf("import-beads: %s: %w", is.id, err)
 		}
 	}
 	type note struct {
@@ -386,7 +386,7 @@ func (m *migration) events(is *beadsIssue, status string) error {
 	}
 	for _, n := range notes {
 		if _, err := m.s.Note(NoteInput{Ref: is.ref, Text: n.text, Actor: m.actor, At: n.at}); err != nil {
-			return fmt.Errorf("migrate-beads: %s: %w", is.id, err)
+			return fmt.Errorf("import-beads: %s: %w", is.id, err)
 		}
 	}
 	return nil
@@ -416,7 +416,7 @@ func (m *migration) link(is *beadsIssue) error {
 			in = LinkInput{Verb: parse.EventLink, Ref: is.ref, Rel: "derived-from", Target: other.ref, Actor: m.actor, At: at}
 		}
 		if _, err := m.s.Link(in); err != nil {
-			return fmt.Errorf("migrate-beads: %s: %w", is.id, err)
+			return fmt.Errorf("import-beads: %s: %w", is.id, err)
 		}
 	}
 	return nil
