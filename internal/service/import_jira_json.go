@@ -197,7 +197,7 @@ func writeADF(sb *strings.Builder, n map[string]any) {
 	typ := str(n["type"])
 	switch typ {
 	case "text":
-		sb.WriteString(str(n["text"]))
+		sb.WriteString(markText(str(n["text"]), n["marks"]))
 		return
 	case "hardBreak":
 		sb.WriteString("\n")
@@ -209,6 +209,17 @@ func writeADF(sb *strings.Builder, n map[string]any) {
 		return
 	case "listItem":
 		sb.WriteString("- ")
+	case "heading":
+		level := 1
+		if a, ok := n["attrs"].(map[string]any); ok {
+			if l, ok := a["level"].(float64); ok && l >= 1 && l <= 6 {
+				level = int(l)
+			}
+		}
+		sb.WriteString(strings.Repeat("#", level) + " ")
+	case "codeBlock":
+		sb.WriteString("```\n")
+		defer sb.WriteString("```\n")
 	}
 	children, _ := n["content"].([]any)
 	for _, c := range children {
@@ -222,4 +233,24 @@ func writeADF(sb *strings.Builder, n map[string]any) {
 	case "listItem":
 		sb.WriteString("\n")
 	}
+}
+
+func markText(text string, marks any) string {
+	list, _ := marks.([]any)
+	for _, m := range list {
+		mm, _ := m.(map[string]any)
+		switch str(mm["type"]) {
+		case "strong":
+			text = "**" + text + "**"
+		case "em":
+			text = "*" + text + "*"
+		case "code":
+			text = "`" + text + "`"
+		case "link":
+			if a, ok := mm["attrs"].(map[string]any); ok && str(a["href"]) != "" {
+				text = "[" + text + "](" + str(a["href"]) + ")"
+			}
+		}
+	}
+	return text
 }

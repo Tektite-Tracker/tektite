@@ -124,8 +124,11 @@ func scanFacets(data *importData) []*facetValue {
 	return order
 }
 
+var accentFolder = strings.NewReplacer("á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u", "ü", "u", "ñ", "n", "à", "a", "è", "e", "ì", "i", "ò", "o", "ù", "u", "ç", "c", "ã", "a", "õ", "o", "â", "a", "ê", "e", "ô", "o")
+
 func normalizeName(s string) string {
-	return strings.Join(strings.Fields(strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(s, "_", " "), "-", " "))), " ")
+	s = accentFolder.Replace(strings.ToLower(s))
+	return strings.Join(strings.Fields(strings.ReplaceAll(strings.ReplaceAll(s, "_", " "), "-", " ")), " ")
 }
 
 var statusCategories = map[string]string{
@@ -156,12 +159,12 @@ func keywordRules(table []struct{ target, pattern string }) []keywordRule {
 }
 
 var statusKeywords = keywordRules([]struct{ target, pattern string }{
-	{event.StatusDropped, `cancel(l?ed)?|duplicate|won'?t( do| fix)?|wont( do| fix)?|obsolete|rejected|abandoned|invalid|declined|dropped`},
-	{event.StatusDone, `done|complete(d)?|closed|resolved|shipped|released|merged|finished|deployed|fixed`},
-	{event.StatusBlocked, `blocked|on hold|hold|waiting|paused|stuck|deferred|impeded`},
-	{event.StatusReview, `(in )?review|code review|qa|testing|verification|awaiting approval|approval`},
-	{event.StatusActive, `in progress|started|doing|developing|working|implementing|active|wip`},
-	{event.StatusOpen, `backlog|todo|to do|triage|icebox|new|open|unstarted|ready|planned|selected|queued|ready for dev|to be done`},
+	{event.StatusDropped, `cancel(l?ed)?|cancelad[oa]|descartad[oa]|rechazad[oa]|duplicate|won'?t( do| fix)?|wont( do| fix)?|obsolete|rejected|abandoned|invalid|declined|dropped`},
+	{event.StatusDone, `done|hecho|terminad[oa]|finalizad[oa]|complete(d)?|closed|resolved|shipped|released|merged|finished|deployed|fixed`},
+	{event.StatusBlocked, `blocked|bloquead[oa]|en espera|on hold|hold|waiting|paused|stuck|deferred|impeded`},
+	{event.StatusReview, `(in )?review|revision|en revision|code review|qa|testing|verification|awaiting approval|approval`},
+	{event.StatusActive, `in progress|en curso|en progreso|started|doing|developing|working|implementing|active|wip`},
+	{event.StatusOpen, `backlog|todo|to do|por hacer|pendiente|triage|icebox|new|open|unstarted|ready|planned|selected|queued|ready for dev|to be done`},
 })
 
 func keywordStatus(value string) string {
@@ -179,6 +182,9 @@ func proposeStatus(v *facetValue) (target, reason string, certain bool) {
 	if len(v.cats) == 1 {
 		for cat, n := range v.cats {
 			if base, ok := statusCategories[cat]; ok && n == v.count {
+				if base == event.StatusDone && v.canceledCount == v.count {
+					return event.StatusDropped, "category " + cat + ", every issue was resolved as won't do or duplicate", true
+				}
 				if slices.Contains(categoryRefinements[base], keyword) {
 					return keyword, "category " + cat + ", refined by the name", true
 				}
