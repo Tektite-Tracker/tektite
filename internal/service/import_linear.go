@@ -29,6 +29,9 @@ func (linearSource) fixed() bool               { return false }
 func (linearSource) defaultPath(string) string { return "" }
 
 func (linearSource) read(path string, res *ImportResult) (*importData, error) {
+	if isJSONFile(path) {
+		return readLinearJSON(path, res)
+	}
 	t, err := readCSVTable(path, "linear")
 	if err != nil {
 		return nil, err

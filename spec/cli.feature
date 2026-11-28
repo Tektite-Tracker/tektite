@@ -595,3 +595,26 @@ Feature: Command line
       When a user runs `tektite import jira --from` that file
       Then the command exits with code 2
 
+    Scenario: Importing a Linear JSON export
+      Given a JSON file with an issues list in the shape the Linear MCP server returns, as an MCP server or a script can save it
+      When a user runs `tektite import linear --from` that file
+      Then the format is detected from the content, not the file name
+      And the status type decides the status before timestamps and names
+      And parent ids, labels, priorities, times and the blocks, blockedBy, relatedTo and duplicateOf relations are imported
+
+    Scenario: A truncated Linear description warns
+      Given a Linear JSON issue whose description ends with the truncation marker
+      When a user runs `tektite import linear --from` that file
+      Then the marker is not written to the node body
+      And a warning says the description was truncated
+
+    Scenario: Linear image tags are replaced by a placeholder
+      Given a Linear JSON description with a linear-image tag that holds a signed URL
+      When a user runs `tektite import linear --from` that file
+      Then the node body holds a placeholder and no signed URL
+
+    Scenario: A Linear JSON file that is not an export is refused
+      Given a JSON file with neither an issues list nor an issue object with an id
+      When a user runs `tektite import linear --from` that file
+      Then the command exits with code 2
+

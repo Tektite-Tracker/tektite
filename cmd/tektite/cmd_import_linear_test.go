@@ -135,4 +135,81 @@ func TestCLI_ImportLinear(t *testing.T) {
 			t.Fatalf("got = %+v, doc = %+v", got, doc)
 		}
 	})
+
+	t.Run("Importing a Linear JSON export", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("linear.json", linearJSONFixture)
+		got := s.tektite("import", "linear", "--json", "--from", s.root+"/linear.json")
+		var doc migrateDoc
+		if got.code != 0 {
+			t.Fatalf("got = %+v", got)
+		}
+		decode(t, got.stdout, &doc)
+		want := map[string]string{"T-1": "review", "T-2": "done", "T-3": "open", "T-4": "dropped", "T-5": "open"}
+		for _, it := range doc.Items {
+			if it.Status != want[it.SourceID] {
+				t.Errorf("%s status = %s, want %s", it.SourceID, it.Status, want[it.SourceID])
+			}
+		}
+		top := s.read(".tektite/nodes/" + s.refOf(doc, "T-1") + ".md")
+		for _, want := range []string{"priority: high", "assignee: Sam Lee", "- ui", "team: Core", "estimate: \"3\"", "creator: Pat"} {
+			if !strings.Contains(top, want) {
+				t.Errorf("node lacks %q:\n%s", want, top)
+			}
+		}
+		if child := s.read(".tektite/nodes/" + s.refOf(doc, "T-2") + ".md"); !strings.Contains(child, "parent: "+s.refOf(doc, "T-1")) {
+			t.Errorf("child = %s", child)
+		}
+		if ev := s.eventsOf(s.refOf(doc, "T-2")); !strings.Contains(ev, `at: "2026-01-05T10:00:00Z"`) {
+			t.Errorf("done events = %s", ev)
+		}
+		blocker := s.eventsOf(s.refOf(doc, "T-3"))
+		if !strings.Contains(blocker, "rel: blocks") || !strings.Contains(blocker, "rel: supersedes") || doc.Links != 3 {
+			t.Errorf("blocker events = %s, links = %d", blocker, doc.Links)
+		}
+	})
+
+	t.Run("A truncated Linear description warns", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("linear.json", linearJSONFixture)
+		got := s.tektite("import", "linear", "--json", "--from", s.root+"/linear.json")
+		var doc migrateDoc
+		decode(t, got.stdout, &doc)
+		warned := false
+		for _, w := range doc.Warnings {
+			warned = warned || strings.Contains(w.Message, "truncated")
+		}
+		body := s.read(".tektite/nodes/" + s.refOf(doc, "T-5") + ".md")
+		if !warned || strings.Contains(body, "get_issue") || !strings.Contains(body, "Cut off here") {
+			t.Fatalf("warnings = %+v\nbody = %s", doc.Warnings, body)
+		}
+	})
+
+	t.Run("Linear image tags are replaced by a placeholder", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("linear.json", linearJSONFixture)
+		got := s.tektite("import", "linear", "--json", "--from", s.root+"/linear.json")
+		var doc migrateDoc
+		decode(t, got.stdout, &doc)
+		body := s.read(".tektite/nodes/" + s.refOf(doc, "T-3") + ".md")
+		if !strings.Contains(body, "(image omitted)") || strings.Contains(body, "signature=") {
+			t.Fatalf("body = %s", body)
+		}
+	})
+
+	t.Run("A Linear JSON file that is not an export is refused", func(t *testing.T) {
+		s := newSandbox(t)
+		s.write("linear.json", `{"hello":"world"}`)
+		if got := s.tektite("import", "linear", "--from", s.root+"/linear.json"); got.code != exitUsage {
+			t.Fatalf("got = %+v", got)
+		}
+	})
 }
+
+const linearJSONFixture = `{"issues":[
+{"id":"T-1","title":"Epic work","description":"Top level","priority":{"value":2,"name":"High"},"createdAt":"2026-01-01T10:00:00.000Z","startedAt":"2026-01-02T10:00:00.000Z","completedAt":null,"canceledAt":null,"status":"In Review","statusType":"started","labels":["ui"],"assignee":"Sam Lee","parentId":null,"team":"Core","project":null,"estimate":{"value":3,"name":"3 Points"},"dueDate":null,"createdBy":"Pat","relations":{"blocks":[],"blockedBy":[],"relatedTo":[{"id":"T-2","title":"Child work"}],"duplicateOf":null}},
+{"id":"T-2","title":"Child work","description":"","priority":{"value":1,"name":"Urgent"},"createdAt":"2026-01-01T11:00:00.000Z","startedAt":"2026-01-03T10:00:00.000Z","completedAt":"2026-01-05T10:00:00.000Z","canceledAt":null,"status":"Shipped Out","statusType":"completed","labels":[],"assignee":null,"parentId":"T-1","relations":{"blocks":[],"blockedBy":[{"id":"T-3","title":"Blocker"}],"relatedTo":[{"id":"T-1","title":"Epic work"}],"duplicateOf":null}},
+{"id":"T-3","title":"Blocker","description":"<linear-image>{\"type\":\"image\",\"attrs\":{\"src\":\"https://uploads.example/x?signature=abc\"}}</linear-image>","priority":{"value":0,"name":"No priority"},"createdAt":"2026-01-01T12:00:00.000Z","status":"Backlog","statusType":"backlog","labels":[],"relations":{"blocks":[{"id":"T-2","title":"Child work"}],"blockedBy":[],"relatedTo":[],"duplicateOf":null}},
+{"id":"T-4","title":"Not doing this","description":"","priority":{"value":4,"name":"Low"},"createdAt":"2026-01-01T13:00:00.000Z","canceledAt":"2026-01-06T10:00:00.000Z","status":"Dropped For Now","statusType":"canceled","labels":[],"relations":{"blocks":[],"blockedBy":[],"relatedTo":[],"duplicateOf":{"id":"T-3","title":"Blocker"}}},
+{"id":"T-5","title":"Long one","description":"Cut off here… (truncated, use ` + "`get_issue`" + ` for full description)","priority":{"value":3,"name":"Medium"},"createdAt":"2026-01-01T14:00:00.000Z","status":"Todo","statusType":"unstarted","labels":[]}
+]}`
