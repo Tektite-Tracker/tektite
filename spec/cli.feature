@@ -579,3 +579,19 @@ Feature: Command line
       Then each non-empty one is written to the node frontmatter with a lowercase key
       And Updated and the sigma estimate columns are not written
 
+    Scenario: Importing a Jira JSON export
+      Given a JSON file with an issues list in the shape of the Jira search API, as an MCP server or a script can save it
+      When a user runs `tektite import jira --from` that file
+      Then the format is detected from the content, not the file name
+      And the issues, statuses by status category, epic parents, issue links, resolution time and comments are imported as they are from a CSV
+
+    Scenario: Jira rich text becomes plain text
+      Given a Jira JSON issue whose description and comments are in Atlassian document format
+      When a user runs `tektite import jira --from` that file
+      Then the node body and the comment text hold the plain text with paragraphs and list items kept
+
+    Scenario: A JSON file that is not a Jira export is refused
+      Given a JSON file with neither an issues list nor issue objects with a key
+      When a user runs `tektite import jira --from` that file
+      Then the command exits with code 2
+
