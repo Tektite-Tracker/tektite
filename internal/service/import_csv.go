@@ -3,8 +3,9 @@ package service
 import (
 	"bytes"
 	"encoding/csv"
+	"errors"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,9 +18,9 @@ type csvTable struct {
 }
 
 func readCSVTable(path, tracker string) (*csvTable, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := readCapped(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, newError(KindNotFound, "pass --from to point at the "+tracker+" CSV export", "no %s export at %s", tracker, filepath.ToSlash(path))
 		}
 		return nil, fmt.Errorf("import-%s: %w", tracker, err)

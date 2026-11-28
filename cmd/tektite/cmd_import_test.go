@@ -315,3 +315,29 @@ func TestCLI_ImportBeads(t *testing.T) {
 		}
 	})
 }
+
+func TestCLI_ImportSizeCap(t *testing.T) {
+	t.Run("A Jira or Linear export over the size cap is refused", func(t *testing.T) {
+		for _, name := range []string{"big.csv", "big.json"} {
+			for _, tracker := range []string{"jira", "linear"} {
+				s := newSandbox(t)
+				path := filepath.Join(s.root, name)
+				f, err := os.Create(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := f.Truncate(64<<20 + 1); err != nil {
+					t.Fatal(err)
+				}
+				_ = f.Close()
+				got := s.tektite("import", tracker, "--from", path, "--yes")
+				if got.code != exitUsage || !strings.Contains(got.stderr, "64 MiB") {
+					t.Errorf("%s %s: %+v", tracker, name, got)
+				}
+				if entries, _ := os.ReadDir(filepath.Join(s.root, ".tektite", "nodes")); len(entries) != 0 {
+					t.Errorf("%s %s wrote %d nodes", tracker, name, len(entries))
+				}
+			}
+		}
+	})
+}
