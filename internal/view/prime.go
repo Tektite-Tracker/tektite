@@ -26,6 +26,7 @@ var primeSteps = []string{
 	"Do the work. `tektite heartbeat <ref>` extends the lease, `tektite note <ref> \"text\"` records progress, and `tektite new gap` records something left open.",
 	"`tektite attach-evidence <ref> --run \"<command>\"` runs a command and stores its output, exit code and commit as evidence. `tektite close-gap <ref>#<block> --evidence <ref>` closes a gap with it.",
 	"`tektite set-status <ref> done`. If a policy gate is not met the command exits 5 and says what is missing. An agent cannot override a gate.",
+	"Archived nodes (`tektite archive`) are done or dropped work moved to `.tektite/archive/`. `tektite show <ref>` and references still resolve them, but `ls`, `next`, `context` and `check` skip them unless you pass `--archived`. Notes and status changes on them exit 4 until `tektite unarchive <ref>`.",
 }
 
 var primeExits = []PrimeExit{

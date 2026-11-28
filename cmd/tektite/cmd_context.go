@@ -6,6 +6,7 @@ import (
 
 func (a *app) contextCmd() *cobra.Command {
 	var budget int
+	var archived, all bool
 	cmd := &cobra.Command{
 		Use:   "context <ref>",
 		Short: "Build a prompt-ready context bundle for a node",
@@ -18,7 +19,7 @@ func (a *app) contextCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			b, err := s.Context(args[0], budget)
+			b, err := s.Context(args[0], budget, archived || all)
 			if err != nil {
 				return err
 			}
@@ -26,5 +27,7 @@ func (a *app) contextCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&budget, "budget", 0, "token budget, defaults to context_budget in .tektite/config or 8000")
+	cmd.Flags().BoolVar(&archived, "archived", false, "include archived nodes in the bundle")
+	cmd.Flags().BoolVar(&all, "all", false, "include archived nodes in the bundle")
 	return cmd
 }

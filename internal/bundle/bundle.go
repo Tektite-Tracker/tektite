@@ -73,6 +73,7 @@ type Options struct {
 	Budget   int
 	Head     string
 	BlobSize func(attachment string) (int64, bool)
+	Archived bool
 }
 
 type candidate struct {
@@ -154,7 +155,7 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 	var out []candidate
 	ancestors, _ := snap.Tree.Ancestors(nf.Ref)
 	for _, ref := range ancestors {
-		if anc, ok := snap.Get(ref); ok && !seen[ref] {
+		if anc, ok := snap.Get(ref); ok && !seen[ref] && (opts.Archived || nf.Archived || !anc.Archived) {
 			seen[ref] = true
 			out = append(out, nodeCandidate("ancestors", snap, anc, ""))
 		}
@@ -171,13 +172,13 @@ func collect(snap *store.Snapshot, graph *store.Graph, nf *store.NodeFile, opts 
 	}
 	out = append(out, evidenceCandidates(snap, graph, nf, opts, seen)...)
 	for _, l := range graph.Out[nf.Ref] {
-		if t, err := snap.Resolve(l.Target); err == nil && !seen[t.Ref] {
+		if t, err := snap.Resolve(l.Target); err == nil && !seen[t.Ref] && (opts.Archived || nf.Archived || !t.Archived) {
 			seen[t.Ref] = true
 			out = append(out, nodeCandidate("links", snap, t, l.Rel))
 		}
 	}
 	for _, bl := range graph.In[nf.Ref] {
-		if t, ok := snap.Get(bl.Ref); ok && !seen[t.Ref] {
+		if t, ok := snap.Get(bl.Ref); ok && !seen[t.Ref] && (opts.Archived || nf.Archived || !t.Archived) {
 			seen[t.Ref] = true
 			out = append(out, nodeCandidate("links", snap, t, bl.Rel))
 		}
@@ -221,7 +222,7 @@ func evidenceCandidates(snap *store.Snapshot, graph *store.Graph, nf *store.Node
 	}
 	var out []candidate
 	for _, ev := range found {
-		if seen[ev.Node.Ref] {
+		if seen[ev.Node.Ref] || (ev.Node.Archived && !opts.Archived && !nf.Archived) {
 			continue
 		}
 		seen[ev.Node.Ref] = true

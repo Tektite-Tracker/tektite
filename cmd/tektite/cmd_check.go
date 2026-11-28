@@ -9,7 +9,7 @@ import (
 )
 
 func (a *app) checkCmd() *cobra.Command {
-	var stale bool
+	var stale, archived, all bool
 	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Report problems in the repository",
@@ -19,7 +19,7 @@ func (a *app) checkCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rep, err := svc.Check(stale)
+			rep, err := svc.Check(stale, archived || all)
 			if err != nil {
 				return err
 			}
@@ -33,6 +33,8 @@ func (a *app) checkCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&stale, "stale", false, "report evidence that later commits may have outdated")
+	cmd.Flags().BoolVar(&archived, "archived", false, "also check archived nodes")
+	cmd.Flags().BoolVar(&all, "all", false, "also check archived nodes")
 	return cmd
 }
 

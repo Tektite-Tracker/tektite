@@ -24,6 +24,7 @@ type ListItem struct {
 	BlockedBy []string   `json:"blocked_by"`
 	Claim     *ClaimItem `json:"claim"`
 	Path      string     `json:"path"`
+	Archived  bool       `json:"archived"`
 }
 
 type ListFilter struct {
@@ -62,7 +63,7 @@ func List(snap *store.Snapshot, f ListFilter, now time.Time) []ListItem {
 			f.Needs != "" && !needs(snap, env, f.Policy, nf, st, f.Needs):
 			continue
 		}
-		items = append(items, ListItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(), Status: st.Status, Priority: nf.Node.Fields["priority"], Labels: nf.Labels(), BlockedBy: open, Claim: ClaimOf(st, now), Path: nf.Path})
+		items = append(items, ListItem{Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(), Status: st.Status, Priority: nf.Node.Fields["priority"], Labels: nf.Labels(), BlockedBy: open, Claim: ClaimOf(st, now), Path: nf.Path, Archived: nf.Archived})
 	}
 	return items
 }

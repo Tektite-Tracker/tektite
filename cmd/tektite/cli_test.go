@@ -965,7 +965,7 @@ func TestCLI_AgentOnboarding(t *testing.T) {
 			ExitCodes []struct{ Code int } `json:"exit_codes"`
 		}
 		decode(t, s.tektite("prime", "--json").stdout, &doc)
-		if len(doc.Steps) != 5 || len(doc.ExitCodes) != 6 {
+		if len(doc.Steps) != 6 || len(doc.ExitCodes) != 6 {
 			t.Errorf("doc = %+v", doc)
 		}
 	})

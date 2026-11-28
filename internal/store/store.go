@@ -41,6 +41,7 @@ type NodeFile struct {
 	Diags     []parse.Diagnostic
 	ParentRef string
 	ParentErr error
+	Archived  bool
 }
 
 func (nf *NodeFile) Labels() []string {
@@ -76,10 +77,11 @@ type Orphan struct {
 }
 
 type Snapshot struct {
-	Nodes   []*NodeFile
-	Events  map[string][]*EventFile
-	Orphans []Orphan
-	Tree    *Tree
+	Nodes    []*NodeFile
+	Archived []*NodeFile
+	Events   map[string][]*EventFile
+	Orphans  []Orphan
+	Tree     *Tree
 
 	byRef map[string]*NodeFile
 	refs  []string
@@ -134,24 +136,35 @@ func (r *Repo) Rel(path string) string {
 }
 
 func (r *Repo) Load() (*Snapshot, error) {
-	nodes, err := r.loadNodes()
+	nodes, err := r.loadNodes(r.NodesDir(), false)
 	if err != nil {
 		return nil, err
 	}
-	s := &Snapshot{Nodes: nodes, Events: map[string][]*EventFile{}, byRef: map[string]*NodeFile{}}
-	for _, n := range nodes {
+	archived, err := r.loadNodes(r.ArchiveNodesDir(), true)
+	if err != nil {
+		return nil, err
+	}
+	s := &Snapshot{Nodes: nodes, Archived: archived, Events: map[string][]*EventFile{}, byRef: map[string]*NodeFile{}}
+	for _, n := range slices.Concat(nodes, archived) {
+		if _, dup := s.byRef[n.Ref]; dup {
+			continue
+		}
 		s.byRef[n.Ref] = n
 		s.refs = append(s.refs, n.Ref)
 	}
-	if err := r.loadEvents(s); err != nil {
+	slices.Sort(s.refs)
+	if err := r.loadEvents(s, r.EventsDir(), true); err != nil {
+		return nil, err
+	}
+	if err := r.loadEvents(s, r.ArchiveEventsDir(), false); err != nil {
 		return nil, err
 	}
 	s.linkParents()
 	return s, nil
 }
 
-func (r *Repo) loadNodes() ([]*NodeFile, error) {
-	entries, err := readDir(r.NodesDir())
+func (r *Repo) loadNodes(dir string, archived bool) ([]*NodeFile, error) {
+	entries, err := readDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -160,25 +173,26 @@ func (r *Repo) loadNodes() ([]*NodeFile, error) {
 		if !isMarkdown(e) {
 			continue
 		}
-		path := filepath.Join(r.NodesDir(), e.Name())
+		path := filepath.Join(dir, e.Name())
 		src, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read node %s: %w", r.Rel(path), err)
 		}
 		n, diags := parse.ParseNode(e.Name(), src)
 		out = append(out, &NodeFile{
-			Ref:   strings.TrimSuffix(e.Name(), extension),
-			Path:  r.Rel(path),
-			Node:  n,
-			Diags: diags,
+			Ref:      strings.TrimSuffix(e.Name(), extension),
+			Path:     r.Rel(path),
+			Node:     n,
+			Diags:    diags,
+			Archived: archived,
 		})
 	}
 	slices.SortFunc(out, func(a, b *NodeFile) int { return cmp.Compare(a.Ref, b.Ref) })
 	return out, nil
 }
 
-func (r *Repo) loadEvents(s *Snapshot) error {
-	dirs, err := readDir(r.EventsDir())
+func (r *Repo) loadEvents(s *Snapshot, root string, reportOrphans bool) error {
+	dirs, err := readDir(root)
 	if err != nil {
 		return err
 	}
@@ -186,7 +200,7 @@ func (r *Repo) loadEvents(s *Snapshot) error {
 		if !d.IsDir() || strings.HasPrefix(d.Name(), ".") {
 			continue
 		}
-		files, err := r.loadEventDir(filepath.Join(r.EventsDir(), d.Name()))
+		files, err := r.loadEventDir(filepath.Join(root, d.Name()))
 		if err != nil {
 			return err
 		}
@@ -194,7 +208,9 @@ func (r *Repo) loadEvents(s *Snapshot) error {
 			s.Events[ref] = append(s.Events[ref], files...)
 			continue
 		}
-		s.Orphans = append(s.Orphans, Orphan{Dir: r.Rel(filepath.Join(r.EventsDir(), d.Name())), Events: files})
+		if reportOrphans {
+			s.Orphans = append(s.Orphans, Orphan{Dir: r.Rel(filepath.Join(root, d.Name())), Events: files})
+		}
 	}
 	return nil
 }
@@ -230,7 +246,7 @@ func (s *Snapshot) eventOwner(dir string) (string, bool) {
 
 func (s *Snapshot) linkParents() {
 	parents := map[string]string{}
-	for _, n := range s.Nodes {
+	for _, n := range s.all() {
 		parents[n.Ref] = ""
 		if strings.TrimSpace(n.Node.Parent) == "" {
 			continue
@@ -244,6 +260,21 @@ func (s *Snapshot) linkParents() {
 		parents[n.Ref] = ref
 	}
 	s.Tree = buildTree(s.refs, parents)
+}
+
+func (s *Snapshot) all() []*NodeFile {
+	return slices.Concat(s.Nodes, s.Archived)
+}
+
+func (s *Snapshot) IncludeArchived() *Snapshot {
+	if len(s.Archived) == 0 {
+		return s
+	}
+	c := *s
+	c.Nodes = s.all()
+	slices.SortFunc(c.Nodes, func(a, b *NodeFile) int { return cmp.Compare(a.Ref, b.Ref) })
+	c.Archived = nil
+	return &c
 }
 
 func (s *Snapshot) Refs() []string {

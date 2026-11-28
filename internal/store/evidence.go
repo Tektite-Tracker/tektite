@@ -75,7 +75,7 @@ func (s *Snapshot) EvidenceFor(g *Graph, ref string) []Evidence {
 			out = append(out, EvidenceOfNode(nf))
 		}
 	}
-	for _, nf := range s.Nodes {
+	for _, nf := range s.all() {
 		if nf.Node.Kind != parse.KindEvidence {
 			continue
 		}

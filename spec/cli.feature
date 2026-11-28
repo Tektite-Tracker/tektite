@@ -348,6 +348,7 @@ Feature: Command line
       When an agent runs `tektite prime`
       Then the For agents steps and the exit codes are printed as prompt-ready text
       And `--json` prints the same steps and exit codes as a document
+      And one step tells agents that archived nodes resolve but are skipped unless --archived is passed
 
     Scenario: Serving the UI
       When a user runs `tektite ui`

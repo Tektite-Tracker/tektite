@@ -71,6 +71,7 @@ type ShowDoc struct {
 	Revision     int                `json:"revision"`
 	BuiltAgainst *int               `json:"built_against"`
 	Path         string             `json:"path"`
+	Archived     bool               `json:"archived"`
 	Fields       map[string]any     `json:"fields"`
 	Body         string             `json:"body"`
 	Ancestors    []string           `json:"ancestors"`
@@ -93,7 +94,7 @@ func BuildShow(snap *store.Snapshot, nf *store.NodeFile, now time.Time) ShowDoc 
 	}
 	doc := ShowDoc{
 		Ref: nf.Ref, ID: nf.Node.ID, Kind: nf.Node.Kind, Title: nf.Node.Title, Parent: nf.ParentOrRaw(),
-		Status: st.Status, Claim: ClaimOf(st, now), Path: nf.Path, Fields: nf.Node.Fields, Body: nf.Node.Body, Revision: st.Revision, BuiltAgainst: st.BuiltAgainst,
+		Status: st.Status, Claim: ClaimOf(st, now), Path: nf.Path, Archived: nf.Archived, Fields: nf.Node.Fields, Body: nf.Node.Body, Revision: st.Revision, BuiltAgainst: st.BuiltAgainst,
 		Ancestors: ancestors, Children: children, Links: []LinkItem{}, Backlinks: []BacklinkItem{}, Evidence: []EvidenceItem{}, Notes: []NoteItem{}, History: []HistoryItem{},
 		Diagnostics: append(append([]parse.Diagnostic{}, nf.Diags...), st.Diagnostics...),
 	}

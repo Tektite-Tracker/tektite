@@ -36,7 +36,7 @@ func (c *run) blobs() {
 	}
 	slices.Sort(names)
 	for _, name := range names {
-		path := filepath.Join(c.repo.BlobsDir(), name)
+		path := c.repo.BlobPath(name)
 		rel := c.repo.Rel(path)
 		users := strings.Join(refs[name], ", ")
 		data, err := os.ReadFile(path)
