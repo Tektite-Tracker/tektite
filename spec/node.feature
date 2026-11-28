@@ -33,6 +33,12 @@ Feature: Nodes
       Then "labels" and "priority" are available as optional fields
       And a node without them is equally valid
 
+    Scenario: A priority outside critical, high, medium and low is a warning
+      Given a ticket whose priority is "urgent"
+      When `tektite check` runs
+      Then a warning names the ticket and the allowed priorities
+      And priorities "critical", "high", "medium" and "low" are accepted in any letter case
+
     Scenario: A root node has no parent
       Given a node whose frontmatter has an empty "parent"
       When the node is parsed

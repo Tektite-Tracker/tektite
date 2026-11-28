@@ -477,13 +477,7 @@ func TestCLI_List(t *testing.T) {
 		s.node("other-ticket-5d2", "01HZ3K8Q5W2X9N4T7V6B1C0D5D", "ticket", "", "", "t")
 		s.event("auth-timeout-9e1", e1, "set-status", "2026-11-27T10:00:00Z", "status: done\n")
 		refs := func(args ...string) []string {
-			var list []map[string]string
-			decode(t, s.tektite(append([]string{"ls", "--json"}, args...)...).stdout, &list)
-			out := []string{}
-			for _, it := range list {
-				out = append(out, it["ref"])
-			}
-			return out
+			return lsRefs(t, s, args...)
 		}
 		cases := []struct {
 			args []string
@@ -503,6 +497,75 @@ func TestCLI_List(t *testing.T) {
 		}
 		if got := s.tektite("ls", "--under", "ghost-000"); got.code != exitNotFound {
 			t.Errorf("unknown --under: %+v", got)
+		}
+	})
+
+	t.Run("Listing by label", func(t *testing.T) {
+		s := labelSandbox(t)
+		if got := strings.Join(lsRefs(t, s, "--label", "net"), ","); got != "a-3fa,b-9e1" {
+			t.Errorf("net: %s", got)
+		}
+		if got := strings.Join(lsRefs(t, s, "--label", "ui", "--label", "auth"), ","); got != "b-9e1,c-7c1" {
+			t.Errorf("ui or auth: %s", got)
+		}
+		if got := strings.Join(lsRefs(t, s, "--label", "net", "--status", "done"), ","); got != "b-9e1" {
+			t.Errorf("net and done: %s", got)
+		}
+		if got := strings.Join(lsRefs(t, s, "--label", "net", "--kind", "plan"), ","); got != "" {
+			t.Errorf("net and plan: %s", got)
+		}
+		if got := s.tektite("ls", "--json", "--label", "ghost"); got.code != 0 || strings.TrimSpace(got.stdout) != "[]" {
+			t.Errorf("empty = %+v", got)
+		}
+	})
+
+	t.Run("Listing by priority", func(t *testing.T) {
+		s := labelSandbox(t)
+		if got := strings.Join(lsRefs(t, s, "--priority", "critical", "--priority", "high"), ","); got != "a-3fa,b-9e1" {
+			t.Errorf("critical or high: %s", got)
+		}
+		if got := strings.Join(lsRefs(t, s, "--priority", "HIGH", "--label", "net"), ","); got != "b-9e1" {
+			t.Errorf("high and net: %s", got)
+		}
+		if got := s.tektite("ls", "--priority", "urgent"); got.code != exitUsage {
+			t.Errorf("unknown priority: %+v", got)
+		}
+	})
+
+	t.Run("Listing shows labels and priority", func(t *testing.T) {
+		s := labelSandbox(t)
+		var list []map[string]any
+		decode(t, s.tektite("ls", "--json").stdout, &list)
+		byRef := map[string]map[string]any{}
+		for _, it := range list {
+			byRef[it["ref"].(string)] = it
+		}
+		if p := byRef["b-9e1"]["priority"]; p != "high" {
+			t.Errorf("priority = %v", p)
+		}
+		if l, _ := byRef["b-9e1"]["labels"].([]any); len(l) != 2 || l[0] != "net" || l[1] != "ui" {
+			t.Errorf("labels = %v", byRef["b-9e1"]["labels"])
+		}
+		none := byRef["d-5d2"]
+		if p, ok := none["priority"]; !ok || p != nil {
+			t.Errorf("priority = %v", p)
+		}
+		if l, ok := none["labels"].([]any); !ok || len(l) != 0 {
+			t.Errorf("labels = %v", none["labels"])
+		}
+		plain := s.tektite("ls").stdout
+		for _, line := range strings.Split(strings.TrimSpace(plain), "\n") {
+			fields := strings.Fields(line)
+			switch fields[0] {
+			case "b-9e1":
+				if fields[3] != "high" {
+					t.Errorf("line = %q", line)
+				}
+			case "d-5d2":
+				if fields[3] != "-" {
+					t.Errorf("line = %q", line)
+				}
+			}
 		}
 	})
 
@@ -874,4 +937,30 @@ func TestCLI_AgentOnboarding(t *testing.T) {
 			t.Errorf("doc = %+v", doc)
 		}
 	})
+}
+
+func labelSandbox(t *testing.T) *sandbox {
+	t.Helper()
+	s := newSandbox(t)
+	s.node("a-3fa", idA, "ticket", "", "priority: critical\nlabels: [net]\n", "t")
+	s.node("b-9e1", idB, "ticket", "", "priority: high\nlabels: [net, ui]\n", "t")
+	s.node("c-7c1", idC, "ticket", "", "priority: low\nlabels: auth\n", "t")
+	s.node("d-5d2", "01HZ3K8Q5W2X9N4T7V6B1C0D5D", "ticket", "", "", "t")
+	s.event("b-9e1", e1, "set-status", "2026-11-27T10:00:00Z", "status: done\n")
+	return s
+}
+
+func lsRefs(t *testing.T, s *sandbox, args ...string) []string {
+	t.Helper()
+	var list []map[string]any
+	got := s.tektite(append([]string{"ls", "--json"}, args...)...)
+	if got.code != 0 {
+		t.Fatalf("ls %v = %+v", args, got)
+	}
+	decode(t, got.stdout, &list)
+	out := []string{}
+	for _, it := range list {
+		out = append(out, it["ref"].(string))
+	}
+	return out
 }

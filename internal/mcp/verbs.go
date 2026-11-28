@@ -53,14 +53,19 @@ func (s *Server) readTools() []tool {
 			{"status", "string", "only nodes with this status", false},
 			{"under", "string", "only descendants of this node", false},
 			{"all", "boolean", "include superseded nodes", false},
+			{"labels", "array", "only nodes with any of these labels", false},
+			{"priorities", "array", "only nodes with any of these priorities: critical, high, medium or low", false},
 		}, bind(func(svc *service.Service, in struct {
 			Kind   string `json:"kind"`
 			Status string `json:"status"`
 			Under  string `json:"under"`
 			All    bool   `json:"all"`
+
+			Labels     []string `json:"labels"`
+			Priorities []string `json:"priorities"`
 		},
 		) (any, error) {
-			return svc.List(service.ListInput{Kind: in.Kind, Status: in.Status, Under: in.Under, All: in.All})
+			return svc.List(service.ListInput{Kind: in.Kind, Status: in.Status, Under: in.Under, All: in.All, Labels: in.Labels, Priority: in.Priorities})
 		})},
 		{"tektite_next", "Return the best nodes to work on next, optionally claiming the first one.", []param{
 			{"kind", "string", "only nodes of this kind, empty for any, ticket by default", false},
